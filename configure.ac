@@ -123,6 +123,11 @@ AC_ARG_ENABLE(module_recovery,
     [enable_module_recovery=$enableval],
     [enable_module_recovery=no])
 
+AC_ARG_ENABLE(module_rangeproof,
+    AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module (default is no)]),
+    [enable_module_rangeproof=$enableval],
+    [enable_module_rangeproof=no])
+
 AC_ARG_WITH([field], [AS_HELP_STRING([--with-field=64bit|32bit|auto],
 [Specify Field Implementation. Default is auto])],[req_field=$withval], [req_field=auto])
 
@@ -355,6 +360,10 @@ if test x"$enable_module_recovery" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RECOVERY, 1, [Define this symbol to enable the ECDSA pubkey recovery module])
 fi
 
+if test x"$enable_module_rangeproof" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_RANGEPROOF, 1, [Define this symbol to enable the Pedersen / zero knowledge range proof module])
+fi
+
 AC_C_BIGENDIAN()
 
 AC_MSG_NOTICE([Using assembly optimizations: $set_asm])
@@ -370,6 +379,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
   AC_MSG_NOTICE([Building ECDH module: $enable_module_ecdh])
   AC_MSG_NOTICE([Building Schnorr signatures module: $enable_module_schnorr])
+  AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
   AC_MSG_NOTICE([******])
 else
   if test x"$enable_module_schnorr" = x"yes"; then
@@ -377,6 +387,9 @@ else
   fi
   if test x"$enable_module_ecdh" = x"yes"; then
     AC_MSG_ERROR([ECDH module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_rangeproof" = x"yes"; then
+    AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
@@ -392,6 +405,7 @@ AM_CONDITIONAL([USE_ECMULT_STATIC_PRECOMPUTATION], [test x"$use_ecmult_static_pr
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORR], [test x"$enable_module_schnorr" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
 
 dnl make sure nothing new is exported so that we don't break the cache
 PKGCONFIG_PATH_TEMP="$PKG_CONFIG_PATH"
