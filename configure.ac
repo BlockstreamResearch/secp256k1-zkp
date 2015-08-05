@@ -195,6 +195,12 @@ else
   set_precomp=no
 fi
 
+AC_MSG_CHECKING([for  __builtin_clzll])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[void myfunc() { __builtin_clzll(1);}]])],
+    [ AC_MSG_RESULT([yes]);AC_DEFINE(HAVE_BUILTIN_CLZLL,1,[Define this symbol if  __builtin_clzll is available]) ],
+    [ AC_MSG_RESULT([no])
+    ])
+
 if test x"$req_asm" = x"auto"; then
   SECP_64BIT_ASM_CHECK
   if test x"$has_64bit_asm" = x"yes"; then
