@@ -162,6 +162,11 @@ void test_rangeproof(void) {
     int j;
     int k;
     secp256k1_rand256(blind);
+    CHECK(secp256k1_pedersen_commit(ctx, commit, blind, 5));
+    len = 5134;
+    CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, commit, blind, commit, 0, 0, 7));
+    CHECK(len <= 5134);
+    CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, commit, proof, len));
     for (i = 0; i < 11; i++) {
         v = testvs[i];
         CHECK(secp256k1_pedersen_commit(ctx, commit, blind, v));
