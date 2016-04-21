@@ -144,6 +144,11 @@ AC_ARG_ENABLE(module_rangeproof,
     [enable_module_rangeproof=$enableval],
     [enable_module_rangeproof=no])
 
+AC_ARG_ENABLE(module_whitelist,
+    AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module (default is no)]),
+    [enable_module_whitelist=$enableval],
+    [enable_module_whitelist=no])
+
 AC_ARG_ENABLE(jni,
     AS_HELP_STRING([--enable-jni],[enable libsecp256k1_jni (default is no)]),
     [use_jni=$enableval],
@@ -459,6 +464,10 @@ if test x"$enable_module_rangeproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RANGEPROOF, 1, [Define this symbol to enable the Pedersen / zero knowledge range proof module])
 fi
 
+if test x"$enable_module_whitelist" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_WHITELIST, 1, [Define this symbol to enable the key whitelisting module])
+fi
+
 AC_C_BIGENDIAN()
 
 if test x"$use_external_asm" = x"yes"; then
@@ -484,10 +493,18 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building ECDH module: $enable_module_ecdh])
   AC_MSG_NOTICE([Building NUMS generator module: $enable_module_generator])
   AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
+  AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
   AC_MSG_NOTICE([******])
+
   if test x"$enable_module_generator" != x"yes"; then
     if test x"$enable_module_rangeproof" = x"yes"; then
       AC_MSG_ERROR([Rangeproof module requires the generator module. Use --enable-module-generator to allow.])
+    fi
+  fi
+
+  if test x"$enable_module_whitelist" = x"yes"; then
+    if test x"$enable_module_rangeproof" != x"yes"; then
+      AC_MSG_ERROR([Whitelist module requires the rangeproof module. Use --enable-module-rangeproof to allow.])
     fi
   fi
 else
@@ -502,6 +519,9 @@ else
   fi
   if test x"$enable_module_rangeproof" = x"yes"; then
     AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_whitelist" = x"yes"; then
+    AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
@@ -521,6 +541,7 @@ AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
 AM_CONDITIONAL([USE_JNI], [test x"$use_jni" == x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
