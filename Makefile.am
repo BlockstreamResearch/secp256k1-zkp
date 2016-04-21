@@ -183,3 +183,7 @@ endif
 if ENABLE_MODULE_RANGEPROOF
 include src/modules/rangeproof/Makefile.am.include
 endif
+
+if ENABLE_MODULE_WHITELIST
+include src/modules/whitelist/Makefile.am.include
+endif
