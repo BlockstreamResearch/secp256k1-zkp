@@ -187,3 +187,7 @@ endif
 if ENABLE_MODULE_WHITELIST
 include src/modules/whitelist/Makefile.am.include
 endif
+
+if ENABLE_MODULE_SURJECTIONPROOF
+include src/modules/surjection/Makefile.am.include
+endif
