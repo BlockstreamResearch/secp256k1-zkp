@@ -5337,6 +5337,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/whitelist/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+# include "modules/surjection/tests_impl.h"
+#endif
+
 void run_memczero_test(void) {
     unsigned char buf1[6] = {1, 2, 3, 4, 5, 6};
     unsigned char buf2[sizeof(buf1)];
@@ -5655,6 +5659,10 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_MODULE_WHITELIST
     /* Key whitelisting tests */
     run_whitelist_tests();
+#endif
+
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+    run_surjection_tests();
 #endif
 
     /* util tests */
