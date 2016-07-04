@@ -20,6 +20,7 @@
 #include "scratch_impl.h"
 
 #ifdef ENABLE_MODULE_RANGEPROOF
+# include "include/secp256k1_rangeproof.h"
 # include "modules/rangeproof/pedersen.h"
 # include "modules/rangeproof/rangeproof.h"
 #endif
