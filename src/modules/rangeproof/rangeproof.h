@@ -9,10 +9,12 @@
 
 #include "scalar.h"
 #include "group.h"
+#include "ecmult.h"
+#include "ecmult_gen.h"
 
 static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context* ecmult_ctx,
  const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
- unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, int *outlen, const unsigned char *nonce,
- uint64_t *min_value, uint64_t *max_value, const unsigned char *commit, const unsigned char *proof, int plen);
+ unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
+ uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const unsigned char *proof, size_t plen);
 
 #endif

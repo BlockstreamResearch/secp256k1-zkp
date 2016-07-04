@@ -9,6 +9,50 @@ extern "C" {
 
 #include <stdint.h>
 
+/** Opaque data structure that stores a Pedersen commitment
+ *
+ *  The exact representation of data inside is implementation defined and not
+ *  guaranteed to be portable between different platforms or versions. It is
+ *  however guaranteed to be 33 bytes in size, and can be safely copied/moved.
+ *  If you need to convert to a format suitable for storage or transmission, use
+ *  the secp256k1_pedersen_commitment_serialize_* and
+ *  secp256k1_pedersen_commitment_serialize_* functions.
+ *
+ *  Furthermore, it is guaranteed to identical signatures will have identical
+ *  representation, so they can be memcmp'ed.
+ */
+typedef struct {
+    unsigned char data[33];
+} secp256k1_pedersen_commitment;
+
+/** Parse a 33-byte commitment into a commitment object.
+ *
+ *  Returns: 1 always
+ *  Args: ctx:      a secp256k1 context object.
+ *  Out:  commit:   pointer to the output commitment object
+ *  In:   input:    pointer to a 33-byte serialized commitment key
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commitment_parse(
+    const secp256k1_context* ctx,
+    secp256k1_pedersen_commitment* commit,
+    const unsigned char *input
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Serialize a commitment object into a serialized byte sequence.
+ *
+ *  Returns: 1 always.
+ *  Args:   ctx:        a secp256k1 context object.
+ *  Out:    output:     a pointer to a 33-byte byte array
+ *  In:     commit:     a pointer to a secp256k1_pedersen_commitment containing an
+ *                      initialized commitment
+ */
+SECP256K1_API int secp256k1_pedersen_commitment_serialize(
+    const secp256k1_context* ctx,
+    unsigned char *output,
+    const secp256k1_pedersen_commitment* commit
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+
 /** Initialize a context for usage with Pedersen commitments. */
 void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
 
@@ -18,14 +62,14 @@ void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
  *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
- *  Out:    commit:     pointer to a 33-byte array for the commitment (cannot be NULL)
+ *  Out:    commit:     pointer to the commitment (cannot be NULL)
  *
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
   const secp256k1_context* ctx,
-  unsigned char *commit,
-  unsigned char *blind,
+  secp256k1_pedersen_commitment *commit,
+  const unsigned char *blind,
   uint64_t value
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -42,17 +86,17 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
   const secp256k1_context* ctx,
   unsigned char *blind_out,
   const unsigned char * const *blinds,
-  int n,
-  int npositive
+  size_t n,
+  size_t npositive
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Verify a tally of pedersen commitments
  * Returns 1: commitments successfully sum to zero.
  *         0: Commitments do not sum to zero or other error.
  * In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
- *         commits:    pointer to pointers to 33-byte character arrays for the commitments. (cannot be NULL if pcnt is non-zero)
+ *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
  *         pcnt:       number of commitments pointed to by commits.
- *         ncommits:   pointer to pointers to 33-byte character arrays for negative commitments. (cannot be NULL if ncnt is non-zero)
+ *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
  *         ncnt:       number of commitments pointed to by ncommits.
  *         excess:     signed 64bit amount to add to the total to bring it to zero, can be negative.
  *
@@ -65,10 +109,10 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
   const secp256k1_context* ctx,
-  const unsigned char * const *commits,
-  int pcnt,
-  const unsigned char * const *ncommits,
-  int ncnt,
+  const secp256k1_pedersen_commitment * const* commits,
+  size_t pcnt,
+  const secp256k1_pedersen_commitment * const* ncommits,
+  size_t ncnt,
   int64_t excess
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
 
@@ -79,7 +123,7 @@ void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.
  *         0: Proof failed or other error.
  * In:   ctx: pointer to a context object, initialized for range-proof and commitment (cannot be NULL)
- *       commit: the 33-byte commitment being proved. (cannot be NULL)
+ *       commit: the commitment being proved. (cannot be NULL)
  *       proof: pointer to character array with the proof. (cannot be NULL)
  *       plen: length of proof in bytes.
  * Out:  min_value: pointer to a unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
@@ -89,16 +133,16 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
   const secp256k1_context* ctx,
   uint64_t *min_value,
   uint64_t *max_value,
-  const unsigned char *commit,
+  const secp256k1_pedersen_commitment *commit,
   const unsigned char *proof,
-  int plen
+  size_t plen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Verify a range proof proof and rewind the proof to recover information sent by its author.
  *  Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs, and the value and blinding were recovered.
  *          0: Proof failed, rewind failed, or other error.
  *  In:   ctx: pointer to a context object, initialized for range-proof and Pedersen commitment (cannot be NULL)
- *        commit: the 33-byte commitment being proved. (cannot be NULL)
+ *        commit: the commitment being proved. (cannot be NULL)
  *        proof: pointer to character array with the proof. (cannot be NULL)
  *        plen: length of proof in bytes.
  *        nonce: 32-byte secret nonce used by the prover (cannot be NULL)
@@ -114,13 +158,13 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
   unsigned char *blind_out,
   uint64_t *value_out,
   unsigned char *message_out,
-  int *outlen,
+  size_t *outlen,
   const unsigned char *nonce,
   uint64_t *min_value,
   uint64_t *max_value,
-  const unsigned char *commit,
+  const secp256k1_pedersen_commitment *commit,
   const unsigned char *proof,
-  int plen
+  size_t plen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10);
 
 /** Author a proof that a committed value is within a range.
@@ -129,7 +173,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *  In:     ctx:    pointer to a context object, initialized for range-proof, signing, and Pedersen commitment (cannot be NULL)
  *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
  *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
- *          commit: 33-byte array with the commitment being proved.
+ *          commit: the commitment being proved.
  *          blind:  32-byte blinding factor used by commit.
  *          nonce:  32-byte secret nonce used to initialize the proof (value can be reverse-engineered out of the proof if this secret is known.)
  *          exp:    Base-10 exponent. Digits below above will be made public, but the proof will be made smaller. Allowed range is -1 to 18.
@@ -148,9 +192,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const secp256k1_context* ctx,
   unsigned char *proof,
-  int *plen,
+  size_t *plen,
   uint64_t min_value,
-  const unsigned char *commit,
+  const secp256k1_pedersen_commitment *commit,
   const unsigned char *blind,
   const unsigned char *nonce,
   int exp,
@@ -176,7 +220,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
   uint64_t *min_value,
   uint64_t *max_value,
   const unsigned char *proof,
-  int plen
+  size_t plen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 # ifdef __cplusplus
