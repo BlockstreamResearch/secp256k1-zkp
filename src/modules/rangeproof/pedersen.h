@@ -7,6 +7,7 @@
 #ifndef _SECP256K1_PEDERSEN_H_
 #define _SECP256K1_PEDERSEN_H_
 
+#include "ecmult_gen.h"
 #include "group.h"
 #include "scalar.h"
 

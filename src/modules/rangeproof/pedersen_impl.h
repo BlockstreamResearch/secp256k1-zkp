@@ -7,6 +7,16 @@
 #ifndef _SECP256K1_PEDERSEN_IMPL_H_
 #define _SECP256K1_PEDERSEN_IMPL_H_
 
+#include <string.h>
+
+#include "eckey.h"
+#include "ecmult_const.h"
+#include "ecmult_gen.h"
+#include "group.h"
+#include "field.h"
+#include "scalar.h"
+#include "util.h"
+
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after DER encoding (without compression),
  *  which happens to be a point on the curve.
