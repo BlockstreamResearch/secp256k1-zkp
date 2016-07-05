@@ -30,7 +30,7 @@ static void bench_rangeproof_setup(void* arg) {
     for (i = 0; i < 32; i++) data->blind[i] = i + 1;
     CHECK(secp256k1_pedersen_commit(data->ctx, &data->commit, data->blind, data->v));
     data->len = 5134;
-    CHECK(secp256k1_rangeproof_sign(data->ctx, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v));
+    CHECK(secp256k1_rangeproof_sign(data->ctx, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v, NULL, 0));
     CHECK(secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len));
 }
 
