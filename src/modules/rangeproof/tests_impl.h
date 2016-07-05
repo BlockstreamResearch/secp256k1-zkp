@@ -7,6 +7,8 @@
 #ifndef SECP256K1_MODULE_RANGEPROOF_TESTS
 #define SECP256K1_MODULE_RANGEPROOF_TESTS
 
+#include <string.h>
+
 #include "group.h"
 #include "scalar.h"
 #include "testrand.h"
@@ -166,17 +168,42 @@ void test_rangeproof(void) {
     size_t i;
     size_t j;
     size_t k;
+    /* Short message is a Simone de Beauvoir quote */
+    const unsigned char message_short[120] = "When I see my own likeness in the depths of someone else's consciousness,  I always experience a moment of panic.";
+    /* Long message is 0xA5 with a bunch of this quote in the middle */
+    unsigned char message_long[3968];
+    memset(message_long, 0xa5, sizeof(message_long));
+    for (i = 1200; i < 3600; i += 120) {
+        memcpy(&message_long[i], message_short, sizeof(message_short));
+    }
+
     secp256k1_rand256(blind);
     for (i = 0; i < 11; i++) {
         v = testvs[i];
         CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v));
         for (vmin = 0; vmin < (i<9 && i > 0 ? 2 : 1); vmin++) {
+            const unsigned char *input_message = NULL;
+            size_t input_message_len = 0;
+            /* vmin is always either 0 or 1; if it is 1, then we have no room for a message.
+             * If it's 0, we use "minimum encoding" and only have room for a small message when
+             * `testvs[i]` is >= 4; for a large message when it's >= 2^32. */
+            if (vmin == 0 && i > 2) {
+                input_message = message_short;
+                input_message_len = sizeof(message_short);
+            }
+            if (vmin == 0 && i > 7) {
+                input_message = message_long;
+                input_message_len = sizeof(message_long);
+            }
             len = 5134;
-            CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, 0, 0, v));
+            CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, 0, 0, v, input_message, input_message_len));
             CHECK(len <= 5134);
             mlen = 4096;
             CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, message, &mlen, commit.data, &minv, &maxv, &commit, proof, len));
-            for (j = 0; j < mlen; j++) {
+            if (input_message != NULL) {
+                CHECK(memcmp(message, input_message, input_message_len) == 0);
+            }
+            for (j = input_message_len; j < mlen; j++) {
                 CHECK(message[j] == 0);
             }
             CHECK(mlen <= 4096);
@@ -185,7 +212,7 @@ void test_rangeproof(void) {
             CHECK(minv <= v);
             CHECK(maxv >= v);
             len = 5134;
-            CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v, &commit, blind, commit.data, -1, 64, v));
+            CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v, &commit, blind, commit.data, -1, 64, v, NULL, 0));
             CHECK(len <= 73);
             CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len));
             CHECK(memcmp(blindout, blind, 32) == 0);
@@ -199,7 +226,7 @@ void test_rangeproof(void) {
     CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v));
     for (i = 0; i < 19; i++) {
         len = 5134;
-        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, i, 0, v));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, i, 0, v, NULL, 0));
         CHECK(secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len));
         CHECK(len <= 5134);
         CHECK(minv <= v);
@@ -211,7 +238,7 @@ void test_rangeproof(void) {
         v = secp256k1_rands64(0, 255);
         CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v));
         len = 5134;
-        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, 0, 3, v));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, 0, 3, v, NULL, 0));
         CHECK(len <= 5134);
         for (i = 0; i < len*8; i++) {
             proof[i >> 3] ^= 1 << (i & 7);
@@ -242,7 +269,7 @@ void test_rangeproof(void) {
         if (min_bits < 0) {
             min_bits = -min_bits;
         }
-        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, exp, min_bits, v));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, exp, min_bits, v, NULL, 0));
         CHECK(len <= 5134);
         mlen = 4096;
         CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, message, &mlen, commit.data, &minv, &maxv, &commit, proof, len));
