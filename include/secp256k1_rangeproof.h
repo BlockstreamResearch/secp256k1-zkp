@@ -26,9 +26,14 @@ typedef struct {
     unsigned char data[33];
 } secp256k1_pedersen_commitment;
 
+/**
+ * Static constant generator 'h' maintained for historical reasons.
+ */
+extern const secp256k1_generator *secp256k1_generator_h;
+
 /** Parse a 33-byte commitment into a commitment object.
  *
- *  Returns: 1 always
+ *  Returns: 1 if input contains a valid commitment.
  *  Args: ctx:      a secp256k1 context object.
  *  Out:  commit:   pointer to the output commitment object
  *  In:   input:    pointer to a 33-byte serialized commitment key
@@ -70,8 +75,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
   const secp256k1_context* ctx,
   secp256k1_pedersen_commitment *commit,
   const unsigned char *blind,
-  uint64_t value
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+  uint64_t value,
+  const secp256k1_generator *gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 
 /** Computes the sum of multiple positive and negative blinding factors.
  *  Returns 1: sum successfully computed.
@@ -113,8 +119,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
   size_t pcnt,
   const secp256k1_pedersen_commitment * const* ncommits,
   size_t ncnt,
-  int64_t excess
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
+  int64_t excess,
+  const secp256k1_generator *gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
 
 /** Initialize a context for usage with Pedersen commitments. */
 void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
@@ -135,8 +142,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
   uint64_t *max_value,
   const secp256k1_pedersen_commitment *commit,
   const unsigned char *proof,
-  size_t plen
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+  size_t plen,
+  const secp256k1_generator* gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7);
 
 /** Verify a range proof proof and rewind the proof to recover information sent by its author.
  *  Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs, and the value and blinding were recovered.
@@ -164,8 +172,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
   uint64_t *max_value,
   const secp256k1_pedersen_commitment *commit,
   const unsigned char *proof,
-  size_t plen
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10);
+  size_t plen,
+  const secp256k1_generator *gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10) SECP256K1_ARG_NONNULL(12);
 
 /** Author a proof that a committed value is within a range.
  *  Returns 1: Proof successfully created.
@@ -201,8 +210,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   int min_bits,
   uint64_t value,
   const unsigned char *message,
-  size_t msg_len
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
+  size_t msg_len,
+  const secp256k1_generator *gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(13);
 
 /** Extract some basic information from a range-proof.
  *  Returns 1: Information successfully extracted.
