@@ -19,6 +19,10 @@
 #include "hash_impl.h"
 #include "scratch_impl.h"
 
+#ifdef ENABLE_MODULE_GENERATOR
+# include "include/secp256k1_generator.h"
+#endif
+
 #ifdef ENABLE_MODULE_RANGEPROOF
 # include "include/secp256k1_rangeproof.h"
 # include "modules/rangeproof/pedersen.h"
@@ -612,6 +616,10 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
 
 #ifdef ENABLE_MODULE_RECOVERY
 # include "modules/recovery/main_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_GENERATOR
+# include "modules/generator/main_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_RANGEPROOF

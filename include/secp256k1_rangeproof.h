@@ -2,6 +2,7 @@
 # define _SECP256K1_RANGEPROOF_
 
 # include "secp256k1.h"
+# include "secp256k1_generator.h"
 
 # ifdef __cplusplus
 extern "C" {
@@ -51,7 +52,6 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
     unsigned char *output,
     const secp256k1_pedersen_commitment* commit
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-
 
 /** Initialize a context for usage with Pedersen commitments. */
 void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);

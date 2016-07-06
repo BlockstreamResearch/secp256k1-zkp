@@ -5012,6 +5012,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/recovery/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_GENERATOR
+# include "modules/generator/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_RANGEPROOF
 # include "modules/rangeproof/tests_impl.h"
 #endif
@@ -5137,6 +5141,10 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_MODULE_RECOVERY
     /* ECDSA pubkey recovery tests */
     run_recovery_tests();
+#endif
+
+#ifdef ENABLE_MODULE_GENERATOR
+    run_generator_tests();
 #endif
 
 #ifdef ENABLE_MODULE_RANGEPROOF
