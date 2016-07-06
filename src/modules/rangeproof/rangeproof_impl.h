@@ -193,7 +193,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
  const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
  unsigned char *proof, size_t *plen, uint64_t min_value,
  const secp256k1_ge *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
- const unsigned char *message, size_t msg_len, const secp256k1_ge* genp){
+ const unsigned char *message, size_t msg_len, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp){
     secp256k1_gej pubs[128];     /* Candidate digits for our proof, most inferred. */
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
@@ -318,6 +318,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         npub += rsizes[i];
     }
     secp256k1_rangeproof_pub_expand(pubs, exp, rsizes, rings, genp);
+    if (extra_commit != NULL) {
+        secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
+    }
     secp256k1_sha256_finalize(&sha256_m, tmp);
     if (!secp256k1_borromean_sign(ecmult_ctx, ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, secidx, rings, tmp, 32)) {
         return 0;
@@ -538,7 +541,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_getheader_impl(size_t *offset, 
 SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context* ecmult_ctx,
  const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
  unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
- uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const unsigned char *proof, size_t plen, const secp256k1_ge* genp) {
+ uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp) {
     secp256k1_gej accj;
     secp256k1_gej pubs[128];
     secp256k1_ge c;
@@ -639,6 +642,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     if (offset != plen) {
         /*Extra data found, reject.*/
         return 0;
+    }
+    if (extra_commit != NULL) {
+        secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, m);
     ret = secp256k1_borromean_verify(ecmult_ctx, nonce ? evalues : NULL, e0, s, pubs, rsizes, rings, m, 32);
