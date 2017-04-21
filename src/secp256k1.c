@@ -81,10 +81,10 @@ secp256k1_context* secp256k1_context_create(unsigned int flags) {
     secp256k1_ecmult_gen_context_init(&ret->ecmult_gen_ctx);
 
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_SIGN) {
-        secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &ret->error_callback);
+        secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &secp256k1_ge_const_g, &ret->error_callback);
     }
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_VERIFY) {
-        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &ret->error_callback);
+        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &secp256k1_ge_const_g, &ret->error_callback);
     }
 
     return ret;
@@ -557,7 +557,7 @@ int secp256k1_ec_pubkey_tweak_mul(const secp256k1_context* ctx, secp256k1_pubkey
 int secp256k1_context_randomize(secp256k1_context* ctx, const unsigned char *seed32) {
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, seed32);
+    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, &secp256k1_ge_const_g, seed32);
     return 1;
 }
 

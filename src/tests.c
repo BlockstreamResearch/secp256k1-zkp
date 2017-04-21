@@ -269,8 +269,8 @@ void run_context_tests(void) {
     secp256k1_context_set_illegal_callback(sign, NULL, NULL);
 
     /* This shouldn't leak memory, due to already-set tests. */
-    secp256k1_ecmult_gen_context_build(&sign->ecmult_gen_ctx, NULL);
-    secp256k1_ecmult_context_build(&vrfy->ecmult_ctx, NULL);
+    secp256k1_ecmult_gen_context_build(&sign->ecmult_gen_ctx, &secp256k1_ge_const_g, NULL);
+    secp256k1_ecmult_context_build(&vrfy->ecmult_ctx, &secp256k1_ge_const_g, NULL);
 
     /* obtain a working nonce */
     do {
@@ -2698,7 +2698,7 @@ void test_ecmult_gen_blind(void) {
     secp256k1_rand256(seed32);
     b = ctx->ecmult_gen_ctx.blind;
     i = ctx->ecmult_gen_ctx.initial;
-    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, seed32);
+    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, &secp256k1_ge_const_g, seed32);
     CHECK(!secp256k1_scalar_eq(&b, &ctx->ecmult_gen_ctx.blind));
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pgej2, &key);
     CHECK(!gej_xyz_equals_gej(&pgej, &pgej2));
@@ -2711,10 +2711,10 @@ void test_ecmult_gen_blind_reset(void) {
     /* Test ecmult_gen() blinding reset and confirm that the blinding is consistent. */
     secp256k1_scalar b;
     secp256k1_gej initial;
-    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, 0);
+    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, &secp256k1_ge_const_g, 0);
     b = ctx->ecmult_gen_ctx.blind;
     initial = ctx->ecmult_gen_ctx.initial;
-    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, 0);
+    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, &secp256k1_ge_const_g, 0);
     CHECK(secp256k1_scalar_eq(&b, &ctx->ecmult_gen_ctx.blind));
     CHECK(gej_xyz_equals_gej(&initial, &ctx->ecmult_gen_ctx.initial));
 }

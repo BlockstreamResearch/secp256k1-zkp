@@ -161,7 +161,7 @@ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx) {
 #endif
 }
 
-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const secp256k1_callback *cb) {
+static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const secp256k1_ge *generator, const secp256k1_callback *cb) {
     secp256k1_gej gj;
 
     if (ctx->pre_g != NULL) {
@@ -169,7 +169,7 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
     }
 
     /* get the generator */
-    secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
+    secp256k1_gej_set_ge(&gj, generator);
 
     ctx->pre_g = (secp256k1_ge_storage (*)[])checked_malloc(cb, sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
 
