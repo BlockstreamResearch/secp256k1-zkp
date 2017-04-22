@@ -55,7 +55,7 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
  *   | | r_i = r
  *   | return e_0 ==== H(r_{0..i}||m)
  */
-int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_scalar *evalues, const unsigned char *e0,
+int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, const size_t nctx, secp256k1_scalar *evalues, const unsigned char *e0,
  const secp256k1_scalar *s, const secp256k1_gej *pubs, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
@@ -68,6 +68,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
     size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);
+    VERIFY_CHECK(nctx == 0 || nctx == nrings);
     VERIFY_CHECK(e0 != NULL);
     VERIFY_CHECK(s != NULL);
     VERIFY_CHECK(pubs != NULL);
@@ -77,6 +78,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
     count = 0;
     secp256k1_sha256_initialize(&sha256_e0);
     for (i = 0; i < nrings; i++) {
+        const size_t ctx_index = nctx ? i : 0;
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
@@ -88,7 +90,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
                 /*If requested, save the challenges for proof rewind.*/
                 evalues[count] = ens;
             }
-            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[count], &ens, &s[count]);
+            secp256k1_ecmult(&ecmult_ctx[ctx_index], &rgej, &pubs[count], &ens, &s[count]);
             if (secp256k1_gej_is_infinity(&rgej)) {
                 return 0;
             }
@@ -110,6 +112,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
 }
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
+ const size_t nctx,
  unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
  const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
@@ -123,6 +126,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);
+    VERIFY_CHECK(nctx == 0 || nctx == nrings);
     VERIFY_CHECK(ecmult_gen_ctx != NULL);
     VERIFY_CHECK(e0 != NULL);
     VERIFY_CHECK(s != NULL);
@@ -136,6 +140,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     secp256k1_sha256_initialize(&sha256_e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
+        const size_t ctx_index = nctx ? i : 0;
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
         secp256k1_ge_set_gej(&rge, &rgej);
@@ -153,7 +158,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
              *  leaks which members are non-forgeries. That the forgeries themselves are variable time may leave
              *  an additional privacy impacting timing side-channel, but not a key loss one.
              */
-            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[count + j], &ens, &s[count + j]);
+            secp256k1_ecmult(&ecmult_ctx[ctx_index], &rgej, &pubs[count + j], &ens, &s[count + j]);
             if (secp256k1_gej_is_infinity(&rgej)) {
                 return 0;
             }
@@ -167,6 +172,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     secp256k1_sha256_finalize(&sha256_e0, e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
+        const size_t ctx_index = nctx ? i : 0;
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
@@ -174,7 +180,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
             return 0;
         }
         for (j = 0; j < secidx[i]; j++) {
-            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[count + j], &ens, &s[count + j]);
+            secp256k1_ecmult(&ecmult_ctx[ctx_index], &rgej, &pubs[count + j], &ens, &s[count + j]);
             if (secp256k1_gej_is_infinity(&rgej)) {
                 return 0;
             }

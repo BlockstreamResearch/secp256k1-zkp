@@ -16,6 +16,20 @@
 
 #include "include/secp256k1_rangeproof.h"
 
+static void test_rangeproof_context(void) {
+    secp256k1_context *tmp = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 0);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 2);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 2);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 10);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 10);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 32);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 32);
+
+    secp256k1_context_destroy(tmp);
+}
+
 static void test_pedersen(void) {
     secp256k1_pedersen_commitment commits[19];
     const secp256k1_pedersen_commitment *cptr[19];
@@ -120,11 +134,11 @@ static void test_borromean(void) {
         }
         c += rsizes[i];
     }
-    CHECK(secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
-    CHECK(secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
+    CHECK(secp256k1_borromean_verify(&ctx->ecmult_ctx, 0, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     i = secp256k1_rand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);
-    CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, 0, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     secp256k1_scalar_negate(&s[i],&s[i]);
     secp256k1_scalar_set_int(&one, 1);
     for(j = 0; j < 4; j++) {
@@ -134,7 +148,7 @@ static void test_borromean(void) {
         } else {
             secp256k1_scalar_add(&s[i],&s[i],&one);
         }
-        CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+        CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, 0, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     }
 }
 
@@ -369,6 +383,7 @@ void run_rangeproof_tests(void) {
     for (i = 0; i < 10*count; i++) {
         test_borromean();
     }
+    test_rangeproof_context();
     test_rangeproof();
     test_multiple_generators();
 }

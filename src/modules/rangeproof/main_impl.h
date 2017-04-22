@@ -8,10 +8,63 @@
 #define SECP256K1_MODULE_RANGEPROOF_MAIN
 
 #include "group.h"
+#include "extra_generators.h"
 
 #include "modules/rangeproof/pedersen_impl.h"
 #include "modules/rangeproof/borromean_impl.h"
 #include "modules/rangeproof/rangeproof_impl.h"
+
+void secp256k1_context_initialize_for_sound_rangeproof(secp256k1_context *ctx, const size_t ndigits) {
+    size_t i;
+    secp256k1_gej running_sumj;
+    secp256k1_ge running_sum;
+
+    if (EXPECT(ndigits > 32, 0)) {
+        secp256k1_callback_call(&ctx->illegal_callback, "invalid number of digits");
+    }
+
+    /* FIXME: reuse contexts when changing the number of digits*/
+    if (ctx->ndigits > 0) {
+        if (ctx->ndigits > 0) {
+            for (i = 0; i < ctx->ndigits; i++) {
+                secp256k1_ecmult_context_clear(&ctx->digit_ecmult_ctx[i]);
+                secp256k1_ecmult_gen_context_clear(&ctx->digit_ecmult_gen_ctx[i]);
+            }
+            free(ctx->digit_ecmult_gen_ctx);
+            free(ctx->digit_ecmult_ctx);
+        }
+    }
+    ctx->ndigits = ndigits;
+    if (ndigits == 0) {
+        return;
+    }
+
+    ctx->digit_ecmult_ctx = (secp256k1_ecmult_context*)checked_malloc(&default_error_callback, ndigits * sizeof(*ctx->digit_ecmult_ctx));
+    ctx->digit_ecmult_gen_ctx = (secp256k1_ecmult_gen_context*)checked_malloc(&default_error_callback, ndigits * sizeof(*ctx->digit_ecmult_gen_ctx));
+
+    secp256k1_gej_set_infinity(&running_sumj);
+    /* NUMS generators */
+    for (i = 0; i < ndigits - 1; i++) {
+        secp256k1_ecmult_context_init(&ctx->digit_ecmult_ctx[i]);
+        secp256k1_ecmult_gen_context_init(&ctx->digit_ecmult_gen_ctx[i]);
+        secp256k1_ecmult_context_build(&ctx->digit_ecmult_ctx[i], &secp256k1_ge_const_gi[i], &ctx->error_callback);
+        secp256k1_ecmult_gen_context_build(&ctx->digit_ecmult_gen_ctx[i], &secp256k1_ge_const_gi[i], &ctx->error_callback);
+        secp256k1_gej_add_ge(&running_sumj, &running_sumj, &secp256k1_ge_const_gi[i]);
+    }
+    /* set final generator so they all sum to G */
+    secp256k1_gej_neg(&running_sumj, &running_sumj);
+    secp256k1_gej_add_ge_var(&running_sumj, &running_sumj, &secp256k1_ge_const_g, NULL);
+    secp256k1_ge_set_gej(&running_sum, &running_sumj);
+    secp256k1_ecmult_context_init(&ctx->digit_ecmult_ctx[i]);
+    secp256k1_ecmult_gen_context_init(&ctx->digit_ecmult_gen_ctx[i]);
+    secp256k1_ecmult_context_build(&ctx->digit_ecmult_ctx[i], &running_sum, &ctx->error_callback);
+    secp256k1_ecmult_gen_context_build(&ctx->digit_ecmult_gen_ctx[i], &running_sum, &ctx->error_callback);
+}
+
+size_t secp256k1_context_sound_rangeproof_n_digits(const secp256k1_context *ctx) {
+    VERIFY_CHECK(ctx != NULL);
+    return ctx->ndigits;
+}
 
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after DER encoding (without compression),
@@ -212,33 +265,40 @@ int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
  const secp256k1_pedersen_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
     secp256k1_ge commitp;
     secp256k1_ge genp;
-    ARG_CHECK(ctx != NULL);
+    VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
     ARG_CHECK(proof != NULL);
     ARG_CHECK(min_value != NULL);
     ARG_CHECK(max_value != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
-    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx,
-     blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    if (ctx->ndigits > 0) {
+        return secp256k1_rangeproof_verify_impl(ctx->digit_ecmult_ctx, ctx->digit_ecmult_gen_ctx, ctx->ndigits,
+         blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    } else {
+        return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0,
+         blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    }
 }
 
 int secp256k1_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_value, uint64_t *max_value,
  const secp256k1_pedersen_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
     secp256k1_ge commitp;
     secp256k1_ge genp;
-    ARG_CHECK(ctx != NULL);
+    VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
     ARG_CHECK(proof != NULL);
     ARG_CHECK(min_value != NULL);
     ARG_CHECK(max_value != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, NULL,
-     NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    if (ctx->ndigits > 0) {
+        return secp256k1_rangeproof_verify_impl(ctx->digit_ecmult_ctx, NULL, ctx->ndigits,
+         NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    } else {
+        return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, NULL, 0,
+         NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
+    }
 }
 
 int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof, size_t *plen, uint64_t min_value,
@@ -252,12 +312,15 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
     ARG_CHECK(commit != NULL);
     ARG_CHECK(blind != NULL);
     ARG_CHECK(nonce != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
-    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    return secp256k1_rangeproof_sign_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx,
-     proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
+    if (ctx->ndigits > 0) {
+        return secp256k1_rangeproof_sign_impl(ctx->digit_ecmult_ctx, ctx->digit_ecmult_gen_ctx, ctx->ndigits,
+         proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
+    } else {
+        return secp256k1_rangeproof_sign_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0,
+         proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
+    }
 }
 
 #endif
