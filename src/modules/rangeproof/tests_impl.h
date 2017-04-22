@@ -353,6 +353,12 @@ void test_multiple_generators(void) {
 
     /* Verify */
     CHECK(secp256k1_pedersen_verify_tally(ctx, &commit_ptr[0], n_inputs, &commit_ptr[n_inputs], n_outputs));
+
+    /* Cleanup */
+    for (i = 0; i < n_generators; i++) {
+        free(generator_blind[i]);
+        free(pedersen_blind[i]);
+    }
 }
 
 void run_rangeproof_tests(void) {
