@@ -23,16 +23,14 @@ void secp256k1_context_initialize_for_sound_rangeproof(secp256k1_context *ctx, c
         secp256k1_callback_call(&ctx->illegal_callback, "invalid number of digits");
     }
 
-    /* FIXME: reuse contexts when changing the number of digits*/
+    /* FIXME: reuse contexts when changing the number of digits */
     if (ctx->ndigits > 0) {
-        if (ctx->ndigits > 0) {
-            for (i = 0; i < ctx->ndigits; i++) {
-                secp256k1_ecmult_context_clear(&ctx->digit_ecmult_ctx[i]);
-                secp256k1_ecmult_gen_context_clear(&ctx->digit_ecmult_gen_ctx[i]);
-            }
-            free(ctx->digit_ecmult_gen_ctx);
-            free(ctx->digit_ecmult_ctx);
+        for (i = 0; i < ctx->ndigits; i++) {
+            secp256k1_ecmult_context_clear(&ctx->digit_ecmult_ctx[i]);
+            secp256k1_ecmult_gen_context_clear(&ctx->digit_ecmult_gen_ctx[i]);
         }
+        free(ctx->digit_ecmult_gen_ctx);
+        free(ctx->digit_ecmult_ctx);
     }
     ctx->ndigits = ndigits;
     if (ndigits == 0) {

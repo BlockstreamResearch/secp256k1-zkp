@@ -26,6 +26,8 @@ static void test_rangeproof_context(void) {
     CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 10);
     secp256k1_context_initialize_for_sound_rangeproof(tmp, 32);
     CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 32);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 0);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 0);
 
     secp256k1_context_destroy(tmp);
 }
@@ -375,6 +377,51 @@ void test_multiple_generators(void) {
     }
 }
 
+void test_multiple_digit_generators(void) {
+    const uint64_t v = 999;
+    /* as val = 999 we cannot have a smaller rangeproof than 10 bits / 5 digits */
+    size_t min_bits[] = { 10, 15, 20, 25, 32 };
+    size_t min_value[] = { 0, 1, 100, 900, 900 };
+
+    size_t j;
+    for (j = 0; j < 5; j++) {
+        /* continuation of the above Simone de Beauvoir quote */
+        const unsigned char message[55] = "But it doesn't last very long; I snap right out of it.";
+        secp256k1_pedersen_commitment commit;
+        unsigned char proof[5134];
+        unsigned char blind[32];
+        unsigned char blindout[32];
+        unsigned char messageout[4096];
+        size_t len = 5134;
+        size_t mlenout = sizeof(messageout);
+        uint64_t vout, minvout, maxvout;
+        size_t k;
+
+        secp256k1_context_initialize_for_sound_rangeproof(ctx, (min_bits[j] + 1) / 2);
+        secp256k1_rand256(blind);
+
+        CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, min_value[j], &commit, blind, commit.data, 0, min_bits[j], v, message, sizeof(message), NULL, 0, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, messageout, &mlenout, commit.data, &minvout, &maxvout, &commit, proof, len, NULL, 0, secp256k1_generator_h));
+
+        CHECK(memcmp(messageout, message, sizeof(message)) == 0);
+        CHECK(memcmp(blindout, blind, 32) == 0);
+        CHECK(minvout == min_value[j]);
+        {
+            uint64_t expected_max = -1;
+            expected_max >>= (64 - min_bits[j]);
+            expected_max += min_value[j];
+            CHECK(maxvout == expected_max);
+        }
+        CHECK(vout == v);
+        CHECK(mlenout >= sizeof(message));
+        for (k = sizeof(message); k < mlenout; k++) {
+            CHECK(messageout[k] == 0);
+        }
+    }
+    secp256k1_context_initialize_for_sound_rangeproof(ctx, 0);
+}
+
 void run_rangeproof_tests(void) {
     int i;
     for (i = 0; i < 10*count; i++) {
@@ -386,6 +433,7 @@ void run_rangeproof_tests(void) {
     test_rangeproof_context();
     test_rangeproof();
     test_multiple_generators();
+    test_multiple_digit_generators();
 }
 
 #endif

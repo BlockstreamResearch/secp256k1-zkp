@@ -142,7 +142,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     for (i = 0; i < nrings; i++) {
         const size_t ctx_index = nctx ? i : 0;
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
-        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
+        secp256k1_ecmult_gen(&ecmult_gen_ctx[ctx_index], &rgej, &k[i]);
         secp256k1_ge_set_gej(&rge, &rgej);
         if (secp256k1_gej_is_infinity(&rgej)) {
             return 0;
