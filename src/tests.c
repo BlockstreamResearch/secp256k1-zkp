@@ -25,6 +25,7 @@
 #include "openssl/obj_mac.h"
 #endif
 
+#include "extra_generators.h"
 #include "contrib/lax_der_parsing.c"
 #include "contrib/lax_der_privatekey_parsing.c"
 
@@ -187,6 +188,7 @@ void run_context_tests(void) {
     unsigned char ctmp[32];
     int32_t ecount;
     int32_t ecount2;
+    int i;
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
     secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
@@ -292,6 +294,26 @@ void run_context_tests(void) {
     secp256k1_context_destroy(both);
     /* Defined as no-op. */
     secp256k1_context_destroy(NULL);
+
+    /* test with extra generators */
+    for (i = 0; i < 32; i++) {
+        /* setup */
+        secp256k1_ecmult_context ecmult_ctx;
+        secp256k1_ecmult_gen_context ecmult_gen_ctx;
+        secp256k1_ecmult_context_init(&ecmult_ctx);
+        secp256k1_ecmult_gen_context_init(&ecmult_gen_ctx);
+        secp256k1_ecmult_context_build(&ecmult_ctx, &secp256k1_ge_const_gi[i], &default_error_callback);
+        secp256k1_ecmult_gen_context_build(&ecmult_gen_ctx, &secp256k1_ge_const_gi[i], &default_error_callback);
+        /* recompute the pubkey */
+        secp256k1_ecmult_gen(&ecmult_gen_ctx, &pubj, &key);
+        secp256k1_ge_set_gej(&pub, &pubj);
+        /* sign/verify */
+        CHECK(secp256k1_ecdsa_sig_sign(&ecmult_gen_ctx, &sigr, &sigs, &key, &msg, &nonce, NULL));
+        CHECK(secp256k1_ecdsa_sig_verify(&ecmult_ctx, &sigr, &sigs, &pub, &msg));
+        /* teardown */
+        secp256k1_ecmult_context_clear(&ecmult_ctx);
+        secp256k1_ecmult_gen_context_clear(&ecmult_gen_ctx);
+    }
 }
 
 /***** HASH TESTS *****/
