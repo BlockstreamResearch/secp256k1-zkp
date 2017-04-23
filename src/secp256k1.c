@@ -62,6 +62,8 @@ struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
     secp256k1_ecmult_gen_context ecmult_gen_ctx;
 #ifdef ENABLE_MODULE_RANGEPROOF
+    secp256k1_ecmult_gen_context alt_ecmult_gen_ctx;
+    secp256k1_ecmult_context alt_ecmult_ctx;
     secp256k1_ecmult_gen_context *digit_ecmult_gen_ctx;
     secp256k1_ecmult_context *digit_ecmult_ctx;
     size_t ndigits;
@@ -107,7 +109,9 @@ secp256k1_context* secp256k1_context_clone(const secp256k1_context* ctx) {
 #ifdef ENABLE_MODULE_RANGEPROOF
     ret->ndigits = ctx->ndigits;
     if (ret->ndigits > 0) {
-            size_t i;
+        size_t i;
+        secp256k1_ecmult_context_clone(&ret->alt_ecmult_ctx, &ctx->alt_ecmult_ctx, &ctx->error_callback);
+        secp256k1_ecmult_gen_context_clone(&ret->alt_ecmult_gen_ctx, &ctx->alt_ecmult_gen_ctx, &ctx->error_callback);
         ret->digit_ecmult_ctx = (secp256k1_ecmult_context*)checked_malloc(&default_error_callback, ret->ndigits * sizeof(*ret->digit_ecmult_ctx));
         ret->digit_ecmult_gen_ctx = (secp256k1_ecmult_gen_context*)checked_malloc(&default_error_callback, ret->ndigits * sizeof(*ret->digit_ecmult_gen_ctx));
         for (i = 0; i < ctx->ndigits; i++) {
@@ -132,6 +136,8 @@ void secp256k1_context_destroy(secp256k1_context* ctx) {
 #ifdef ENABLE_MODULE_RANGEPROOF
         if (ctx->ndigits > 0) {
             size_t i;
+            secp256k1_ecmult_context_clear(&ctx->alt_ecmult_ctx);
+            secp256k1_ecmult_gen_context_clear(&ctx->alt_ecmult_gen_ctx);
             for (i = 0; i < ctx->ndigits; i++) {
                 secp256k1_ecmult_context_clear(&ctx->digit_ecmult_ctx[i]);
                 secp256k1_ecmult_gen_context_clear(&ctx->digit_ecmult_gen_ctx[i]);

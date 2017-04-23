@@ -12,10 +12,20 @@
 #include "ecmult.h"
 #include "ecmult_gen.h"
 
-static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context* digit_ecmult_ctx,
- const secp256k1_ecmult_gen_context* digit_ecmult_gen_ctx, const size_t n_digit_ctx,
+/** structure to hold the large number of context pointers we now need */
+typedef struct {
+    const secp256k1_ecmult_context* ecmult_ctx;
+    const secp256k1_ecmult_gen_context* ecmult_gen_ctx;
+    const secp256k1_ecmult_context* alt_ecmult_ctx;
+    const secp256k1_ecmult_gen_context* alt_ecmult_gen_ctx;
+    const secp256k1_ecmult_context* digit_ecmult_ctx;
+    const secp256k1_ecmult_gen_context* digit_ecmult_gen_ctx;
+    size_t ndigits;
+} secp256k1_rangeproof_context_pointers;
+
+static int secp256k1_rangeproof_verify_impl(const secp256k1_rangeproof_context_pointers* ctxp,
  unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
- uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const unsigned char *proof, size_t plen,
+ uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const secp256k1_ge *commit2, const unsigned char *proof, size_t plen,
  const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp);
 
 #endif

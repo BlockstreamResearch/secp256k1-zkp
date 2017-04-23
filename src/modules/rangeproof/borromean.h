@@ -14,11 +14,12 @@
 #include "ecmult.h"
 #include "ecmult_gen.h"
 
-int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, const size_t nctx, secp256k1_scalar *evalues, const unsigned char *e0, const secp256k1_scalar *s,
- const secp256k1_gej *pubs, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen);
+int secp256k1_borromean_verify(const secp256k1_ecmult_context* alt_ecmult_ctx, const secp256k1_ecmult_context* ecmult_ctx, const size_t nctx, secp256k1_scalar *evalues, const unsigned char *e0, const secp256k1_scalar *s,
+ const secp256k1_gej *pubs, const secp256k1_gej *alt_pub, const size_t nalt_pub, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen);
 
-int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx, const size_t nctx,
- unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
+int secp256k1_borromean_sign(const secp256k1_ecmult_context* alt_ecmult_ctx, const secp256k1_ecmult_gen_context* alt_ecmult_gen_ctx,
+ const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx, const size_t nctx,
+ unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_gej *alt_pub, const size_t nalt_pub, const secp256k1_scalar *k, const secp256k1_scalar *sec,
  const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen);
 
 #endif

@@ -14,6 +14,22 @@
 #include "modules/rangeproof/borromean_impl.h"
 #include "modules/rangeproof/rangeproof_impl.h"
 
+static void secp256k1_context_to_rangeproof(secp256k1_rangeproof_context_pointers* r, const secp256k1_context* ctx, int soundness) {
+    r->ecmult_ctx = &ctx->ecmult_ctx;
+    r->ecmult_gen_ctx = &ctx->ecmult_gen_ctx;
+    if (soundness) {
+        r->ndigits = ctx->ndigits;
+        r->alt_ecmult_ctx = &ctx->alt_ecmult_ctx;
+        r->alt_ecmult_gen_ctx = &ctx->alt_ecmult_gen_ctx;
+        r->digit_ecmult_ctx = ctx->digit_ecmult_ctx;
+        r->digit_ecmult_gen_ctx = ctx->digit_ecmult_gen_ctx;
+    } else {
+        r->ndigits = 0;
+        r->digit_ecmult_ctx = &ctx->ecmult_ctx;
+        r->digit_ecmult_gen_ctx = &ctx->ecmult_gen_ctx;
+    }
+}
+
 void secp256k1_context_initialize_for_sound_rangeproof(secp256k1_context *ctx, const size_t ndigits) {
     size_t i;
     secp256k1_gej running_sumj;
@@ -41,7 +57,12 @@ void secp256k1_context_initialize_for_sound_rangeproof(secp256k1_context *ctx, c
     ctx->digit_ecmult_gen_ctx = (secp256k1_ecmult_gen_context*)checked_malloc(&default_error_callback, ndigits * sizeof(*ctx->digit_ecmult_gen_ctx));
 
     secp256k1_gej_set_infinity(&running_sumj);
-    /* NUMS generators */
+    /* NUMS "alternate" generator used for El Gamal commitments */
+    secp256k1_ecmult_context_init(&ctx->alt_ecmult_ctx);
+    secp256k1_ecmult_gen_context_init(&ctx->alt_ecmult_gen_ctx);
+    secp256k1_ecmult_context_build(&ctx->alt_ecmult_ctx, &secp256k1_ge_const_g2, &ctx->error_callback);
+    secp256k1_ecmult_gen_context_build(&ctx->alt_ecmult_gen_ctx, &secp256k1_ge_const_g2, &ctx->error_callback);
+    /* NUMS digit generators */
     for (i = 0; i < ndigits - 1; i++) {
         secp256k1_ecmult_context_init(&ctx->digit_ecmult_ctx[i]);
         secp256k1_ecmult_gen_context_init(&ctx->digit_ecmult_gen_ctx[i]);
@@ -261,6 +282,7 @@ int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
  unsigned char *blind_out, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
  uint64_t *min_value, uint64_t *max_value,
  const secp256k1_pedersen_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
+    secp256k1_rangeproof_context_pointers ctxp;
     secp256k1_ge commitp;
     secp256k1_ge genp;
     VERIFY_CHECK(ctx != NULL);
@@ -270,17 +292,14 @@ int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
     ARG_CHECK(max_value != NULL);
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    if (ctx->ndigits > 0) {
-        return secp256k1_rangeproof_verify_impl(ctx->digit_ecmult_ctx, ctx->digit_ecmult_gen_ctx, ctx->ndigits,
-         blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
-    } else {
-        return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0,
-         blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
-    }
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 0);
+    return secp256k1_rangeproof_verify_impl(&ctxp,
+     blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, NULL, proof, plen, extra_commit, extra_commit_len, &genp);
 }
 
 int secp256k1_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_value, uint64_t *max_value,
  const secp256k1_pedersen_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
+    secp256k1_rangeproof_context_pointers ctxp;
     secp256k1_ge commitp;
     secp256k1_ge genp;
     VERIFY_CHECK(ctx != NULL);
@@ -290,18 +309,15 @@ int secp256k1_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_valu
     ARG_CHECK(max_value != NULL);
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    if (ctx->ndigits > 0) {
-        return secp256k1_rangeproof_verify_impl(ctx->digit_ecmult_ctx, NULL, ctx->ndigits,
-         NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
-    } else {
-        return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, NULL, 0,
-         NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, proof, plen, extra_commit, extra_commit_len, &genp);
-    }
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 0);
+    return secp256k1_rangeproof_verify_impl(&ctxp,
+     NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, NULL, proof, plen, extra_commit, extra_commit_len, &genp);
 }
 
 int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof, size_t *plen, uint64_t min_value,
  const secp256k1_pedersen_commitment *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
  const unsigned char *message, size_t msg_len, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen){
+    secp256k1_rangeproof_context_pointers ctxp;
     secp256k1_ge commitp;
     secp256k1_ge genp;
     ARG_CHECK(ctx != NULL);
@@ -312,13 +328,126 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
     ARG_CHECK(nonce != NULL);
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&genp, gen);
-    if (ctx->ndigits > 0) {
-        return secp256k1_rangeproof_sign_impl(ctx->digit_ecmult_ctx, ctx->digit_ecmult_gen_ctx, ctx->ndigits,
-         proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
-    } else {
-        return secp256k1_rangeproof_sign_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0,
-         proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 0);
+    return secp256k1_rangeproof_sign_impl(&ctxp,
+     proof, plen, min_value, &commitp, NULL, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
+}
+
+static void secp256k1_elgamal_commitment_load(secp256k1_ge* ge, secp256k1_ge* ge2, const secp256k1_elgamal_commitment* commit) {
+    secp256k1_fe fe;
+    secp256k1_fe_set_b32(&fe, &commit->data[1]);
+    secp256k1_ge_set_xquad(ge, &fe);
+    secp256k1_fe_set_b32(&fe, &commit->data[33]);
+    secp256k1_ge_set_xquad(ge2, &fe);
+    if (commit->data[0] & 1) {
+        secp256k1_ge_neg(ge, ge);
     }
+    if (commit->data[0] & 2) {
+        secp256k1_ge_neg(ge2, ge2);
+    }
+}
+
+static void secp256k1_elgamal_commitment_save(secp256k1_elgamal_commitment* commit, secp256k1_ge* ge, secp256k1_ge* ge2) {
+    secp256k1_fe_normalize(&ge->x);
+    secp256k1_fe_normalize(&ge2->x);
+    secp256k1_fe_get_b32(&commit->data[1], &ge->x);
+    secp256k1_fe_get_b32(&commit->data[33], &ge2->x);
+    commit->data[0] = 27 ^ secp256k1_fe_is_quad_var(&ge->y) ^ (secp256k1_fe_is_quad_var(&ge2->y) << 1);
+}
+
+int secp256k1_elgamal_commit(const secp256k1_context* ctx, secp256k1_elgamal_commitment *commit, const unsigned char *blind, uint64_t value, const secp256k1_generator* asset_gen) {
+    secp256k1_ge asset_genp;
+    secp256k1_scalar sec;
+    int overflow;
+    int ret = 0;
+    ARG_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(blind != NULL);
+    ARG_CHECK(asset_gen != NULL);
+    secp256k1_generator_load(&asset_genp, asset_gen);
+    secp256k1_scalar_set_b32(&sec, blind, &overflow);
+    if (!overflow) {
+        secp256k1_gej rj;
+        secp256k1_ge r1;
+        secp256k1_ge r2;
+        secp256k1_pedersen_ecmult(&ctx->ecmult_gen_ctx, &rj, &sec, value, &asset_genp);
+        if (!secp256k1_gej_is_infinity(&rj)) {
+            secp256k1_ge_set_gej(&r1, &rj);
+            ret = 1;
+        }
+        secp256k1_ecmult_gen(&ctx->alt_ecmult_gen_ctx, &rj, &sec);
+        if (ret && !secp256k1_gej_is_infinity(&rj)) {
+            secp256k1_ge_set_gej(&r2, &rj);
+            secp256k1_elgamal_commitment_save(commit, &r1, &r2);
+        }
+        secp256k1_gej_clear(&rj);
+        secp256k1_ge_clear(&r1);
+        secp256k1_ge_clear(&r2);
+    }
+    secp256k1_scalar_clear(&sec);
+    return ret;
+}
+
+int secp256k1_elgamal_rangeproof_rewind(const secp256k1_context* ctx,
+ unsigned char *blind_out, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
+ uint64_t *min_value, uint64_t *max_value,
+ const secp256k1_elgamal_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
+    secp256k1_rangeproof_context_pointers ctxp;
+    secp256k1_ge commitp;
+    secp256k1_ge commitp2;
+    secp256k1_ge genp;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(ctx->ndigits > 0);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(min_value != NULL);
+    ARG_CHECK(max_value != NULL);
+    secp256k1_elgamal_commitment_load(&commitp, &commitp2, commit);
+    secp256k1_generator_load(&genp, gen);
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 1);
+    return secp256k1_rangeproof_verify_impl(&ctxp,
+     blind_out, value_out, message_out, outlen, nonce, min_value, max_value, &commitp, &commitp2, proof, plen, extra_commit, extra_commit_len, &genp);
+}
+
+int secp256k1_elgamal_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_value, uint64_t *max_value,
+ const secp256k1_elgamal_commitment *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen) {
+    secp256k1_rangeproof_context_pointers ctxp;
+    secp256k1_ge commitp;
+    secp256k1_ge commitp2;
+    secp256k1_ge genp;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(ctx->ndigits > 0);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(min_value != NULL);
+    ARG_CHECK(max_value != NULL);
+    secp256k1_elgamal_commitment_load(&commitp, &commitp2, commit);
+    secp256k1_generator_load(&genp, gen);
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 1);
+    return secp256k1_rangeproof_verify_impl(&ctxp,
+     NULL, NULL, NULL, NULL, NULL, min_value, max_value, &commitp, &commitp2, proof, plen, extra_commit, extra_commit_len, &genp);
+}
+
+int secp256k1_elgamal_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof, size_t *plen, uint64_t min_value,
+ const secp256k1_elgamal_commitment *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
+ const unsigned char *message, size_t msg_len, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_generator* gen){
+    secp256k1_rangeproof_context_pointers ctxp;
+    secp256k1_ge commitp;
+    secp256k1_ge commitp2;
+    secp256k1_ge genp;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(ctx->ndigits > 0);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(plen != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(blind != NULL);
+    ARG_CHECK(nonce != NULL);
+    secp256k1_elgamal_commitment_load(&commitp, &commitp2, commit);
+    secp256k1_generator_load(&genp, gen);
+    secp256k1_context_to_rangeproof(&ctxp, ctx, 1);
+    return secp256k1_rangeproof_sign_impl(&ctxp,
+     proof, plen, min_value, &commitp, &commitp2, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
 }
 
 #endif
