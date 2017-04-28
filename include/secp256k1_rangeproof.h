@@ -25,6 +25,44 @@ typedef struct {
     unsigned char data[33];
 } secp256k1_pedersen_commitment;
 
+/** Opaque data structure that stores an El Gamal commitment
+ *
+ *  The exact representation of data inside is implementation defined and not
+ *  guaranteed to be portable between different platforms or versions. It is
+ *  not guaranteed to any particular size, but can be safely copied/moved.
+ *  If you need to convert to a format suitable for storage or transmission, use
+ *  secp256k1_pedersen_commitment_serialize and secp256k1_pedersen_commitment_parse.
+ *
+ *  Furthermore, it is guaranteed to identical commitments will have identical
+ *  representation, so they can be memcmp'ed.
+ */
+typedef struct {
+    unsigned char data[65];
+} secp256k1_elgamal_commitment;
+
+/** Initialize a context object with precomputed data for the generators used in
+ * a rangeproof of a specified size. The generators are chosen as NUMS points
+ * which all sum up to the standard secp256k1 generator G. The number of digits
+ * must exactly match the number of digits of verified or signed rangeproofs.
+ * If this function is not called, the rangeproof signing and verification
+ * functions will use the original CT/CA scheme rather than the unconditionally
+ * sound one.
+ * To change the number of digits a context supports, call this function again
+ * on the same object.
+ *
+ *  In/Out:     ctx: the context to initialize
+ *  In:     ndigits: the number of digits to support; must be in [2, 32].
+ */
+void secp256k1_context_initialize_for_sound_rangeproof(secp256k1_context *ctx, const size_t ndigits);
+
+/** Returns the number of sound rangeproof digits a context is initialized for
+ *
+ *  Returns: 0 if the context is not initialized for a sound rangeproof, otherwise
+ *           the number of digits that are supported
+ *  Args: ctx:      a secp256k1 context object.
+ */
+size_t secp256k1_context_sound_rangeproof_n_digits(const secp256k1_context *ctx);
+
 /**
  * Static constant generator 'h' maintained for historical reasons.
  */
@@ -56,9 +94,6 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
     unsigned char *output,
     const secp256k1_pedersen_commitment* commit
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-
-/** Initialize a context for usage with Pedersen commitments. */
-void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
 
 /** Generate a pedersen commitment.
  *  Returns 1: commitment successfully created.
@@ -154,9 +189,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_generato
   size_t n_total,
   size_t n_inputs
 );
-
-/** Initialize a context for usage with Pedersen commitments. */
-void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
 
 /** Verify a proof that a committed value is within a range.
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.
@@ -280,6 +312,52 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
   const unsigned char *proof,
   size_t plen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Parse a 65-byte commitment into a commitment object.
+ *
+ *  Returns: 1 if input contains a valid commitment.
+ *  Args: ctx:      a secp256k1 context object.
+ *  Out:  commit:   pointer to the output commitment object
+ *  In:   input:    pointer to a 65-byte serialized commitment key
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_elgamal_commitment_parse(
+    const secp256k1_context* ctx,
+    secp256k1_elgamal_commitment* commit,
+    const unsigned char *input
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Serialize a commitment object into a serialized byte sequence.
+ *
+ *  Returns: 1 always.
+ *  Args:   ctx:        a secp256k1 context object.
+ *  Out:    output:     a pointer to a 65-byte byte array
+ *  In:     commit:     a pointer to a secp256k1_elgamal_commitment containing an
+ *                      initialized commitment
+ */
+SECP256K1_API int secp256k1_elgamal_commitment_serialize(
+    const secp256k1_context* ctx,
+    unsigned char *output,
+    const secp256k1_elgamal_commitment* commit
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Generate an El Gamal commitment.
+ *  Returns 1: commitment successfully created.
+ *          0: error
+ *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
+ *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
+ *          value:      unsigned 64-bit integer value to commit to.
+ *      asset_gen:      second generator (asset ID) to use
+ *  Out:    commit:     pointer to the commitment (cannot be NULL)
+ *
+ *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_elgamal_commit(
+  const secp256k1_context* ctx,
+  secp256k1_elgamal_commitment *commit,
+  const unsigned char *blind,
+  uint64_t value,
+  const secp256k1_generator *asset_gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 
 # ifdef __cplusplus
 }

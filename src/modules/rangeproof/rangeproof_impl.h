@@ -189,12 +189,14 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(uint64_t *v, size_t *rin
 }
 
 /* strawman interface, writes proof in proof, a buffer of plen, proves with respect to min_value the range for commit which has the provided blinding factor and value. */
-SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmult_context* ecmult_ctx,
- const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
+SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_rangeproof_context_pointers* ctxp,
  unsigned char *proof, size_t *plen, uint64_t min_value,
- const secp256k1_ge *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
+ const secp256k1_ge *commit, const secp256k1_ge *commit2, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
  const unsigned char *message, size_t msg_len, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp){
     secp256k1_gej pubs[128];     /* Candidate digits for our proof, most inferred. */
+    secp256k1_gej alt_pub;       /* Second half of an elgamal commitment for unconditionally sound proofs */
+    const secp256k1_gej *alt_pub_ptr;
+    size_t nalt_pub;
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
     secp256k1_scalar k[32];      /* Nonces for our non-forged signatures. */
@@ -211,7 +213,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     size_t secidx[32];                /* Which digit is the correct one. */
     size_t len;                       /* Number of bytes used so far. */
     size_t i;
-    int overflow;
     size_t npub;
     len = 0;
     if (*plen < 65 || min_value > value || min_bits > 64 || min_bits < 0 || exp < -1 || exp > 18) {
@@ -247,6 +248,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_sha256_initialize(&sha256_m);
     secp256k1_rangeproof_serialize_point(tmp, commit);
     secp256k1_sha256_write(&sha256_m, tmp, 33);
+    if (ctxp->ndigits > 1) {
+        secp256k1_rangeproof_serialize_point(tmp, commit2);
+        secp256k1_sha256_write(&sha256_m, tmp, 33);
+    }
     secp256k1_rangeproof_serialize_point(tmp, genp);
     secp256k1_sha256_write(&sha256_m, tmp, 33);
     secp256k1_sha256_write(&sha256_m, proof, len);
@@ -283,10 +288,21 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
      *   all the digits in the proof from the commitment. This lets the prover skip sending the
      *   blinded value for one digit.
      */
-    secp256k1_scalar_set_b32(&stmp, blind, &overflow);
-    secp256k1_scalar_add(&sec[rings - 1], &sec[rings - 1], &stmp);
-    if (overflow || secp256k1_scalar_is_zero(&sec[rings - 1])) {
-        return 0;
+    if (ctxp->ndigits == 0) {
+        int overflow;
+        secp256k1_scalar_set_b32(&stmp, blind, &overflow);
+        secp256k1_scalar_add(&sec[rings - 1], &sec[rings - 1], &stmp);
+        if (overflow || secp256k1_scalar_is_zero(&sec[rings - 1])) {
+            return 0;
+        }
+    /** In the multi-generator case to achieve the same effect we want all digit blinding factors
+     *  to be identical to the final blinding factor.
+     */
+    } else {
+        int overflow;
+        for(i = 0; i < rings; i++) {
+            secp256k1_scalar_set_b32(&sec[i], blind, &overflow);
+        }
     }
     signs = &proof[len];
     /* We need one sign bit for each blinded value we send. */
@@ -294,10 +310,22 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         signs[i] = 0;
         len++;
     }
+    if (commit2 != NULL) {
+        secp256k1_gej_set_ge(&alt_pub, commit2);
+        if (secp256k1_gej_is_infinity(&alt_pub)) {
+            return 0;
+        }
+        alt_pub_ptr = &alt_pub;
+        nalt_pub = 1;
+    } else {
+        alt_pub_ptr = NULL;
+        nalt_pub = 0;
+    }
     npub = 0;
     for (i = 0; i < rings; i++) {
+        const size_t ctx_index = ctxp->ndigits ? i : 0;
         /*OPT: Use the precomputed gen2 basis?*/
-        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &pubs[npub], &sec[i], ((uint64_t)secidx[i] * scale) << (i*2), genp);
+        secp256k1_pedersen_ecmult(&ctxp->digit_ecmult_gen_ctx[ctx_index], &pubs[npub], &sec[i], ((uint64_t)secidx[i] * scale) << (i*2), genp);
         if (secp256k1_gej_is_infinity(&pubs[npub])) {
             return 0;
         }
@@ -322,7 +350,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, tmp);
-    if (!secp256k1_borromean_sign(ecmult_ctx, ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, secidx, rings, tmp, 32)) {
+    if (!secp256k1_borromean_sign(ctxp->alt_ecmult_ctx, ctxp->alt_ecmult_gen_ctx, ctxp->digit_ecmult_ctx, ctxp->digit_ecmult_gen_ctx, ctxp->ndigits, &proof[len], s, pubs, alt_pub_ptr, nalt_pub, k, sec, rsizes, secidx, rings, tmp, 32)) {
         return 0;
     }
     len += 32;
@@ -363,7 +391,8 @@ SECP256K1_INLINE static void secp256k1_rangeproof_ch32xor(unsigned char *x, cons
 
 SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *blind, uint64_t *v,
  unsigned char *m, size_t *mlen, secp256k1_scalar *ev, secp256k1_scalar *s,
- size_t *rsizes, size_t rings, const unsigned char *nonce, const secp256k1_ge *commit, const unsigned char *proof, size_t len, const secp256k1_ge *genp) {
+ size_t *rsizes, size_t rings, const unsigned char *nonce, const secp256k1_ge *commit, const unsigned char *proof, size_t len,
+ int multigen, const secp256k1_ge *genp) {
     secp256k1_scalar s_orig[128];
     secp256k1_scalar sec[32];
     secp256k1_scalar stmp;
@@ -383,6 +412,12 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     memset(prep, 0, 4096);
     /* Reconstruct the provers random values. */
     secp256k1_rangeproof_genrand(sec, s_orig, prep, rsizes, rings, nonce, commit, proof, len, genp);
+    /* Force all to blinding factor in the multi-generator case */
+    if (multigen) {
+        for(i = 0; i < rings; i++) {
+            sec[i] = *blind;
+        }
+    }
     *v = UINT64_MAX;
     secp256k1_scalar_clear(blind);
     if (rings == 1 && rsizes[0] == 1) {
@@ -434,9 +469,16 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     skip1 += (rings - 1) << 2;
     skip2 += (rings - 1) << 2;
     /* Like in the rsize[] == 1 case, Having figured out which s is the one which was not forged, we can recover the blinding factor. */
-    secp256k1_rangeproof_recover_x(&stmp, &s_orig[skip2], &ev[skip2], &s[skip2]);
-    secp256k1_scalar_negate(&sec[rings - 1], &sec[rings - 1]);
-    secp256k1_scalar_add(blind, &stmp, &sec[rings - 1]);
+    /* In the multigen case, the blinding factor is equal to the blinding factor
+     * of the last digit; ordinarily it is offset by the output of `genrand` to
+     * ensure that all digits add up to the total commitment rather than 0.  */
+    if (multigen) {
+        secp256k1_rangeproof_recover_x(blind, &s_orig[skip2], &ev[skip2], &s[skip2]);
+    } else {
+        secp256k1_rangeproof_recover_x(&stmp, &s_orig[skip2], &ev[skip2], &s[skip2]);
+        secp256k1_scalar_negate(&sec[rings - 1], &sec[rings - 1]);
+        secp256k1_scalar_add(blind, &stmp, &sec[rings - 1]);
+    }
     if (!m || !mlen || *mlen == 0) {
         if (mlen) {
             *mlen = 0;
@@ -459,7 +501,11 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
                  *  this could just as well recover the blinding factors and messages could be put there as is done for recovering the
                  *  blinding factor in the last ring, but it takes an inversion to recover x so it's faster to put the message data in k.
                  */
-                secp256k1_rangeproof_recover_k(&stmp, &sec[i], &ev[npub], &s[npub]);
+                if (multigen) {
+                    secp256k1_rangeproof_recover_k(&stmp, blind, &ev[npub], &s[npub]);
+                } else {
+                    secp256k1_rangeproof_recover_k(&stmp, &sec[i], &ev[npub], &s[npub]);
+                }
             } else {
                 stmp = s[npub];
             }
@@ -538,11 +584,13 @@ SECP256K1_INLINE static int secp256k1_rangeproof_getheader_impl(size_t *offset, 
 }
 
 /* Verifies range proof (len plen) for commit, the min/max values proven are put in the min/max arguments; returns 0 on failure 1 on success.*/
-SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context* ecmult_ctx,
- const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
+SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_rangeproof_context_pointers* ctxp,
  unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, size_t *outlen, const unsigned char *nonce,
- uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp) {
+ uint64_t *min_value, uint64_t *max_value, const secp256k1_ge *commit, const secp256k1_ge *commit2, const unsigned char *proof, size_t plen, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp) {
     secp256k1_gej accj;
+    secp256k1_gej alt_pub;
+    const secp256k1_gej *alt_pub_ptr;
+    size_t nalt_pub;
     secp256k1_gej pubs[128];
     secp256k1_ge c;
     secp256k1_scalar s[128];
@@ -589,6 +637,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     secp256k1_sha256_initialize(&sha256_m);
     secp256k1_rangeproof_serialize_point(m, commit);
     secp256k1_sha256_write(&sha256_m, m, 33);
+    if (ctxp->ndigits > 1) {
+        secp256k1_rangeproof_serialize_point(m, commit2);
+        secp256k1_sha256_write(&sha256_m, m, 33);
+    }
     secp256k1_rangeproof_serialize_point(m, genp);
     secp256k1_sha256_write(&sha256_m, m, 33);
     secp256k1_sha256_write(&sha256_m, proof, offset);
@@ -606,6 +658,17 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     secp256k1_gej_set_infinity(&accj);
     if (*min_value) {
         secp256k1_pedersen_ecmult_small(&accj, *min_value, genp);
+    }
+    if (commit2 != NULL) {
+        secp256k1_gej_set_ge(&alt_pub, commit2);
+        if (secp256k1_gej_is_infinity(&alt_pub)) {
+            return 0;
+        }
+        alt_pub_ptr = &alt_pub;
+        nalt_pub = 1;
+    } else {
+        alt_pub_ptr = NULL;
+        nalt_pub = 0;
     }
     for(i = 0; i < rings - 1; i++) {
         secp256k1_fe fe;
@@ -647,26 +710,34 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, m);
-    ret = secp256k1_borromean_verify(ecmult_ctx, nonce ? evalues : NULL, e0, s, pubs, rsizes, rings, m, 32);
+    ret = secp256k1_borromean_verify(ctxp->alt_ecmult_ctx, ctxp->digit_ecmult_ctx, ctxp->ndigits, nonce ? evalues : NULL, e0, s, pubs, alt_pub_ptr, nalt_pub, rsizes, rings, m, 32);
     if (ret && nonce) {
         /* Given the nonce, try rewinding the witness to recover its initial state. */
         secp256k1_scalar blind;
         uint64_t vv;
-        if (!ecmult_gen_ctx) {
-            return 0;
-        }
-        if (!secp256k1_rangeproof_rewind_inner(&blind, &vv, message_out, outlen, evalues, s, rsizes, rings, nonce, commit, proof, offset_post_header, genp)) {
+        if (!secp256k1_rangeproof_rewind_inner(&blind, &vv, message_out, outlen, evalues, s, rsizes, rings, nonce, commit, proof, offset_post_header, ctxp->ndigits > 1, genp)) {
             return 0;
         }
         /* Unwind apparently successful, see if the commitment can be reconstructed. */
         /* FIXME: should check vv is in the mantissa's range. */
         vv = (vv * scale) + *min_value;
-        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &accj, &blind, vv, genp);
+        if (ctxp->ndigits > 1) {
+            uint64_t firstbits = (vv - *min_value) & 3;
+            secp256k1_pedersen_ecmult(&ctxp->digit_ecmult_gen_ctx[0], &accj, &blind, firstbits, genp);
+        } else {
+            secp256k1_pedersen_ecmult(&ctxp->digit_ecmult_gen_ctx[0], &accj, &blind, vv, genp);
+        }
         if (secp256k1_gej_is_infinity(&accj)) {
             return 0;
         }
         secp256k1_gej_neg(&accj, &accj);
-        secp256k1_gej_add_ge_var(&accj, &accj, commit, NULL);
+        /* If we have multiple generators in play, try to reconstruct the first digit;
+         * otherwise try to reconstruct the total commit */
+        if (ctxp->ndigits) {
+            secp256k1_gej_add_var(&accj, &accj, &pubs[0], NULL);
+        } else {
+            secp256k1_gej_add_ge_var(&accj, &accj, commit, NULL);
+        }
         if (!secp256k1_gej_is_infinity(&accj)) {
             return 0;
         }

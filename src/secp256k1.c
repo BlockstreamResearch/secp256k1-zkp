@@ -61,6 +61,13 @@ static const secp256k1_callback default_error_callback = {
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
     secp256k1_ecmult_gen_context ecmult_gen_ctx;
+#ifdef ENABLE_MODULE_RANGEPROOF
+    secp256k1_ecmult_gen_context alt_ecmult_gen_ctx;
+    secp256k1_ecmult_context alt_ecmult_ctx;
+    secp256k1_ecmult_gen_context *digit_ecmult_gen_ctx;
+    secp256k1_ecmult_context *digit_ecmult_ctx;
+    size_t ndigits;
+#endif
     secp256k1_callback illegal_callback;
     secp256k1_callback error_callback;
 };
@@ -69,6 +76,11 @@ secp256k1_context* secp256k1_context_create(unsigned int flags) {
     secp256k1_context* ret = (secp256k1_context*)checked_malloc(&default_error_callback, sizeof(secp256k1_context));
     ret->illegal_callback = default_illegal_callback;
     ret->error_callback = default_error_callback;
+#ifdef ENABLE_MODULE_RANGEPROOF
+    ret->digit_ecmult_gen_ctx = NULL;
+    ret->digit_ecmult_ctx = NULL;
+    ret->ndigits = 0;
+#endif
 
     if (EXPECT((flags & SECP256K1_FLAGS_TYPE_MASK) != SECP256K1_FLAGS_TYPE_CONTEXT, 0)) {
             secp256k1_callback_call(&ret->illegal_callback,
@@ -81,10 +93,10 @@ secp256k1_context* secp256k1_context_create(unsigned int flags) {
     secp256k1_ecmult_gen_context_init(&ret->ecmult_gen_ctx);
 
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_SIGN) {
-        secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &ret->error_callback);
+        secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &secp256k1_ge_const_g, &ret->error_callback);
     }
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_VERIFY) {
-        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &ret->error_callback);
+        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &secp256k1_ge_const_g, &ret->error_callback);
     }
 
     return ret;
@@ -94,6 +106,23 @@ secp256k1_context* secp256k1_context_clone(const secp256k1_context* ctx) {
     secp256k1_context* ret = (secp256k1_context*)checked_malloc(&ctx->error_callback, sizeof(secp256k1_context));
     ret->illegal_callback = ctx->illegal_callback;
     ret->error_callback = ctx->error_callback;
+#ifdef ENABLE_MODULE_RANGEPROOF
+    ret->ndigits = ctx->ndigits;
+    if (ret->ndigits > 0) {
+        size_t i;
+        secp256k1_ecmult_context_clone(&ret->alt_ecmult_ctx, &ctx->alt_ecmult_ctx, &ctx->error_callback);
+        secp256k1_ecmult_gen_context_clone(&ret->alt_ecmult_gen_ctx, &ctx->alt_ecmult_gen_ctx, &ctx->error_callback);
+        ret->digit_ecmult_ctx = (secp256k1_ecmult_context*)checked_malloc(&default_error_callback, ret->ndigits * sizeof(*ret->digit_ecmult_ctx));
+        ret->digit_ecmult_gen_ctx = (secp256k1_ecmult_gen_context*)checked_malloc(&default_error_callback, ret->ndigits * sizeof(*ret->digit_ecmult_gen_ctx));
+        for (i = 0; i < ctx->ndigits; i++) {
+            secp256k1_ecmult_context_clone(&ret->digit_ecmult_ctx[i], &ctx->digit_ecmult_ctx[i], &ctx->error_callback);
+            secp256k1_ecmult_gen_context_clone(&ret->digit_ecmult_gen_ctx[i], &ctx->digit_ecmult_gen_ctx[i], &ctx->error_callback);
+        }
+    } else {
+        ret->digit_ecmult_gen_ctx = NULL;
+        ret->digit_ecmult_ctx = NULL;
+    }
+#endif
     secp256k1_ecmult_context_clone(&ret->ecmult_ctx, &ctx->ecmult_ctx, &ctx->error_callback);
     secp256k1_ecmult_gen_context_clone(&ret->ecmult_gen_ctx, &ctx->ecmult_gen_ctx, &ctx->error_callback);
     return ret;
@@ -103,6 +132,20 @@ void secp256k1_context_destroy(secp256k1_context* ctx) {
     if (ctx != NULL) {
         secp256k1_ecmult_context_clear(&ctx->ecmult_ctx);
         secp256k1_ecmult_gen_context_clear(&ctx->ecmult_gen_ctx);
+
+#ifdef ENABLE_MODULE_RANGEPROOF
+        if (ctx->ndigits > 0) {
+            size_t i;
+            secp256k1_ecmult_context_clear(&ctx->alt_ecmult_ctx);
+            secp256k1_ecmult_gen_context_clear(&ctx->alt_ecmult_gen_ctx);
+            for (i = 0; i < ctx->ndigits; i++) {
+                secp256k1_ecmult_context_clear(&ctx->digit_ecmult_ctx[i]);
+                secp256k1_ecmult_gen_context_clear(&ctx->digit_ecmult_gen_ctx[i]);
+            }
+            free(ctx->digit_ecmult_gen_ctx);
+            free(ctx->digit_ecmult_ctx);
+        }
+#endif
 
         free(ctx);
     }
@@ -557,7 +600,7 @@ int secp256k1_ec_pubkey_tweak_mul(const secp256k1_context* ctx, secp256k1_pubkey
 int secp256k1_context_randomize(secp256k1_context* ctx, const unsigned char *seed32) {
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, seed32);
+    secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, &secp256k1_ge_const_g, seed32);
     return 1;
 }
 

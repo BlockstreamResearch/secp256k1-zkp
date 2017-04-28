@@ -16,6 +16,22 @@
 
 #include "include/secp256k1_rangeproof.h"
 
+static void test_rangeproof_context(void) {
+    secp256k1_context *tmp = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 0);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 2);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 2);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 10);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 10);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 32);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 32);
+    secp256k1_context_initialize_for_sound_rangeproof(tmp, 0);
+    CHECK(secp256k1_context_sound_rangeproof_n_digits(tmp) == 0);
+
+    secp256k1_context_destroy(tmp);
+}
+
 static void test_pedersen(void) {
     secp256k1_pedersen_commitment commits[19];
     const secp256k1_pedersen_commitment *cptr[19];
@@ -120,11 +136,11 @@ static void test_borromean(void) {
         }
         c += rsizes[i];
     }
-    CHECK(secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
-    CHECK(secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(secp256k1_borromean_sign(NULL, NULL, &ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, 0, e0, s, pubs, NULL, 0, k, sec, rsizes, secidx, nrings, m, 32));
+    CHECK(secp256k1_borromean_verify(NULL, &ctx->ecmult_ctx, 0, NULL, e0, s, pubs, NULL, 0, rsizes, nrings, m, 32));
     i = secp256k1_rand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);
-    CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(!secp256k1_borromean_verify(NULL, &ctx->ecmult_ctx, 0, NULL, e0, s, pubs, NULL, 0, rsizes, nrings, m, 32));
     secp256k1_scalar_negate(&s[i],&s[i]);
     secp256k1_scalar_set_int(&one, 1);
     for(j = 0; j < 4; j++) {
@@ -134,7 +150,7 @@ static void test_borromean(void) {
         } else {
             secp256k1_scalar_add(&s[i],&s[i],&one);
         }
-        CHECK(!secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+        CHECK(!secp256k1_borromean_verify(NULL, &ctx->ecmult_ctx, 0, NULL, e0, s, pubs, NULL, 0, rsizes, nrings, m, 32));
     }
 }
 
@@ -353,6 +369,64 @@ void test_multiple_generators(void) {
 
     /* Verify */
     CHECK(secp256k1_pedersen_verify_tally(ctx, &commit_ptr[0], n_inputs, &commit_ptr[n_inputs], n_outputs));
+
+    /* Cleanup */
+    for (i = 0; i < n_generators; i++) {
+        free(generator_blind[i]);
+        free(pedersen_blind[i]);
+    }
+}
+
+void test_elgamal_rangeproof(void) {
+    const uint64_t v = 999;
+    /* as val = 999 we cannot have a smaller rangeproof than 10 bits / 5 digits */
+    size_t min_bits[] = { 10, 15, 20, 25, 32 };
+    size_t min_value[] = { 0, 1, 100, 900, 900 };
+
+    size_t j;
+    for (j = 0; j < 5; j++) {
+        /* continuation of the above Simone de Beauvoir quote */
+        const unsigned char message[55] = "But it doesn't last very long; I snap right out of it.";
+        secp256k1_pedersen_commitment pedersen_commit;
+        secp256k1_elgamal_commitment commit;
+        unsigned char proof[5134];
+        unsigned char blind[32];
+        unsigned char blindout[32];
+        unsigned char messageout[4096];
+        size_t len = 5134;
+        size_t mlenout = sizeof(messageout);
+        uint64_t vout, minvout, maxvout;
+        size_t k;
+        uint64_t expected_max = -1;
+        expected_max >>= (64 - min_bits[j]);
+        expected_max += min_value[j];
+
+        secp256k1_context_initialize_for_sound_rangeproof(ctx, (min_bits[j] + 1) / 2);
+        secp256k1_rand256(blind);
+
+        CHECK(secp256k1_pedersen_commit(ctx, &pedersen_commit, blind, v, secp256k1_generator_h));
+        CHECK(secp256k1_elgamal_commit(ctx, &commit, blind, v, secp256k1_generator_h));
+        CHECK(secp256k1_elgamal_rangeproof_sign(ctx, proof, &len, min_value[j], &commit, blind, commit.data, 0, min_bits[j], v, message, sizeof(message), NULL, 0, secp256k1_generator_h));
+
+        CHECK(!secp256k1_rangeproof_verify(ctx, &minvout, &maxvout, &pedersen_commit, proof, len, NULL, 0, secp256k1_generator_h));
+        CHECK(secp256k1_elgamal_rangeproof_verify(ctx, &minvout, &maxvout, &commit, proof, len, NULL, 0, secp256k1_generator_h));
+        CHECK(minvout == min_value[j]);
+        CHECK(maxvout == expected_max);
+
+        CHECK(!secp256k1_rangeproof_rewind(ctx, blindout, &vout, messageout, &mlenout, commit.data, &minvout, &maxvout, &pedersen_commit, proof, len, NULL, 0, secp256k1_generator_h));
+        CHECK(secp256k1_elgamal_rangeproof_rewind(ctx, blindout, &vout, messageout, &mlenout, commit.data, &minvout, &maxvout, &commit, proof, len, NULL, 0, secp256k1_generator_h));
+
+        CHECK(memcmp(messageout, message, sizeof(message)) == 0);
+        CHECK(memcmp(blindout, blind, 32) == 0);
+        CHECK(minvout == min_value[j]);
+        CHECK(maxvout == expected_max);
+        CHECK(vout == v);
+        CHECK(mlenout >= sizeof(message));
+        for (k = sizeof(message); k < mlenout; k++) {
+            CHECK(messageout[k] == 0);
+        }
+    }
+    secp256k1_context_initialize_for_sound_rangeproof(ctx, 0);
 }
 
 void run_rangeproof_tests(void) {
@@ -363,8 +437,10 @@ void run_rangeproof_tests(void) {
     for (i = 0; i < 10*count; i++) {
         test_borromean();
     }
+    test_rangeproof_context();
     test_rangeproof();
     test_multiple_generators();
+    test_elgamal_rangeproof();
 }
 
 #endif
