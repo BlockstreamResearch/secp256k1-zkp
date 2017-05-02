@@ -13,6 +13,154 @@
 #include "include/secp256k1_rangeproof.h"
 #include "include/secp256k1_surjectionproof.h"
 
+static void run_surjectionproof_api_tests(void) {
+    unsigned char seed[32];
+    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *both = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_fixed_asset_tag fixed_input_tags[10];
+    secp256k1_fixed_asset_tag fixed_output_tag;
+    secp256k1_generator ephemeral_input_tags[10];
+    secp256k1_generator ephemeral_output_tag;
+    unsigned char input_blinding_key[10][32];
+    unsigned char output_blinding_key[32];
+    unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
+    size_t  serialized_len;
+    secp256k1_surjectionproof proof;
+    size_t n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]);
+    size_t input_index;
+    int32_t ecount = 0;
+    size_t i;
+
+    secp256k1_rand256(seed);
+    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
+
+    for (i = 0; i < n_inputs; i++) {
+        secp256k1_rand256(input_blinding_key[i]);
+        secp256k1_rand256(fixed_input_tags[i].data);
+        CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_input_tags[i], fixed_input_tags[i].data, input_blinding_key[i]));
+    }
+    secp256k1_rand256(output_blinding_key);
+    memcpy(&fixed_output_tag, &fixed_input_tags[0], sizeof(fixed_input_tags[0]));
+    CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_output_tag, fixed_output_tag.data, output_blinding_key));
+
+    /* check initialize */
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) != 0);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_surjectionproof_initialize(none, NULL, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, NULL, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, NULL, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS + 1, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, n_inputs, &fixed_input_tags[0], 100, seed) != 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, n_inputs + 1, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 3, NULL, 100, seed) == 0);
+    CHECK(ecount == 6);
+    CHECK((secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 0, seed) & 1) == 0);
+    CHECK(ecount == 6);
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, NULL) == 0);
+    CHECK(ecount == 7);
+
+    CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) != 0);
+    /* check generate */
+    CHECK(secp256k1_surjectionproof_generate(none, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 8);
+    CHECK(secp256k1_surjectionproof_generate(vrfy, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 9);
+
+    CHECK(secp256k1_surjectionproof_generate(sign, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 10);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) != 0);
+    CHECK(ecount == 10);
+
+    CHECK(secp256k1_surjectionproof_generate(both, NULL, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 11);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, NULL, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs + 1, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs - 1, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, 0, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, NULL, 0, input_blinding_key[0], output_blinding_key) == 0);
+    CHECK(ecount == 13);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 1, input_blinding_key[0], output_blinding_key) != 0);
+    CHECK(ecount == 13);  /* the above line "succeeds" but generates an invalid proof as the input_index is wrong. it is fairly expensive to detect this. should we? */
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, n_inputs + 1, input_blinding_key[0], output_blinding_key) != 0);
+    CHECK(ecount == 13);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, NULL, output_blinding_key) == 0);
+    CHECK(ecount == 14);
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], NULL) == 0);
+    CHECK(ecount == 15);
+
+    CHECK(secp256k1_surjectionproof_generate(both, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) != 0);
+    /* check verify */
+    CHECK(secp256k1_surjectionproof_verify(none, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 16);
+    CHECK(secp256k1_surjectionproof_verify(sign, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 17);
+    CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, ephemeral_input_tags, n_inputs, &ephemeral_output_tag) != 0);
+    CHECK(ecount == 17);
+
+    CHECK(secp256k1_surjectionproof_verify(vrfy, NULL, ephemeral_input_tags, n_inputs, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 18);
+    CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, NULL, n_inputs, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 19);
+    CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, ephemeral_input_tags, n_inputs - 1, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 19);
+    CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, ephemeral_input_tags, n_inputs + 1, &ephemeral_output_tag) == 0);
+    CHECK(ecount == 19);
+    CHECK(secp256k1_surjectionproof_verify(vrfy, &proof, ephemeral_input_tags, n_inputs, NULL) == 0);
+    CHECK(ecount == 20);
+
+    /* Check serialize */
+    serialized_len = sizeof(serialized_proof);
+    CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, &proof) != 0);
+    CHECK(ecount == 20);
+    serialized_len = sizeof(serialized_proof);
+    CHECK(secp256k1_surjectionproof_serialize(none, NULL, &serialized_len, &proof) == 0);
+    CHECK(ecount == 21);
+    serialized_len = sizeof(serialized_proof);
+    CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, NULL, &proof) == 0);
+    CHECK(ecount == 22);
+    serialized_len = sizeof(serialized_proof);
+    CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, NULL) == 0);
+    CHECK(ecount == 23);
+
+    serialized_len = sizeof(serialized_proof);
+    CHECK(secp256k1_surjectionproof_serialize(none, serialized_proof, &serialized_len, &proof) != 0);
+    /* Check parse */
+    CHECK(secp256k1_surjectionproof_parse(none, &proof, serialized_proof, serialized_len) != 0);
+    CHECK(ecount == 23);
+    CHECK(secp256k1_surjectionproof_parse(none, NULL, serialized_proof, serialized_len) == 0);
+    CHECK(ecount == 24);
+    CHECK(secp256k1_surjectionproof_parse(none, &proof, NULL, serialized_len) == 0);
+    CHECK(ecount == 25);
+    CHECK(secp256k1_surjectionproof_parse(none, &proof, serialized_proof, 0) == 0);
+    CHECK(ecount == 25);
+
+    secp256k1_context_destroy(none);
+    secp256k1_context_destroy(sign);
+    secp256k1_context_destroy(vrfy);
+    secp256k1_context_destroy(both);
+}
+
 static void run_input_selection_tests(size_t n_inputs) {
     unsigned char seed[32];
     size_t i;
@@ -317,6 +465,11 @@ void run_bad_parse(void) {
 }
 
 void run_surjection_tests(void) {
+    int i;
+    for (i = 0; i < count; i++) {
+        run_surjectionproof_api_tests();
+    }
+
     run_input_selection_tests(0);
     run_input_selection_tests(1);
     run_input_selection_tests(5);
