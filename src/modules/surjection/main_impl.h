@@ -163,6 +163,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
     ARG_CHECK(random_seed32 != NULL);
     ARG_CHECK(n_input_tags <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
     ARG_CHECK(n_input_tags_to_use <= n_input_tags);
+    (void) ctx;
 
     secp256k1_surjectionproof_csprng_init(&csprng, random_seed32);
     memset(proof->data, 0, sizeof(proof->data));
@@ -225,6 +226,8 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(proof != NULL);
     ARG_CHECK(ephemeral_input_tags != NULL);
     ARG_CHECK(ephemeral_output_tag != NULL);
@@ -298,6 +301,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(proof != NULL);
     ARG_CHECK(ephemeral_input_tags != NULL);
     ARG_CHECK(ephemeral_output_tag != NULL);
