@@ -13,7 +13,7 @@
 #include "include/secp256k1_rangeproof.h"
 #include "include/secp256k1_surjectionproof.h"
 
-static void run_surjectionproof_api_tests(void) {
+static void test_surjectionproof_api(void) {
     unsigned char seed[32];
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -161,7 +161,7 @@ static void run_surjectionproof_api_tests(void) {
     secp256k1_context_destroy(both);
 }
 
-static void run_input_selection_tests(size_t n_inputs) {
+static void test_input_selection(size_t n_inputs) {
     unsigned char seed[32];
     size_t i;
     size_t result;
@@ -229,7 +229,7 @@ static void run_input_selection_tests(size_t n_inputs) {
 
 /** Runs surjectionproof_initilize multiple times and records the number of times each input was used.
  */
-static void run_input_selection_distribution_tests_helper(const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, size_t *used_inputs) {
+static void test_input_selection_distribution_helper(const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, size_t *used_inputs) {
     secp256k1_surjectionproof proof;
     size_t input_index;
     size_t i;
@@ -255,7 +255,7 @@ static void run_input_selection_distribution_tests_helper(const secp256k1_fixed_
 /** Probabilistic test of the distribution of used_inputs after surjectionproof_initialize.
  * Each confidence interval assertion fails incorrectly with a probability of 2^-128.
  */
-static void run_input_selection_distribution_tests(void) {
+static void test_input_selection_distribution(void) {
     size_t i;
     size_t n_input_tags_to_use;
     const size_t n_inputs = 4;
@@ -268,7 +268,7 @@ static void run_input_selection_distribution_tests(void) {
 
     /* If there is one input tag to use, initialize must choose the one equal to fixed_output_tag. */
     n_input_tags_to_use = 1;
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] == 10000);
     CHECK(used_inputs[1] == 0);
     CHECK(used_inputs[2] == 0);
@@ -279,7 +279,7 @@ static void run_input_selection_distribution_tests(void) {
      * For each fixed_input_tag != fixed_output_tag the probability that it's included
      * in the used_inputs set is P(used_input|not fixed_output_tag) = 1/3.
      */
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] == 10000);
     CHECK(used_inputs[1] > 2725 && used_inputs[1] < 3961);
     CHECK(used_inputs[2] > 2725 && used_inputs[2] < 3961);
@@ -287,7 +287,7 @@ static void run_input_selection_distribution_tests(void) {
 
     n_input_tags_to_use = 3;
     /* P(used_input|not fixed_output_tag) = 2/3 */
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] == 10000);
     CHECK(used_inputs[1] > 6039 && used_inputs[1] < 7275);
     CHECK(used_inputs[2] > 6039 && used_inputs[2] < 7275);
@@ -299,7 +299,7 @@ static void run_input_selection_distribution_tests(void) {
      * one input we have P(used_input|fixed_output_tag) = 1/2 and P(used_input|not fixed_output_tag) = 0
      */
     memcpy(fixed_input_tags[0].data, fixed_input_tags[1].data, 32);
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] > 4345 && used_inputs[0] < 5655);
     CHECK(used_inputs[1] > 4345 && used_inputs[1] < 5655);
     CHECK(used_inputs[2] == 0);
@@ -310,7 +310,7 @@ static void run_input_selection_distribution_tests(void) {
      * input indexes {(0, 1), (1, 2), (0, 3), (1, 3), (0, 2)}. Therefore we have
      * P(used_input|fixed_output_tag) = 3/5 and P(used_input|not fixed_output_tag) = 2/5.
      */
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] > 5352 && used_inputs[0] < 6637);
     CHECK(used_inputs[1] > 5352 && used_inputs[1] < 6637);
     CHECK(used_inputs[2] > 3363 && used_inputs[2] < 4648);
@@ -320,14 +320,14 @@ static void run_input_selection_distribution_tests(void) {
     /* There are 4 combinations, each with all inputs except one. Therefore we have
      * P(used_input|fixed_output_tag) = 3/4 and P(used_input|not fixed_output_tag) = 3/4.
      */
-    run_input_selection_distribution_tests_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
+    test_input_selection_distribution_helper(fixed_input_tags, n_inputs, n_input_tags_to_use, used_inputs);
     CHECK(used_inputs[0] > 6918 && used_inputs[0] < 8053);
     CHECK(used_inputs[1] > 6918 && used_inputs[1] < 8053);
     CHECK(used_inputs[2] > 6918 && used_inputs[2] < 8053);
     CHECK(used_inputs[3] > 6918 && used_inputs[3] < 8053);
 }
 
-static void run_gen_verify(size_t n_inputs, size_t n_used) {
+static void test_gen_verify(size_t n_inputs, size_t n_used) {
     unsigned char seed[32];
     secp256k1_surjectionproof proof;
     unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
@@ -400,7 +400,7 @@ static void run_gen_verify(size_t n_inputs, size_t n_used) {
 }
 
 /* check that a proof with empty n_used_inputs is invalid */
-static void run_no_used_inputs_verify(void) {
+static void test_no_used_inputs_verify(void) {
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag fixed_input_tag;
     secp256k1_fixed_asset_tag fixed_output_tag;
@@ -439,7 +439,7 @@ static void run_no_used_inputs_verify(void) {
     CHECK(result == 0);
 }
 
-void run_bad_serialize(void) {
+void test_bad_serialize(void) {
     secp256k1_surjectionproof proof;
     unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
     size_t serialized_len;
@@ -450,7 +450,7 @@ void run_bad_serialize(void) {
     CHECK(secp256k1_surjectionproof_serialize(ctx, serialized_proof, &serialized_len, &proof) == 0);
 }
 
-void run_bad_parse(void) {
+void test_bad_parse(void) {
     secp256k1_surjectionproof proof;
     unsigned char serialized_proof0[] = { 0x00 };
     unsigned char serialized_proof1[] = { 0x01, 0x00 };
@@ -467,21 +467,21 @@ void run_bad_parse(void) {
 void run_surjection_tests(void) {
     int i;
     for (i = 0; i < count; i++) {
-        run_surjectionproof_api_tests();
+        test_surjectionproof_api();
     }
 
-    run_input_selection_tests(0);
-    run_input_selection_tests(1);
-    run_input_selection_tests(5);
-    run_input_selection_tests(100);
-    run_input_selection_tests(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    test_input_selection(0);
+    test_input_selection(1);
+    test_input_selection(5);
+    test_input_selection(100);
+    test_input_selection(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
 
-    run_input_selection_distribution_tests();
-    run_gen_verify(10, 3);
-    run_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
-    run_no_used_inputs_verify();
-    run_bad_serialize();
-    run_bad_parse();
+    test_input_selection_distribution();
+    test_gen_verify(10, 3);
+    test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    test_no_used_inputs_verify();
+    test_bad_serialize();
+    test_bad_parse();
 }
 
 #endif
