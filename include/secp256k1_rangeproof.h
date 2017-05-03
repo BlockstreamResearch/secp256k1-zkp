@@ -98,7 +98,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
 /** Verify a tally of pedersen commitments
  * Returns 1: commitments successfully sum to zero.
  *         0: Commitments do not sum to zero or other error.
- * In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
+ * In:     ctx:        pointer to a context object (cannot be NULL)
  *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
  *         pcnt:       number of commitments pointed to by commits.
  *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
