@@ -66,6 +66,7 @@ void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
  *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
+ *          gen:        additional generator 'h'
  *  Out:    commit:     pointer to the commitment (cannot be NULL)
  *
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
@@ -84,7 +85,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
  *  In:     ctx:        pointer to a context object (cannot be NULL)
  *          blinds:     pointer to pointers to 32-byte character arrays for blinding factors. (cannot be NULL)
  *          n:          number of factors pointed to by blinds.
- *          nneg:       how many of the initial factors should be treated with a positive sign.
+ *          npositive:       how many of the initial factors should be treated with a positive sign.
  *  Out:    blind_out:  pointer to a 32-byte array for the sum (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
@@ -167,6 +168,7 @@ void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
  *       plen: length of proof in bytes.
  *       extra_commit: additional data covered in rangeproof signature
  *       extra_commit_len: length of extra_commit byte array (0 if NULL)
+ *       gen: additional generator 'h'
  * Out:  min_value: pointer to a unsigned int64 which will be updated with the minimum value that commit could have. (cannot be NULL)
  *       max_value: pointer to a unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
@@ -192,6 +194,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
  *        nonce: 32-byte secret nonce used by the prover (cannot be NULL)
  *        extra_commit: additional data covered in rangeproof signature
  *        extra_commit_len: length of extra_commit byte array (0 if NULL)
+ *        gen: additional generator 'h'
  *  In/Out: blind_out: storage for the 32-byte blinding factor used for the commitment
  *        value_out: pointer to an unsigned int64 which has the exact value of the commitment.
  *        message_out: pointer to a 4096 byte character array to receive message data from the proof author.
@@ -233,6 +236,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *          msg_len: size of the message to be embedded in the rangeproof
  *          extra_commit: additional data to be covered in rangeproof signature
  *          extra_commit_len: length of extra_commit byte array (0 if NULL)
+ *          gen: additional generator 'h'
  *  In/out: plen:   point to an integer with the size of the proof buffer and the size of the constructed proof.
  *
  *  If min_value or exp is non-zero then the value must be on the range [0, 2^63) to prevent the proof range from spanning past 2^64.
