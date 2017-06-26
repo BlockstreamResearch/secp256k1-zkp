@@ -53,6 +53,7 @@ void test_whitelist_end_to_end(const size_t n_keys) {
     /* Sign/verify with each one */
     for (i = 0; i < n_keys; i++) {
         unsigned char serialized[32 + 4 + 32 * SECP256K1_WHITELIST_MAX_N_KEYS] = {0};
+        size_t slen = sizeof(serialized);
         secp256k1_whitelist_signature sig;
         secp256k1_whitelist_signature sig1;
 
@@ -61,8 +62,13 @@ void test_whitelist_end_to_end(const size_t n_keys) {
         /* Check that exchanging keys causes a failure */
         CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
         /* Serialization round trip */
-        CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &sig) == 1);
-        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized) == 1);
+        CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &slen, &sig) == 1);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen) == 1);
+        /* (Check various bad-length conditions) */
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen + 32) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen + 1) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen - 1) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, 0) == 0);
         CHECK(secp256k1_whitelist_verify(ctx, &sig1, online_pubkeys, offline_pubkeys, &sub_pubkey) == 1);
         CHECK(secp256k1_whitelist_verify(ctx, &sig1, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
         /* Test n_keys */
@@ -93,7 +99,7 @@ void test_whitelist_bad_parse(void) {
     };
     secp256k1_whitelist_signature sig;
 
-    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized) == 0);
+    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized, sizeof(serialized)) == 0);
 }
 
 void run_whitelist_tests(void) {
