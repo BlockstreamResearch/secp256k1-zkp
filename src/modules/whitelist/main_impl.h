@@ -141,6 +141,10 @@ int secp256k1_whitelist_signature_parse(const secp256k1_context* ctx, secp256k1_
     ARG_CHECK(sig != NULL);
     ARG_CHECK(input != NULL);
 
+    if (input_len == 0) {
+        return 0;
+    }
+
     sig->n_keys = input[0];
     if (sig->n_keys >= MAX_KEYS || input_len != 1 + 32 * (sig->n_keys + 1)) {
         return 0;
@@ -153,6 +157,7 @@ int secp256k1_whitelist_signature_parse(const secp256k1_context* ctx, secp256k1_
 int secp256k1_whitelist_signature_serialize(const secp256k1_context* ctx, unsigned char *output, size_t *output_len, const secp256k1_whitelist_signature *sig) {
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output != NULL);
+    ARG_CHECK(output_len != NULL);
     ARG_CHECK(sig != NULL);
 
     if (*output_len < 1 + 32 * (sig->n_keys + 1)) {
