@@ -88,7 +88,7 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
     unsigned char *output,
     size_t *output_len,
     const secp256k1_whitelist_signature *sig
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Compute a whitelist signature
  * Returns 1: signature was successfully created
