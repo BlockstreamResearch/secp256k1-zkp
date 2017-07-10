@@ -100,7 +100,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
     return ret;
 }
 
-int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const secp256k1_pubkey *sub_pubkey) {
+int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whitelist_signature *sig, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const size_t n_keys, const secp256k1_pubkey *sub_pubkey) {
     secp256k1_scalar s[MAX_KEYS];
     secp256k1_gej pubs[MAX_KEYS];
     unsigned char msg32[32];
@@ -113,7 +113,7 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
     ARG_CHECK(offline_pubkeys != NULL);
     ARG_CHECK(sub_pubkey != NULL);
 
-    if (sig->n_keys > MAX_KEYS) {
+    if (sig->n_keys > MAX_KEYS || sig->n_keys != n_keys) {
         return 0;
     }
     for (i = 0; i < sig->n_keys; i++) {
