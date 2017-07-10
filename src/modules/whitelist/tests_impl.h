@@ -58,9 +58,9 @@ void test_whitelist_end_to_end(const size_t n_keys) {
         secp256k1_whitelist_signature sig1;
 
         CHECK(secp256k1_whitelist_sign(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[i], summed_seckey[i], i, NULL, NULL));
-        CHECK(secp256k1_whitelist_verify(ctx, &sig, online_pubkeys, offline_pubkeys, &sub_pubkey) == 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
         /* Check that exchanging keys causes a failure */
-        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
         /* Serialization round trip */
         CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &slen, &sig) == 1);
         CHECK(slen == 33 + 32 * n_keys);
@@ -70,11 +70,17 @@ void test_whitelist_end_to_end(const size_t n_keys) {
         CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen + 1) == 0);
         CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen - 1) == 0);
         CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, 0) == 0);
-        CHECK(secp256k1_whitelist_verify(ctx, &sig1, online_pubkeys, offline_pubkeys, &sub_pubkey) == 1);
-        CHECK(secp256k1_whitelist_verify(ctx, &sig1, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig1, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig1, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
+
         /* Test n_keys */
         CHECK(secp256k1_whitelist_signature_n_keys(&sig) == n_keys);
         CHECK(secp256k1_whitelist_signature_n_keys(&sig1) == n_keys);
+
+        /* Test bad number of keys in signature */
+        sig.n_keys = n_keys + 1;
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
+        sig.n_keys = n_keys;
     }
 
     for (i = 0; i < n_keys; i++) {
