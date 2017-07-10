@@ -141,8 +141,9 @@ SECP256K1_API int secp256k1_whitelist_verify(
   const secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,
+  const size_t n_keys,
   const secp256k1_pubkey *sub_pubkey
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6);
 
 #ifdef __cplusplus
 }
