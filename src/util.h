@@ -100,7 +100,14 @@ SECP256K1_INLINE static int secp256k1_clz64_var(uint64_t x) {
     for (ret = 0; ((x & (1ULL << 63)) == 0); x <<= 1, ret++);
 # endif
     return ret;
+}
 
+static SECP256K1_INLINE void *checked_realloc(const secp256k1_callback* cb, void *ptr, size_t size) {
+    void *ret = realloc(ptr, size);
+    if (ret == NULL) {
+        secp256k1_callback_call(cb, "Out of memory");
+    }
+    return ret;
 }
 
 /* Macro for restrict, when available and not in a VERIFY build. */
