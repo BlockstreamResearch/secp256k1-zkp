@@ -34,6 +34,9 @@ static void secp256k1_scratch_destroy(secp256k1_scratch* scratch) {
 }
 
 static size_t secp256k1_scratch_max_allocation(const secp256k1_scratch* scratch, size_t objects) {
+    if (scratch->max_size <= objects * ALIGNMENT) {
+        return 0;
+    }
     return scratch->max_size - objects * ALIGNMENT;
 }
 

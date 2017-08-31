@@ -6,6 +6,7 @@
 
 #ifndef _SECP256K1_SCRATCH_
 #define _SECP256K1_SCRATCH_
+#include <sys/types.h>
 
 /* The typedef is used internally; the struct name is used in the public API
  * (where it is exposed as a different typedef) */
