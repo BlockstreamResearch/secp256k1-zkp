@@ -191,7 +191,6 @@ int secp256k1_generator_generate(const secp256k1_context* ctx, secp256k1_generat
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(gen != NULL);
     ARG_CHECK(key32 != NULL);
-    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     return secp256k1_generator_generate_internal(ctx, gen, key32, NULL);
 }
 
