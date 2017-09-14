@@ -12,7 +12,7 @@
 #include "ecmult_const.h"
 #include "ecmult_impl.h"
 
-#define WNAF_SIZE(bits, w) (((bits) + (w) - 1) / (w))
+#define WNAF_SIZE2(bits, w) (((bits) + (w) - 1) / (w))
 
 /* This is like `ECMULT_TABLE_GET_GE` but is constant time */
 #define ECMULT_CONST_TABLE_GET_GE(r,pre,n,w) do { \
@@ -117,7 +117,7 @@ static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w, int size, 
     wnaf[word] = u * global_sign;
 
     VERIFY_CHECK(secp256k1_scalar_is_zero(&s));
-    VERIFY_CHECK(word == WNAF_SIZE(size, w));
+    VERIFY_CHECK(word == WNAF_SIZE2(size, w));
     return skew;
 }
 
@@ -129,12 +129,12 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
     int skew_1;
 #ifdef USE_ENDOMORPHISM
     secp256k1_ge pre_a_lam[ECMULT_TABLE_SIZE(WINDOW_A)];
-    int wnaf_1[1 + WNAF_SIZE(128, WINDOW_A - 1)];
-    int wnaf_lam[1 + WNAF_SIZE(128, WINDOW_A - 1)];
+    int wnaf_1[1 + WNAF_SIZE2(128, WINDOW_A - 1)];
+    int wnaf_lam[1 + WNAF_SIZE2(128, WINDOW_A - 1)];
     int skew_lam;
     secp256k1_scalar q_1, q_lam;
 #else
-    int wnaf_1[1 + WNAF_SIZE(256, WINDOW_A - 1)];
+    int wnaf_1[1 + WNAF_SIZE2(256, WINDOW_A - 1)];
 #endif
 
     int i;
@@ -180,20 +180,20 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
     /* first loop iteration (separated out so we can directly set r, rather
      * than having it start at infinity, get doubled several times, then have
      * its new value added to it) */
-    i = wnaf_1[WNAF_SIZE(rsize, WINDOW_A - 1)];
+    i = wnaf_1[WNAF_SIZE2(rsize, WINDOW_A - 1)];
     VERIFY_CHECK(i != 0);
     ECMULT_CONST_TABLE_GET_GE(&tmpa, pre_a, i, WINDOW_A);
     secp256k1_gej_set_ge(r, &tmpa);
 #ifdef USE_ENDOMORPHISM
     if (size > 128) {
-        i = wnaf_lam[WNAF_SIZE(rsize, WINDOW_A - 1)];
+        i = wnaf_lam[WNAF_SIZE2(rsize, WINDOW_A - 1)];
         VERIFY_CHECK(i != 0);
         ECMULT_CONST_TABLE_GET_GE(&tmpa, pre_a_lam, i, WINDOW_A);
         secp256k1_gej_add_ge(r, r, &tmpa);
     }
 #endif
     /* remaining loop iterations */
-    for (i = WNAF_SIZE(rsize, WINDOW_A - 1) - 1; i >= 0; i--) {
+    for (i = WNAF_SIZE2(rsize, WINDOW_A - 1) - 1; i >= 0; i--) {
         int n;
         int j;
         for (j = 0; j < WINDOW_A - 1; ++j) {
