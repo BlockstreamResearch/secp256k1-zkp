@@ -4949,6 +4949,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/rangeproof/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_BULLETPROOF
+# include "modules/bulletproof/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_WHITELIST
 # include "modules/whitelist/tests_impl.h"
 #endif
@@ -5089,6 +5093,10 @@ int main(int argc, char **argv) {
 
 #ifdef ENABLE_MODULE_RANGEPROOF
     run_rangeproof_tests();
+#endif
+
+#ifdef ENABLE_MODULE_BULLETPROOF
+    run_bulletproof_tests();
 #endif
 
 #ifdef ENABLE_MODULE_WHITELIST
