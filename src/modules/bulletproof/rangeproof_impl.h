@@ -346,7 +346,7 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_ge
     ecmult_data.n = nbits;
     ecmult_data.sl = sl;
     ecmult_data.sr = sr;
-    secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &sj, &rho, secp256k1_bulletproof_s_ecmult_callback, (void*) &ecmult_data, ecmult_data.n * 2);
+    secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &sj, &rho, secp256k1_bulletproof_s_ecmult_callback, (void*) &ecmult_data, ecmult_data.n * 2);
 
     /* get challenges y and z */
     secp256k1_ge_set_gej(&out_pt[0], &aj);

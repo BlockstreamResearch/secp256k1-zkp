@@ -227,7 +227,7 @@ static int secp256k1_bulletproof_inner_product_verify_impl(const secp256k1_ecmul
     secp256k1_scalar_inverse_var(&ecmult_data.xcache[0], &ecmult_data.xcache[0]);
 
     /* Do the multiexp */
-    if (secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &r, &x, secp256k1_bulletproof_innerproduct_vfy_ecmult_callback, (void *) &ecmult_data, n_points) != 1) {
+    if (secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &r, &x, secp256k1_bulletproof_innerproduct_vfy_ecmult_callback, (void *) &ecmult_data, n_points) != 1) {
         return 0;
     }
     secp256k1_gej_add_ge_var(&r, &r, p, NULL);
@@ -310,7 +310,7 @@ static int secp256k1_bulletproof_inner_product_prove_impl(const secp256k1_ecmult
         return 0;
     }
 
-    secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, pj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *)&ecmult_data, ecmult_data.n * 2);
+    secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, pj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *)&ecmult_data, ecmult_data.n * 2);
 
     /* Iterate, halving vector size until it is 1 */
     for (i = 0; i < depth; i++) {
@@ -328,7 +328,7 @@ static int secp256k1_bulletproof_inner_product_prove_impl(const secp256k1_ecmult
         ecmult_data.h = &genh[0];
         secp256k1_scalar_dot_product(&tmps, &a_arr[0], &b_arr[halfwidth], halfwidth);
         secp256k1_scalar_mul(&tmps, &tmps, &ux);
-        secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &tmplj, &tmps, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, ecmult_data.n * 2);
+        secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &tmplj, &tmps, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, ecmult_data.n * 2);
         secp256k1_ge_set_gej(&lpt_arr[i], &tmplj);
         /* R */
         ecmult_data.a = &a_arr[halfwidth];
@@ -337,7 +337,7 @@ static int secp256k1_bulletproof_inner_product_prove_impl(const secp256k1_ecmult
         ecmult_data.h = &genh[halfwidth];
         secp256k1_scalar_dot_product(&tmps, &b_arr[0], &a_arr[halfwidth], halfwidth);
         secp256k1_scalar_mul(&tmps, &tmps, &ux);
-        secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &tmprj, &tmps, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, ecmult_data.n * 2);
+        secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &tmprj, &tmps, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, ecmult_data.n * 2);
         secp256k1_ge_set_gej(&rpt_arr[i], &tmprj);
 
         /* x, x^2, x^-1, x^-2 */
@@ -355,14 +355,14 @@ static int secp256k1_bulletproof_inner_product_prove_impl(const secp256k1_ecmult
             ecmult_data.b = &xinv;
             ecmult_data.g = &geng[j];
             ecmult_data.h = &geng[j + halfwidth];
-            secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &tmpj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, 2);
+            secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &tmpj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, 2);
             geng[j] = tmpj;
 
             ecmult_data.a = &xinv;
             ecmult_data.b = &x;
             ecmult_data.g = &genh[j];
             ecmult_data.h = &genh[j + halfwidth];
-            secp256k1_ecmult_multi(ecmult_ctx, scratch, error_callback, &tmpj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, 2);
+            secp256k1_ecmult_multi_var(ecmult_ctx, scratch, error_callback, &tmpj, &zero, secp256k1_bulletproof_pf_ecmult_callback, (void *) &ecmult_data, 2);
             genh[j] = tmpj;
 
             secp256k1_scalar_mul(&a_arr[j], &a_arr[j], &xinv);

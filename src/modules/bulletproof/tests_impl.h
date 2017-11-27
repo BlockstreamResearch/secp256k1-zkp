@@ -105,7 +105,7 @@ void test_bulletproof_inner_product(size_t depth) {
         ecmult_data.n = 1 << depth;
         ecmult_data.a = a_arr;
         ecmult_data.b = b_arr;
-        CHECK(secp256k1_ecmult_multi(&ctx->ecmult_ctx, scratch, &ctx->error_callback, &exp_p, &zero, test_bulletproof_ecmult_callback, (void*) &ecmult_data, 2 << depth));
+        CHECK(secp256k1_ecmult_multi_var(&ctx->ecmult_ctx, scratch, &ctx->error_callback, &exp_p, &zero, test_bulletproof_ecmult_callback, (void*) &ecmult_data, 2 << depth));
         secp256k1_gej_neg(&exp_p, &exp_p);
         secp256k1_gej_add_var(&exp_p, &exp_p, &pj, NULL);
         CHECK(secp256k1_gej_is_infinity(&exp_p));
