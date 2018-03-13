@@ -267,8 +267,6 @@ void test_rangeproof(void) {
 
 void run_rangeproof_tests(void) {
     int i;
-    secp256k1_pedersen_context_initialize(ctx);
-    secp256k1_rangeproof_context_initialize(ctx);
     for (i = 0; i < 10*count; i++) {
         test_pedersen();
     }

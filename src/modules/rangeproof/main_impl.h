@@ -11,10 +11,6 @@
 #include "modules/rangeproof/borromean_impl.h"
 #include "modules/rangeproof/rangeproof_impl.h"
 
-void secp256k1_pedersen_context_initialize(secp256k1_context* ctx) {
-    secp256k1_pedersen_context_build(&ctx->pedersen_ctx, &ctx->error_callback);
-}
-
 /* Generates a pedersen commitment: *commit = blind * G + value * G2. The commitment is 33 bytes, the blinding factor is 32 bytes.*/
 int secp256k1_pedersen_commit(const secp256k1_context* ctx, unsigned char *commit, unsigned char *blind, uint64_t value) {
     secp256k1_gej rj;
@@ -25,12 +21,11 @@ int secp256k1_pedersen_commit(const secp256k1_context* ctx, unsigned char *commi
     int ret = 0;
     ARG_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    ARG_CHECK(secp256k1_pedersen_context_is_built(&ctx->pedersen_ctx));
     ARG_CHECK(commit != NULL);
     ARG_CHECK(blind != NULL);
     secp256k1_scalar_set_b32(&sec, blind, &overflow);
     if (!overflow) {
-        secp256k1_pedersen_ecmult(&ctx->ecmult_gen_ctx, &ctx->pedersen_ctx, &rj, &sec, value);
+        secp256k1_pedersen_ecmult(&ctx->ecmult_gen_ctx, &rj, &sec, value);
         if (!secp256k1_gej_is_infinity(&rj)) {
             secp256k1_ge_set_gej(&r, &rj);
             sz = 33;
@@ -80,14 +75,13 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const unsigned
     ARG_CHECK(ctx != NULL);
     ARG_CHECK(!pcnt || (commits != NULL));
     ARG_CHECK(!ncnt || (ncommits != NULL));
-    ARG_CHECK(secp256k1_pedersen_context_is_built(&ctx->pedersen_ctx));
     secp256k1_gej_set_infinity(&accj);
     if (excess) {
         uint64_t ex;
         int neg;
         /* Take the absolute value, and negate the result if the input was negative. */
         neg = secp256k1_sign_and_abs64(&ex, excess);
-        secp256k1_pedersen_ecmult_small(&ctx->pedersen_ctx, &accj, ex);
+        secp256k1_pedersen_ecmult_small(&accj, ex);
         if (neg) {
             secp256k1_gej_neg(&accj, &accj);
         }
@@ -106,10 +100,6 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const unsigned
         secp256k1_gej_add_ge_var(&accj, &accj, &add, NULL);
     }
     return secp256k1_gej_is_infinity(&accj);
-}
-
-void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx) {
-    secp256k1_rangeproof_context_build(&ctx->rangeproof_ctx, &ctx->error_callback);
 }
 
 int secp256k1_rangeproof_info(const secp256k1_context* ctx, int *exp, int *mantissa,
@@ -137,9 +127,7 @@ int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
     ARG_CHECK(max_value != NULL);
     ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    ARG_CHECK(secp256k1_pedersen_context_is_built(&ctx->pedersen_ctx));
-    ARG_CHECK(secp256k1_rangeproof_context_is_built(&ctx->rangeproof_ctx));
-    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, &ctx->pedersen_ctx, &ctx->rangeproof_ctx,
+    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx,
      blind_out, value_out, message_out, outlen, nonce, min_value, max_value, commit, proof, plen);
 }
 
@@ -151,9 +139,7 @@ int secp256k1_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_valu
     ARG_CHECK(min_value != NULL);
     ARG_CHECK(max_value != NULL);
     ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
-    ARG_CHECK(secp256k1_pedersen_context_is_built(&ctx->pedersen_ctx));
-    ARG_CHECK(secp256k1_rangeproof_context_is_built(&ctx->rangeproof_ctx));
-    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, NULL, &ctx->pedersen_ctx, &ctx->rangeproof_ctx,
+    return secp256k1_rangeproof_verify_impl(&ctx->ecmult_ctx, NULL,
      NULL, NULL, NULL, NULL, NULL, min_value, max_value, commit, proof, plen);
 }
 
@@ -167,9 +153,7 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
     ARG_CHECK(nonce != NULL);
     ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    ARG_CHECK(secp256k1_pedersen_context_is_built(&ctx->pedersen_ctx));
-    ARG_CHECK(secp256k1_rangeproof_context_is_built(&ctx->rangeproof_ctx));
-    return secp256k1_rangeproof_sign_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, &ctx->pedersen_ctx, &ctx->rangeproof_ctx,
+    return secp256k1_rangeproof_sign_impl(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx,
      proof, plen, min_value, commit, blind, nonce, exp, min_bits, value);
 }
 
