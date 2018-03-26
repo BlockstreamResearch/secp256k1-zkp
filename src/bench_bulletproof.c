@@ -13,6 +13,7 @@
 #include "bench.h"
 
 #define MAX_PROOF_SIZE	2000
+#define CIRCUIT_DIR "src/modules/bulletproofs/bin_circuits/"
 
 typedef struct {
     secp256k1_context *ctx;
@@ -35,6 +36,13 @@ typedef struct {
     size_t n_commits;
     size_t nbits;
 } bench_bulletproof_rangeproof_t;
+
+typedef struct {
+    bench_bulletproof_t *common;
+
+    secp256k1_bulletproof_circuit **circ;
+    secp256k1_bulletproof_circuit_assignment *assn;
+} bench_bulletproof_circuit_t;
 
 static void bench_bulletproof_common_setup(bench_bulletproof_t *data) {
     size_t i;
@@ -92,6 +100,21 @@ static void bench_bulletproof_rangeproof_setup(void* arg) {
     }
 }
 
+static void bench_bulletproof_circuit_setup(void* arg) {
+    bench_bulletproof_circuit_t *data = (bench_bulletproof_circuit_t *) arg;
+    size_t i;
+
+    bench_bulletproof_common_setup (data->common);
+
+    CHECK(secp256k1_bulletproof_circuit_prove(data->common->ctx, data->common->scratch, data->common->generators, data->circ[0], data->common->proof[0], &data->common->plen, data->assn, NULL, 0, data->common->nonce, &data->common->value_gen[0], NULL, 0) == 1);
+    for (i = 1; i < data->common->n_proofs; i++) {
+        data->circ[i] = data->circ[0];
+        memcpy(data->common->proof[i], data->common->proof[0], data->common->plen);
+    }
+    CHECK(secp256k1_bulletproof_circuit_verify(data->common->ctx, data->common->scratch, data->common->generators, data->circ[0], data->common->proof[0], data->common->plen, NULL, 0, data->common->value_gen, NULL, 0) == 1);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(data->common->ctx, data->common->scratch, data->common->generators, (const secp256k1_bulletproof_circuit* const*) data->circ, (const unsigned char **) data->common->proof, data->common->n_proofs, data->common->plen, NULL, NULL, data->common->value_gen, NULL, 0) == 1);
+}
+
 static void bench_bulletproof_common_teardown(bench_bulletproof_t *data) {
     size_t i;
 
@@ -120,6 +143,11 @@ static void bench_bulletproof_rangeproof_teardown(void* arg) {
     free(data->blind);
     free(data->value);
 
+    bench_bulletproof_common_teardown(data->common);
+}
+
+static void bench_bulletproof_circuit_teardown(void* arg) {
+    bench_bulletproof_circuit_t *data = (bench_bulletproof_circuit_t *) arg;
     bench_bulletproof_common_teardown(data->common);
 }
 
@@ -162,6 +190,19 @@ static void bench_bulletproof_rangeproof_rewind_fail(void* arg) {
         CHECK(secp256k1_bulletproof_rangeproof_rewind(data->common->ctx, data->common->generators, &v, blind, data->common->proof[0], data->common->plen, 0, data->commit[0], &data->common->value_gen[0], data->common->nonce, NULL, 0) == 0);
     }
     data->common->nonce[0] ^= 1;
+}
+
+static void bench_bulletproof_circuit_prove(void* arg) {
+    bench_bulletproof_circuit_t *data = (bench_bulletproof_circuit_t *) arg;
+    CHECK(secp256k1_bulletproof_circuit_prove(data->common->ctx, data->common->scratch, data->common->generators, data->circ[0], data->common->proof[0], &data->common->plen, data->assn, NULL, 0, data->common->nonce, data->common->value_gen, NULL, 0) == 1);
+}
+
+static void bench_bulletproof_circuit_verify(void* arg) {
+    bench_bulletproof_circuit_t *data = (bench_bulletproof_circuit_t *) arg;
+    size_t i;
+    for (i = 0; i < 10; i++) {
+        CHECK(secp256k1_bulletproof_circuit_verify_multi(data->common->ctx, data->common->scratch, data->common->generators, (const secp256k1_bulletproof_circuit* const*) data->circ, (const unsigned char **) data->common->proof, data->common->n_proofs, data->common->plen, NULL, NULL, data->common->value_gen, NULL, 0) == 1);
+    }
 }
 
 static void run_rangeproof_test(bench_bulletproof_rangeproof_t *data, size_t nbits, size_t n_commits) {
@@ -209,9 +250,48 @@ static void run_rangeproof_test(bench_bulletproof_rangeproof_t *data, size_t nbi
     run_benchmark(str, bench_bulletproof_rangeproof_verify, bench_bulletproof_rangeproof_setup, bench_bulletproof_rangeproof_teardown, (void *)data, 5, data->common->iters);
 }
 
+void run_circuit_test(bench_bulletproof_circuit_t *data, const char *name) {
+    char fname[128];
+    size_t i;
+
+    data->circ = (secp256k1_bulletproof_circuit **)malloc(500 * sizeof(*data->circ));
+
+    sprintf(fname, CIRCUIT_DIR "%s.circ", name);
+    data->circ[0] = secp256k1_bulletproof_circuit_decode(data->common->ctx, fname);
+    CHECK(data->circ[0] != NULL);
+
+    for (i = 1; i < 500; i++) {
+        data->circ[i] = data->circ[0];
+    }
+
+    sprintf(fname, CIRCUIT_DIR "%s.assn", name);
+    data->assn = secp256k1_bulletproof_circuit_assignment_decode(data->common->ctx, fname);
+    CHECK(data->assn != NULL);
+
+    data->common->n_proofs = 1;
+    sprintf(fname, "bulletproof_prove_%s, ", name);
+    run_benchmark(fname, bench_bulletproof_circuit_prove, bench_bulletproof_circuit_setup, bench_bulletproof_circuit_teardown, (void *)data, 1, 1);
+
+    data->common->n_proofs = 1;
+    sprintf(fname, "bulletproof_verify_%s, %i, ", name, 1);
+    run_benchmark(fname, bench_bulletproof_circuit_verify, bench_bulletproof_circuit_setup, bench_bulletproof_circuit_teardown, (void *)data, 2, 10);
+
+    data->common->n_proofs = 2;
+    sprintf(fname, "bulletproof_verify_%s, %i, ", name, 2);
+    run_benchmark(fname, bench_bulletproof_circuit_verify, bench_bulletproof_circuit_setup, bench_bulletproof_circuit_teardown, (void *)data, 2, 10);
+
+    data->common->n_proofs = 100;
+    sprintf(fname, "bulletproof_verify_%s, %i, ", name, 100);
+    run_benchmark(fname, bench_bulletproof_circuit_verify, bench_bulletproof_circuit_setup, bench_bulletproof_circuit_teardown, (void *)data, 2, 10);
+
+    secp256k1_bulletproof_circuit_destroy(data->common->ctx, data->circ[0]);
+    secp256k1_bulletproof_circuit_assignment_destroy(data->common->ctx, data->assn);
+}
+
 int main(void) {
     bench_bulletproof_t data;
     bench_bulletproof_rangeproof_t rp_data;
+    bench_bulletproof_circuit_t c_data;
 
     data.blind_gen = secp256k1_generator_const_g;
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
@@ -219,6 +299,23 @@ int main(void) {
     data.generators = secp256k1_bulletproof_generators_create(data.ctx, &data.blind_gen, 64 * 1024);
 
     rp_data.common = &data;
+    data.generators = secp256k1_bulletproof_generators_create(data.ctx, &data.blind_gen, 64 * 1024, 1);
+
+    rp_data.common = &data;
+    c_data.common = &data;
+
+    run_circuit_test(&c_data, "pedersen-3");
+    run_circuit_test(&c_data, "pedersen-6");
+    run_circuit_test(&c_data, "pedersen-12");
+    run_circuit_test(&c_data, "pedersen-24");
+    run_circuit_test(&c_data, "pedersen-48");
+    run_circuit_test(&c_data, "pedersen-96");
+    run_circuit_test(&c_data, "pedersen-192");
+    run_circuit_test(&c_data, "pedersen-384");
+    run_circuit_test(&c_data, "pedersen-768");
+    run_circuit_test(&c_data, "pedersen-1536");
+    run_circuit_test(&c_data, "pedersen-3072");
+    run_circuit_test(&c_data, "SHA2");
 
     run_rangeproof_test(&rp_data, 8, 1);
     run_rangeproof_test(&rp_data, 16, 1);
