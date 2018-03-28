@@ -63,10 +63,11 @@ void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
  *          0: Error. The blinding factor is larger than the group order
  *             (probability for random 32 byte number < 2^-127) or results in the
  *             point at infinity. Retry with a different factor.
- *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
+ *  In:     ctx:        pointer to a context object (cannot be NULL)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
- *          gen:        additional generator 'h'
+ *          value_gen:  value generator 'h'
+ *          blind_gen:  blinding factor generator 'g'
  *  Out:    commit:     pointer to the commitment (cannot be NULL)
  *
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
@@ -76,8 +77,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
   secp256k1_pedersen_commitment *commit,
   const unsigned char *blind,
   uint64_t value,
-  const secp256k1_generator *gen
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
+  const secp256k1_generator *value_gen,
+  const secp256k1_generator *blind_gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 
 /** Computes the sum of multiple positive and negative blinding factors.
  *  Returns 1: Sum successfully computed.

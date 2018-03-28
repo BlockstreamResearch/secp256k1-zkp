@@ -296,7 +296,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     npub = 0;
     for (i = 0; i < rings; i++) {
         /*OPT: Use the precomputed gen2 basis?*/
-        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &pubs[npub], &sec[i], ((uint64_t)secidx[i] * scale) << (i*2), genp);
+        secp256k1_pedersen_ecmult(&pubs[npub], &sec[i], ((uint64_t)secidx[i] * scale) << (i*2), genp, &secp256k1_ge_const_g);
         if (secp256k1_gej_is_infinity(&pubs[npub])) {
             return 0;
         }
@@ -604,7 +604,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     npub = 0;
     secp256k1_gej_set_infinity(&accj);
     if (*min_value) {
-        secp256k1_pedersen_ecmult_small(&accj, *min_value, genp);
+        secp256k1_scalar mvs;
+        secp256k1_scalar_set_u64(&mvs, *min_value);
+        secp256k1_ecmult_const(&accj, genp, &mvs, 64);
+        secp256k1_scalar_clear(&mvs);
     }
     for(i = 0; i < rings - 1; i++) {
         secp256k1_fe fe;
@@ -662,7 +665,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
         /* Unwind apparently successful, see if the commitment can be reconstructed. */
         /* FIXME: should check vv is in the mantissa's range. */
         vv = (vv * scale) + *min_value;
-        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &accj, &blind, vv, genp);
+        secp256k1_pedersen_ecmult(&accj, &blind, vv, genp, &secp256k1_ge_const_g);
         if (secp256k1_gej_is_infinity(&accj)) {
             return 0;
         }
