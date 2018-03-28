@@ -5056,6 +5056,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/generator/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_COMMITMENT
+# include "modules/commitment/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_RANGEPROOF
 # include "modules/rangeproof/tests_impl.h"
 #endif
