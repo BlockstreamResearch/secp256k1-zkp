@@ -12,10 +12,9 @@
 #include "group.h"
 #include "rangeproof.h"
 #include "hash_impl.h"
-#include "pedersen_impl.h"
 #include "util.h"
 
-#include "modules/rangeproof/pedersen.h"
+#include "modules/commitment/pedersen_impl.h"
 #include "modules/rangeproof/borromean.h"
 
 SECP256K1_INLINE static void secp256k1_rangeproof_pub_expand(secp256k1_gej *pubs,

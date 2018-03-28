@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include "include/secp256k1_commitment.h"
 #include "include/secp256k1_rangeproof.h"
 #include "util.h"
 #include "bench.h"
@@ -28,10 +29,10 @@ static void bench_rangeproof_setup(void* arg) {
 
     data->v = 0;
     for (i = 0; i < 32; i++) data->blind[i] = i + 1;
-    CHECK(secp256k1_pedersen_commit(data->ctx, &data->commit, data->blind, data->v, secp256k1_generator_h));
+    CHECK(secp256k1_pedersen_commit(data->ctx, &data->commit, data->blind, data->v, &secp256k1_generator_const_h));
     data->len = 5134;
-    CHECK(secp256k1_rangeproof_sign(data->ctx, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v, NULL, 0, NULL, 0, secp256k1_generator_h));
-    CHECK(secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(data->ctx, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v, NULL, 0, NULL, 0, &secp256k1_generator_const_h));
+    CHECK(secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, &secp256k1_generator_const_h));
 }
 
 static void bench_rangeproof(void* arg) {
@@ -42,7 +43,7 @@ static void bench_rangeproof(void* arg) {
         int j;
         uint64_t minv;
         uint64_t maxv;
-        j = secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, secp256k1_generator_h);
+        j = secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, &secp256k1_generator_const_h);
         for (j = 0; j < 4; j++) {
             data->proof[j + 2 + 32 *((data->min_bits + 1) >> 1) - 4] = (i >> 8)&255;
         }
