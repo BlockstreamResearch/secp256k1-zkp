@@ -305,6 +305,7 @@ static secp256k1_bulletproof_circuit *secp256k1_parse_circuit(const secp256k1_co
     ret->wo = &ret->wl[2 * n_gates];
     ret->wv = &ret->wl[3 * n_gates];
     ret->c = (secp256k1_fast_scalar *)checked_malloc(&ctx->error_callback, ret->n_constraints * sizeof(*ret->c));
+    ret->entries = NULL;
 
     memset(ret->wl, 0, ret->n_gates * sizeof(*ret->wl));
     memset(ret->wr, 0, ret->n_gates * sizeof(*ret->wr));

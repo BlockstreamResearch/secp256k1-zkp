@@ -41,6 +41,8 @@ static void test_bulletproof_api(void) {
     const char circ_desc_good[] = "2,0,0,4; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 = 1;";
     const char circ_desc_bad[] = "2,0,0,4; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 x 1;";
     secp256k1_bulletproof_circuit *circ;
+    const secp256k1_bulletproof_circuit *constcirc;
+    secp256k1_bulletproof_circuit_assignment *assn;
 
     int32_t ecount = 0;
 
@@ -257,6 +259,120 @@ static void test_bulletproof_api(void) {
     CHECK(circ != NULL && ecount == 1);
     secp256k1_bulletproof_circuit_destroy(none, circ);
     secp256k1_bulletproof_circuit_destroy(none, NULL);
+
+    circ = secp256k1_bulletproof_circuit_decode(none, "src/modules/bulletproofs/bin_circuits/pedersen-3.filenotfound");
+    CHECK(circ == NULL && ecount == 1);
+    circ = secp256k1_bulletproof_circuit_decode(none, NULL);
+    CHECK(circ == NULL && ecount == 2);
+    circ = secp256k1_bulletproof_circuit_decode(none, "src/modules/bulletproofs/bin_circuits/pedersen-3.circ");
+    constcirc = circ;
+    CHECK(circ != NULL && ecount == 2);
+
+    assn = secp256k1_bulletproof_circuit_assignment_decode(none, "src/modules/bulletproofs/bin_circuits/pedersen-3.filenotfound");
+    CHECK(assn == NULL && ecount == 2);
+    assn = secp256k1_bulletproof_circuit_assignment_decode(none, NULL);
+    CHECK(assn == NULL && ecount == 3);
+    assn = secp256k1_bulletproof_circuit_assignment_decode(none, "src/modules/bulletproofs/bin_circuits/pedersen-3.assn");
+    CHECK(assn != NULL && ecount == 3);
+
+    plen = 2000;
+    CHECK(secp256k1_bulletproof_circuit_prove(none, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_bulletproof_circuit_prove(sign, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_bulletproof_circuit_prove(vrfy, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, blind, 32) == 1);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, blind, 32) == 1);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, NULL, 32) == 0);
+    CHECK(ecount == 6);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, NULL, 0) == 1);
+    CHECK(ecount == 6);
+
+    CHECK(secp256k1_bulletproof_circuit_prove(both, NULL, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, NULL, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 8);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, NULL, proof, &plen, assn, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 9);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, NULL, &plen, assn, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 10);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, NULL, assn, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 11);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, NULL, NULL, 0, blind, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 12);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, NULL, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 13);
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, NULL, NULL, 0) == 0);
+    CHECK(ecount == 14);
+
+    CHECK(secp256k1_bulletproof_circuit_prove(both, scratch, gens, circ, proof, &plen, assn, NULL, 0, blind, &value_gen, blind, 32) == 1);
+    CHECK(ecount == 14);
+
+    CHECK(secp256k1_bulletproof_circuit_verify(none, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 15);
+    CHECK(secp256k1_bulletproof_circuit_verify(sign, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 16);
+    CHECK(secp256k1_bulletproof_circuit_verify(vrfy, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 1);
+    CHECK(ecount == 16);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 1);
+    CHECK(ecount == 16);
+
+    CHECK(secp256k1_bulletproof_circuit_verify(both, NULL, gens, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 17);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, NULL, circ, proof, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 18);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, NULL, proof, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 19);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, NULL, plen, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 20);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, 0, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 20);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, plen - 1, NULL, 0, &value_gen, blind, 32) == 0);
+    CHECK(ecount == 20);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, plen, NULL, 0, NULL, blind, 32) == 0);
+    CHECK(ecount == 21);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, NULL, 32) == 0);
+    CHECK(ecount == 22);
+    CHECK(secp256k1_bulletproof_circuit_verify(both, scratch, gens, circ, proof, plen, NULL, 0, &value_gen, NULL, 0) == 0);
+    CHECK(ecount == 22);
+
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(none, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 23);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(sign, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 24);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(vrfy, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 1);
+    CHECK(ecount == 24);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 1);
+    CHECK(ecount == 24);
+
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, NULL, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 25);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, NULL, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 26);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, NULL, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 27);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, NULL, 1, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 28);
+    /* TODO should n_proofs = 0 succeed ? */
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 0, plen, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 1);
+    CHECK(ecount == 28);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, 0, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 28);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen - 1, NULL, NULL, &value_gen, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 28);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, NULL, blind_ptr, &blindlen) == 0);
+    CHECK(ecount == 29);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, NULL, &blindlen) == 0);
+    CHECK(ecount == 30);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, blind_ptr, NULL) == 0);
+    CHECK(ecount == 31);
+    CHECK(secp256k1_bulletproof_circuit_verify_multi(both, scratch, gens, &constcirc, &proof_ptr, 1, plen, NULL, NULL, &value_gen, NULL, NULL) == 0);
+    CHECK(ecount == 31);
+
+    secp256k1_bulletproof_circuit_destroy(none, circ);
+    secp256k1_bulletproof_circuit_assignment_destroy(none, assn);
+    secp256k1_bulletproof_circuit_assignment_destroy(none, NULL);
 
     secp256k1_bulletproof_generators_destroy(none, gens);
     secp256k1_bulletproof_generators_destroy(none, NULL);
