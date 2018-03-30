@@ -38,6 +38,10 @@ static void test_bulletproof_api(void) {
     unsigned char rewind_blind[32];
     size_t rewind_v;
 
+    const char circ_desc_good[] = "2,0,0,4; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 = 1;";
+    const char circ_desc_bad[] = "2,0,0,4; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 x 1;";
+    secp256k1_bulletproof_circuit *circ;
+
     int32_t ecount = 0;
 
     blind_ptr[0] = blind;
@@ -242,6 +246,17 @@ static void test_bulletproof_api(void) {
     CHECK(ecount == 8);
     CHECK(secp256k1_bulletproof_rangeproof_rewind(none, gens, &rewind_v, rewind_blind, proof, plen, min_value[0], pcommit, &value_gen, blind, NULL, 0) == 0);
     CHECK(ecount == 8);
+
+    /* Circuit stuff */
+    ecount = 0;
+    circ = secp256k1_bulletproof_circuit_parse(none, NULL);
+    CHECK(circ == NULL && ecount == 1);
+    circ = secp256k1_bulletproof_circuit_parse(none, circ_desc_bad);
+    CHECK(circ == NULL && ecount == 1);
+    circ = secp256k1_bulletproof_circuit_parse(none, circ_desc_good);
+    CHECK(circ != NULL && ecount == 1);
+    secp256k1_bulletproof_circuit_destroy(none, circ);
+    secp256k1_bulletproof_circuit_destroy(none, NULL);
 
     secp256k1_bulletproof_generators_destroy(none, gens);
     secp256k1_bulletproof_generators_destroy(none, NULL);
@@ -566,6 +581,163 @@ void test_bulletproof_rangeproof_aggregate(size_t nbits, size_t n_commits, size_
     free(blind);
 }
 
+void test_bulletproof_circuit(const secp256k1_bulletproof_generators *gens) {
+    secp256k1_bulletproof_circuit_assignment assn;
+    unsigned char proof[2000];
+    const unsigned char nonce[32] = "ive got a bit won't tell u which";
+    const unsigned char *proof_ptr = proof;
+    size_t plen = sizeof(proof);
+    secp256k1_scalar one;
+    secp256k1_scalar challenge;
+    secp256k1_scalar answer;
+    secp256k1_scalar commitv;
+    secp256k1_gej commitj;
+    secp256k1_ge commitp;
+    const secp256k1_ge *commitp_ptr;
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 10 * 1024 * 1024);
+    secp256k1_ge value_gen;
+
+    static const char pedersen_3_desc[] = "8,0,3,11; "
+        "-L3 + L0 = 0; "
+        "-R3 + L1 = 0; "
+        "O3 + 43761614841181848836640060563436836929981077120207297347288494535014373124598*L4 + 32269103446714936439983769262136990710725469005847626272964912432556195438855*L0 + 53470148824566042419568143658779164645897136432324031591105781651996231383599*L1 = -29906057699896301565330867720293440045651680527210179749355355245466869592774; "
+        "R4 - 2*L2 = -1; "
+        "O4 - O5 = -5790157963784981660191168841374597722972181776698071254377150704077242214507; "
+        "R5 - 25758063836554693196908199229504721621729641941971332474184303138909611379443*L0 + 11291233376911191389536694739885054786695386896193593308033244950342020590185*L1 + 3363265264840957283186157428945612617240329097799939360463518825408167634185*L4 = -29614996938732799633661547612064662376197030231215982466591901560589852461284; "
+        "L5 - L6 = 0; "
+        "L5 - R6 = 0; "
+        "L5 - L7 = 0; "
+        "O6 + R7 - 51516127673109386393816398459009443243459283883942664948368606277819222758886*L0 + 22582466753822382779073389479770109573390773792387186616066489900684041180370*L1 + 6726530529681914566372314857891225234480658195599878720927037650816335268370*L4 = -25204003405338345315301650454981416603166816758113955371299998112889962854657; "
+        "O6 - 25758063836554693196908199229504721621729641941971332474184303138909611379443*L0 + 11291233376911191389536694739885054786695386896193593308033244950342020590185*L1 + 3363265264840957283186157428945612617240329097799939360463518825408167634185*L4 = 10482191031782654019194619252232560984851404783271171686897023817875267510226;";
+    secp256k1_scalar pedersen_3_al[8] = {
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 1),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0x8622f5f9, 0x83a711d6, 0x35530e80, 0x298ac2f1, 0x287824b2, 0xf76f6474, 0x7f4919d6, 0x2e300537),
+        SECP256K1_SCALAR_CONST(0x1fc757ec, 0xbddbbeb9, 0xd4f41473, 0xb24f6530, 0x743a1437, 0x46963ca9, 0x0a83f80c, 0x1ee5328b),
+        SECP256K1_SCALAR_CONST(0x1fc757ec, 0xbddbbeb9, 0xd4f41473, 0xb24f6530, 0x743a1437, 0x46963ca9, 0x0a83f80c, 0x1ee5328b),
+        SECP256K1_SCALAR_CONST(0x1fc757ec, 0xbddbbeb9, 0xd4f41473, 0xb24f6530, 0x743a1437, 0x46963ca9, 0x0a83f80c, 0x1ee5328b)
+    };
+    secp256k1_scalar pedersen_3_ar[8] = {
+        SECP256K1_SCALAR_CONST(0xffffffff, 0xffffffff, 0xffffffff, 0xfffffffe, 0xbaaedce6, 0xaf48a03b, 0xbfd25e8c, 0xd0364140),
+        SECP256K1_SCALAR_CONST(0xffffffff, 0xffffffff, 0xffffffff, 0xfffffffe, 0xbaaedce6, 0xaf48a03b, 0xbfd25e8c, 0xd0364140),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 1),
+        SECP256K1_SCALAR_CONST(0x31c8eae3, 0xf71d7572, 0x260f2848, 0xe9f7209d, 0x7366b59e, 0x073e490d, 0x279d8c48, 0x656e329f),
+        SECP256K1_SCALAR_CONST(0x1fc757ec, 0xbddbbeb9, 0xd4f41473, 0xb24f6530, 0x743a1437, 0x46963ca9, 0x0a83f80c, 0x1ee5328b),
+        SECP256K1_SCALAR_CONST(0x245cbdd4, 0xef485258, 0xba62e0d9, 0x26e672d2, 0x83d1988a, 0x3c3a1e2f, 0x6639ec10, 0x39c6a2b0)
+    };
+    secp256k1_scalar pedersen_3_ao[8] = {
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0),
+        SECP256K1_SCALAR_CONST(0x8622f5f9, 0x83a711d6, 0x35530e80, 0x298ac2f1, 0x287824b2, 0xf76f6474, 0x7f4919d6, 0x2e300537),
+        SECP256K1_SCALAR_CONST(0x92f012f8, 0xd76c6bd9, 0x7cdaa7c4, 0x6a848512, 0xed249960, 0xc58efb11, 0x48945d26, 0x186dada2),
+        SECP256K1_SCALAR_CONST(0x8a6f1f26, 0x6b9c02e6, 0x8cb97c20, 0xd04aab71, 0xf4024826, 0xeb84f19f, 0xa13641ee, 0xe3f3db55),
+        SECP256K1_SCALAR_CONST(0xc4e18e86, 0x9b53aabc, 0x22891520, 0x299684a8, 0x75ad4a2e, 0xc4e1e6af, 0x2556146f, 0xb25f219e)
+    };
+
+    const char inv_17_19_circ[] = "2,1,0,5; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 = 1; V0 - L0 = 100;";
+    secp256k1_bulletproof_circuit *simple = secp256k1_parse_circuit(ctx, inv_17_19_circ);
+    secp256k1_bulletproof_circuit *pedersen_3 = secp256k1_parse_circuit(ctx, pedersen_3_desc);
+
+    CHECK(simple != NULL);
+    CHECK(pedersen_3 != NULL);
+
+    CHECK(secp256k1_scratch_allocate_frame (scratch, 3072 * sizeof(secp256k1_scalar), 3));
+    assn.al = secp256k1_scratch_alloc(scratch, 1024 * sizeof(*assn.al));
+    assn.ar = secp256k1_scratch_alloc(scratch, 1024 * sizeof(*assn.al));
+    assn.ao = secp256k1_scratch_alloc(scratch, 1024 * sizeof(*assn.al));
+
+    CHECK (simple != NULL);
+
+    secp256k1_scalar_set_int(&challenge, 17);
+    secp256k1_scalar_inverse(&answer, &challenge);
+    secp256k1_scalar_set_int(&one, 1);
+
+    /* Try to prove with input 0, 1, 0 */
+    assn.al[0] = assn.al[1] = challenge;
+    assn.ar[0] = assn.ar[1] = answer;
+    assn.ao[0] = assn.ao[1] = one;
+
+    secp256k1_scalar_set_int(&commitv, 117);
+    secp256k1_scalar_set_int(&challenge, 19);
+    secp256k1_scalar_inverse(&answer, &challenge);
+    assn.al[1] = challenge;
+    assn.ar[1] = answer;
+    assn.v = &commitv;
+    assn.n_gates = 2;
+    assn.n_commits = 1;
+
+    /* Use one as the blinding factor */
+    secp256k1_generator_load(&value_gen, &secp256k1_generator_const_g);
+    secp256k1_pedersen_ecmult(&commitj, &one, 117, &value_gen, &gens->blinding_gen[0]);
+    secp256k1_ge_set_gej(&commitp, &commitj);
+    commitp_ptr = &commitp;
+
+    CHECK(secp256k1_bulletproof_relation66_prove_impl(
+        &ctx->ecmult_ctx,
+        scratch,
+        proof, &plen,
+        &assn,
+        &commitp, &one, 1,
+        &value_gen,
+        simple,
+        gens,
+        nonce,
+        NULL, 0
+    ));
+
+    CHECK(secp256k1_bulletproof_relation66_verify_impl(
+        &ctx->ecmult_ctx,
+        scratch,
+        &proof_ptr, 1, plen,
+        &commitp_ptr, &assn.n_commits,
+        &value_gen,
+        (const secp256k1_bulletproof_circuit* const*) &simple,
+        gens,
+        NULL, 0
+    ));
+
+    plen = 2000;
+    assn.al = pedersen_3_al;
+    assn.ar = pedersen_3_ar;
+    assn.ao = pedersen_3_ao;
+    assn.n_gates = pedersen_3->n_gates;
+    assn.n_commits = 0;
+    CHECK(secp256k1_bulletproof_relation66_prove_impl(
+        &ctx->ecmult_ctx,
+        scratch,
+        proof, &plen,
+        &assn,
+        NULL, NULL, 0,
+        &value_gen,
+        pedersen_3,
+        gens,
+        nonce,
+        NULL, 0
+    ));
+
+    CHECK(secp256k1_bulletproof_relation66_verify_impl(
+        &ctx->ecmult_ctx,
+        scratch,
+        &proof_ptr, 1, plen,
+        NULL, NULL,
+        &value_gen,
+        (const secp256k1_bulletproof_circuit* const*) &pedersen_3,
+        gens,
+        NULL, 0
+    ));
+
+    secp256k1_bulletproof_circuit_destroy(ctx, simple);
+    secp256k1_bulletproof_circuit_destroy(ctx, pedersen_3);
+    secp256k1_scratch_deallocate_frame(scratch);
+    secp256k1_scratch_destroy(scratch);
+}
+
 void run_bulletproofs_tests(void) {
     size_t i;
 
@@ -600,6 +772,8 @@ void run_bulletproofs_tests(void) {
     test_bulletproof_rangeproof_aggregate(64, 1, 675, gens);
     test_bulletproof_rangeproof_aggregate(8, 2, 546, gens);
     test_bulletproof_rangeproof_aggregate(8, 4, 610, gens);
+
+    test_bulletproof_circuit(gens);
 
     secp256k1_bulletproof_generators_destroy(ctx, gens);
 }
