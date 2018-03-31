@@ -759,8 +759,8 @@ void test_bulletproof_circuit(const secp256k1_bulletproof_generators *gens) {
     const char inv_17_19_circ[] = "2,1,0,5; L0 = 17; 2*L1 - L0 = 21; O0 = 1; O1 = 1; V0 - L0 = 100;";
     secp256k1_bulletproof_circuit *simple = secp256k1_parse_circuit(ctx, inv_17_19_circ);
     secp256k1_bulletproof_circuit *pedersen_3 = secp256k1_parse_circuit(ctx, pedersen_3_desc);
-    secp256k1_bulletproof_circuit *pedersen_3_bin = secp256k1_bulletproof_circuit_decode(ctx, "src/modules/bulletproofs/bin_circuits/pedersen-3.circ");
-    secp256k1_bulletproof_circuit_assignment *pedersen_3_assn = secp256k1_bulletproof_circuit_assignment_decode(ctx, "src/modules/bulletproofs/bin_circuits/pedersen-3.assn");
+    secp256k1_bulletproof_circuit *pedersen_3_bin = secp256k1_bulletproof_circuit_decode(ctx, "src/modules/bulletproofs/bin_circuits/pedersen-192-preimage.circ");
+    secp256k1_bulletproof_circuit_assignment *pedersen_3_assn = secp256k1_bulletproof_circuit_assignment_decode(ctx, "src/modules/bulletproofs/bin_circuits/pedersen-192-preimage.assn");
 
     CHECK(simple != NULL);
     CHECK(pedersen_3 != NULL);
@@ -851,13 +851,16 @@ void test_bulletproof_circuit(const secp256k1_bulletproof_generators *gens) {
         NULL, 0
     ));
 
+    secp256k1_pedersen_ecmult_scalar(&commitj, &one, &pedersen_3_assn->v[0], &value_gen, &gens->blinding_gen[0]);
+    secp256k1_ge_set_gej(&commitp, &commitj);
+    commitp_ptr = &commitp;
     plen = 2000;
     CHECK(secp256k1_bulletproof_relation66_prove_impl(
         &ctx->ecmult_ctx,
         scratch,
         proof, &plen,
         pedersen_3_assn,
-        NULL, NULL, 0,
+        &commitp, &one, 1,
         &value_gen,
         pedersen_3_bin,
         gens,
@@ -869,7 +872,7 @@ void test_bulletproof_circuit(const secp256k1_bulletproof_generators *gens) {
         &ctx->ecmult_ctx,
         scratch,
         &proof_ptr, 1, plen,
-        NULL, NULL,
+        &commitp_ptr, &pedersen_3_bin->n_commits,
         &value_gen,
         (const secp256k1_bulletproof_circuit* const*) &pedersen_3_bin,
         gens,
