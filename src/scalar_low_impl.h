@@ -123,4 +123,9 @@ static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const se
     *r = (*r & mask0) | (*a & mask1);
 }
 
+SECP256K1_INLINE static void secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t n) {
+    *r1 = (seed[0] + n) % EXHAUSTIVE_TEST_ORDER;
+    *r2 = (seed[1] + n) % EXHAUSTIVE_TEST_ORDER;
+}
+
 #endif /* SECP256K1_SCALAR_REPR_IMPL_H */
