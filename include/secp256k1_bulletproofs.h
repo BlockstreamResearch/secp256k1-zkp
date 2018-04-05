@@ -103,6 +103,36 @@ SECP256K1_API int secp256k1_bulletproof_rangeproof_verify_multi(
     size_t *extra_commit_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(8);
 
+/** Extracts the value and blinding factor from a single-commit rangeproof given a secret nonce
+ *  Returns: 1: value and blinding factor were extracted and matched the input commit
+ *           0: one of the above was not true, extraction failed
+ *  Args:       ctx: pointer to a context object (cannot be NULL)
+ *             gens: generator set used to make original proof (cannot be NULL)
+ *  Out:      value: pointer to value that will be extracted
+ *            blind: pointer to 32-byte array for blinding factor to be extracted
+ *  In:       proof: byte-serialized rangeproof (cannot be NULL)
+ *             plen: length of every individual proof
+ *        min_value: minimum value that the proof ranges over
+ *           commit: pedersen commitment that the rangeproof is over (cannot be NULL)
+ *        value_gen: generator multiplied by value in pedersen commitments (cannot be NULL)
+ *            nonce: random 32-byte seed used to derive blinding factors (cannot be NULL)
+ *     extra_commit: additonal data committed to by the rangeproof
+ * extra_commit_len: length of additional data
+ */
+SECP256K1_API int secp256k1_bulletproof_rangeproof_rewind(
+    const secp256k1_context* ctx,
+    const secp256k1_bulletproof_generators* gens,
+    uint64_t* value,
+    unsigned char* blind,
+    const unsigned char* proof,
+    size_t plen,
+    uint64_t min_value,
+    const secp256k1_pedersen_commitment* commit,
+    const secp256k1_generator* value_gen,
+    const unsigned char* nonce,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9);
 
 /** Produces an aggregate Bulletproof rangeproof for a set of Pedersen commitments
  *  Returns: 1: rangeproof was successfully created

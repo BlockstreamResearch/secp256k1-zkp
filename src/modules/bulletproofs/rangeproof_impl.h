@@ -490,6 +490,13 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_co
 
     secp256k1_scalar_chacha20(&alpha, &rho, nonce, 0);
     secp256k1_scalar_chacha20(&tau1, &tau2, nonce, 1);
+    /* Encrypt value into alpha, so it will be recoverable from -mu by someone who knows `nonce` */
+    if (n_commits == 1) {
+        secp256k1_scalar vals;
+        secp256k1_scalar_set_u64(&vals, value[0]);
+        secp256k1_scalar_negate(&vals, &vals); /* Negate so it'll be positive in -mu */
+        secp256k1_scalar_add(&alpha, &alpha, &vals);
+    }
 
     /* Compute A and S */
     secp256k1_ecmult_const(&aj, &gens->blinding_gen[0], &alpha, 256);
@@ -647,4 +654,130 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_co
 
     return 1;
 }
+
+static int secp256k1_bulletproof_rangeproof_rewind_impl(uint64_t *value, secp256k1_scalar *blind, const unsigned char *proof, const size_t plen, uint64_t min_value, const secp256k1_pedersen_commitment *pcommit, const secp256k1_generator *value_gen, const secp256k1_ge *blind_gen, const unsigned char *nonce, const unsigned char *extra_commit, size_t extra_commit_len) {
+    secp256k1_sha256 sha256;
+    static const unsigned char zero24[24] = { 0 };
+    unsigned char commit[32] = { 0 };
+    unsigned char lrparity;
+    secp256k1_scalar taux, mu;
+    secp256k1_scalar alpha, rho, tau1, tau2;
+    secp256k1_scalar x, z;
+    secp256k1_ge commitp, value_genp;
+    secp256k1_gej rewind_commitj;
+    int overflow;
+
+    if (plen < 64 + 128 + 1 || plen > SECP256K1_BULLETPROOF_MAX_PROOF) {
+        return 0;
+    }
+
+    /* Extract data from beginning of proof */
+    secp256k1_scalar_set_b32(&taux, &proof[0], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&taux)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&mu, &proof[32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&mu)) {
+        return 0;
+    }
+
+    secp256k1_scalar_chacha20(&alpha, &rho, nonce, 0);
+    secp256k1_scalar_chacha20(&tau1, &tau2, nonce, 1);
+
+    if (min_value > 0) {
+        unsigned char vbuf[8];
+        vbuf[0] = min_value;
+        vbuf[1] = min_value >> 8;
+        vbuf[2] = min_value >> 16;
+        vbuf[3] = min_value >> 24;
+        vbuf[4] = min_value >> 32;
+        vbuf[5] = min_value >> 40;
+        vbuf[6] = min_value >> 48;
+        vbuf[7] = min_value >> 56;
+        secp256k1_sha256_initialize(&sha256);
+        secp256k1_sha256_write(&sha256, commit, 32);
+        secp256k1_sha256_write(&sha256, vbuf, 8);
+        secp256k1_sha256_finalize(&sha256, commit);
+    }
+
+    secp256k1_pedersen_commitment_load(&commitp, pcommit);
+    secp256k1_generator_load(&value_genp, value_gen);
+    secp256k1_bulletproof_update_commit(commit, &commitp, &value_genp);
+
+    if (extra_commit != NULL) {
+        secp256k1_sha256_initialize(&sha256);
+        secp256k1_sha256_write(&sha256, commit, 32);
+        secp256k1_sha256_write(&sha256, extra_commit, extra_commit_len);
+        secp256k1_sha256_finalize(&sha256, commit);
+    }
+
+    /* Extract A and S to compute y and z */
+    lrparity = 2 * !!(proof[64] & 1) + !!(proof[64] & 2);
+    /* y */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &lrparity, 1);
+    secp256k1_sha256_write(&sha256, &proof[65], 64);
+    secp256k1_sha256_finalize(&sha256, commit);
+
+    /* z */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &lrparity, 1);
+    secp256k1_sha256_write(&sha256, &proof[65], 64);
+    secp256k1_sha256_finalize(&sha256, commit);
+
+    secp256k1_scalar_set_b32(&z, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        return 0;
+    }
+
+    /* x */
+    lrparity = 2 * !!(proof[64] & 4) + !!(proof[64] & 8);
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &lrparity, 1);
+    secp256k1_sha256_write(&sha256, &proof[129], 64);
+    secp256k1_sha256_finalize(&sha256, commit);
+
+    secp256k1_scalar_set_b32(&x, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&x)) {
+        return 0;
+    }
+
+    /* Compute candidate mu and add to (negated) mu from proof to get value */
+    secp256k1_scalar_mul(&rho, &rho, &x);
+    secp256k1_scalar_add(&mu, &mu, &rho);
+    secp256k1_scalar_add(&mu, &mu, &alpha);
+
+    secp256k1_scalar_get_b32(commit, &mu);
+    if (memcmp(commit, zero24, 24) != 0) {
+        return 0;
+    }
+    *value = commit[31] + ((uint64_t) commit[30] << 8) +
+             ((uint64_t) commit[29] << 16) + ((uint64_t) commit[28] << 24) +
+             ((uint64_t) commit[27] << 32) + ((uint64_t) commit[26] << 40) +
+             ((uint64_t) commit[25] << 48) + ((uint64_t) commit[24] << 56);
+
+    /* Derive blinding factor */
+    secp256k1_scalar_mul(&tau1, &tau1, &x);
+    secp256k1_scalar_mul(&tau2, &tau2, &x);
+    secp256k1_scalar_mul(&tau2, &tau2, &x);
+
+    secp256k1_scalar_add(&taux, &taux, &tau1);
+    secp256k1_scalar_add(&taux, &taux, &tau2);
+
+    secp256k1_scalar_sqr(&z, &z);
+    secp256k1_scalar_inverse_var(&z, &z);
+    secp256k1_scalar_mul(blind, &taux, &z);
+    secp256k1_scalar_negate(blind, blind);
+
+    /* Check blinding factor */
+    secp256k1_pedersen_ecmult(&rewind_commitj, blind, *value, &value_genp, blind_gen);
+    secp256k1_gej_neg(&rewind_commitj, &rewind_commitj);
+    secp256k1_gej_add_ge_var(&rewind_commitj, &rewind_commitj, &commitp, NULL);
+
+    return secp256k1_gej_is_infinity(&rewind_commitj);
+}
+
 #endif
