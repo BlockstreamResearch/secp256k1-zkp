@@ -144,7 +144,11 @@ SECP256K1_API size_t secp256k1_surjectionproof_serialized_size(
  *          n_input_tags: the number of entries in the fixed_input_tags array
  *      n_input_tags_to_use: the number of inputs to select randomly to put in the anonymity set
  *      fixed_output_tag: fixed output tag
- *      max_n_iterations: the maximum number of iterations to do before giving up
+ *      max_n_iterations: the maximum number of iterations to do before giving up. Because the
+ *                        maximum number of inputs (SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS) is
+ *                        limited to 256 the probability of giving up is smaller than
+ *                        (255/256)^(n_input_tags_to_use*max_n_iterations).
+ *
  *         random_seed32: a random seed to be used for input selection
  * Out:            proof: The proof whose bitvector will be initialized. In case of failure,
  *                        the state of the proof is undefined.
