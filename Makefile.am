@@ -149,6 +149,10 @@ if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
 endif
 
+if ENABLE_MODULE_SCHNORRSIG
+include src/modules/schnorrsig/Makefile.am.include
+endif
+
 if ENABLE_MODULE_RECOVERY
 include src/modules/recovery/Makefile.am.include
 endif
