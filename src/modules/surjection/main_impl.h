@@ -56,7 +56,7 @@ int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surj
     }
 
     signature_len = 32 * (1 + secp256k1_count_bits_set(&input[2], (n_inputs + 7) / 8));
-    if (inputlen < 2 + (n_inputs + 7) / 8 + signature_len) {
+    if (inputlen != 2 + (n_inputs + 7) / 8 + signature_len) {
         return 0;
     }
     proof->n_inputs = n_inputs;
