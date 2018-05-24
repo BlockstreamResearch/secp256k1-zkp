@@ -385,7 +385,7 @@ static void test_rangeproof(void) {
     const uint64_t testvs[11] = {0, 1, 5, 11, 65535, 65537, INT32_MAX, UINT32_MAX, INT64_MAX - 1, INT64_MAX, UINT64_MAX};
     secp256k1_pedersen_commitment commit;
     secp256k1_pedersen_commitment commit2;
-    unsigned char proof[5134];
+    unsigned char proof[5134 + 1]; /* One additional byte to test if trailing bytes are rejected */
     unsigned char blind[32];
     unsigned char blindout[32];
     unsigned char message[4096];
@@ -485,6 +485,9 @@ static void test_rangeproof(void) {
         len = 5134;
         CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, 0, 3, v, NULL, 0, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
+        /* Test if trailing bytes are rejected. */
+        proof[len] = v;
+        CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len + 1, NULL, 0, secp256k1_generator_h));
         for (i = 0; i < len*8; i++) {
             proof[i >> 3] ^= 1 << (i & 7);
             CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
