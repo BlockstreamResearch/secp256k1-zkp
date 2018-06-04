@@ -58,7 +58,7 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
 /** Initialize a context for usage with Pedersen commitments. */
 void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
 
-/** Generate a pedersen commitment.
+/** Generate a Pedersen commitment.
  *  Returns 1: Commitment successfully created.
  *          0: Error. The blinding factor is larger than the group order
  *             (probability for random 32 byte number < 2^-127) or results in the
@@ -89,7 +89,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
  *  In:     ctx:        pointer to a context object (cannot be NULL)
  *          blinds:     pointer to pointers to 32-byte character arrays for blinding factors. (cannot be NULL)
  *          n:          number of factors pointed to by blinds.
- *          npositive:       how many of the initial factors should be treated with a positive sign.
+ *          npositive:  how many of the input factors should be treated with a positive sign.
  *  Out:    blind_out:  pointer to a 32-byte array for the sum (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
@@ -100,28 +100,28 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
   size_t npositive
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Verify a tally of pedersen commitments
+/** Verify a tally of Pedersen commitments
  * Returns 1: commitments successfully sum to zero.
  *         0: Commitments do not sum to zero or other error.
- * In:     ctx:        pointer to a context object (cannot be NULL)
- *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
- *         pcnt:       number of commitments pointed to by commits.
- *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
- *         ncnt:       number of commitments pointed to by ncommits.
+ * In:     ctx:    pointer to a context object (cannot be NULL)
+ *         pos:    pointer to array of pointers to the commitments. (cannot be NULL if `n_pos` is non-zero)
+ *         n_pos:  number of commitments pointed to by `pos`.
+ *         neg:    pointer to array of pointers to the negative commitments. (cannot be NULL if `n_neg` is non-zero)
+ *         n_neg:  number of commitments pointed to by `neg`.
  *
- * This computes sum(commit[0..pcnt)) - sum(ncommit[0..ncnt)) == 0.
+ * This computes sum(pos[0..n_pos)) - sum(neg[0..n_neg)) == 0.
  *
- * A pedersen commitment is xG + vA where G and A are generators for the secp256k1 group and x is a blinding factor,
+ * A Pedersen commitment is xG + vA where G and A are generators for the secp256k1 group and x is a blinding factor,
  * while v is the committed value. For a collection of commitments to sum to zero, for each distinct generator
  * A all blinding factors and all values must sum to zero.
  *
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
   const secp256k1_context* ctx,
-  const secp256k1_pedersen_commitment * const* commits,
-  size_t pcnt,
-  const secp256k1_pedersen_commitment * const* ncommits,
-  size_t ncnt
+  const secp256k1_pedersen_commitment * const* pos,
+  size_t n_pos,
+  const secp256k1_pedersen_commitment * const* neg,
+  size_t n_neg
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
 
 /** Sets the final Pedersen blinding factor correctly when the generators themselves
