@@ -16,7 +16,7 @@ typedef struct secp256k1_bulletproof_generators secp256k1_bulletproof_generators
 #define SECP256K1_BULLETPROOF_MAX_DEPTH 31
 
 /* Size of a hypothetical 31-depth rangeproof, in bytes */
-#define SECP256K1_BULLETPROOF_MAX_PROOF (160 + 66*32 + 7)
+#define SECP256K1_BULLETPROOF_MAX_PROOF (160 + 36*32 + 7)
 
 /** Allocates and initializes a list of NUMS generators, along with precomputation data
  *  Returns a list of generators, or NULL if allocation failed.
