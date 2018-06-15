@@ -592,7 +592,6 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_co
     secp256k1_scalar_add(&t2, &t2, &t1);
 
     /* Compute Ti = t_i*A + tau_i*G for i = 1,2 */
-    /* TODO surely we can improve this */
     secp256k1_ecmult_const(&tmpj, value_gen, &t1, 256);
     secp256k1_ge_set_gej(&out_pt[2], &tmpj);
     secp256k1_ecmult_const(&tmpj, &gens->blinding_gen[0], &tau1, 256);
@@ -636,7 +635,6 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_co
     secp256k1_bulletproof_serialize_points(&proof[64], out_pt, 4);
 
     /* Mix this into the hash so the input to the inner product proof is fixed */
-    /* TODO is this necessary? revisit */
     secp256k1_sha256_initialize(&sha256);
     secp256k1_sha256_write(&sha256, commit, 32);
     secp256k1_sha256_write(&sha256, proof, 64);

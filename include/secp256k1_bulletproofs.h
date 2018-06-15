@@ -55,7 +55,7 @@ SECP256K1_API void secp256k1_bulletproof_generators_destroy(
  *     extra_commit: additonal data committed to by the rangeproof (may be NULL if `extra_commit_len` is 0)
  *     extra_commit_len: length of additional data
  */
-SECP256K1_API int secp256k1_bulletproof_rangeproof_verify(
+SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_verify(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const secp256k1_bulletproof_generators *gens,
@@ -87,7 +87,7 @@ SECP256K1_API int secp256k1_bulletproof_rangeproof_verify(
  *     extra_commit: additonal data committed to by the rangeproof (may be NULL if `extra_commit_len` is 0)
  *     extra_commit_len: array of lengths of additional data
  */
-SECP256K1_API int secp256k1_bulletproof_rangeproof_verify_multi(
+SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_verify_multi(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const secp256k1_bulletproof_generators *gens,
@@ -119,7 +119,7 @@ SECP256K1_API int secp256k1_bulletproof_rangeproof_verify_multi(
  *     extra_commit: additonal data committed to by the rangeproof
  * extra_commit_len: length of additional data
  */
-SECP256K1_API int secp256k1_bulletproof_rangeproof_rewind(
+SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_rewind(
     const secp256k1_context* ctx,
     const secp256k1_bulletproof_generators* gens,
     uint64_t* value,
@@ -152,7 +152,7 @@ SECP256K1_API int secp256k1_bulletproof_rangeproof_rewind(
  *     extra_commit: additonal data committed to by the rangeproof
  * extra_commit_len: length of additional data
  */
-SECP256K1_API int secp256k1_bulletproof_rangeproof_prove(
+SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_prove(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const secp256k1_bulletproof_generators *gens,

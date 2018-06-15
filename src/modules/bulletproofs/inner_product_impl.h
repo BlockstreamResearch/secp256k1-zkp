@@ -13,7 +13,59 @@
 #include "modules/bulletproofs/main_impl.h"
 #include "modules/bulletproofs/util.h"
 
+/* Number of scalars that should remain at the end of a recursive proof. The paper
+ * uses 2, by reducing the scalars as far as possible. We stop one recursive step
+ * early, trading two points (L, R) for two scalars, which reduces verification
+ * and prover cost.
+ *
+ * For the most part, all comments assume this value is at 4.
+ */
 #define IP_AB_SCALARS	4
+
+/* Bulletproof inner products consist of the four scalars and `2[log2(n) - 1]` points
+ * `a_1`, `a_2`, `b_1`, `b_2`, `L_i` and `R_i`, where `i` ranges from 0 to `log2(n)-1`.
+ *
+ * The prover takes as input a point `P` and scalar `c`. It proves that it knows
+ * scalars `a_i`, `b_i` for `i` ranging from 1 to `n`, such that
+ *     `P = sum_i [a_i G_i + b_i H_i]` and `<{a_i}, {b_i}> = c`,
+ * where `G_i` and `H_i` are standard NUMS generators.
+ *
+ * Verification of the proof comes down to a single multiexponentiation of the form
+ *
+ *   P + (c - a_1*b_1 - a_2*b_2)*x*G
+ *     - sum_{i=1}^n [s'_i*G_i + s_i*H_i]
+ *     + sum_{i=1}^log2(n) [x_i^-2 L_i + x_i^2 R_i]
+ *
+ * which will equal infinity if the inner product proof is correct. Here
+ *   - `G` is the standard secp generator
+ *   - `x` is a hash of `commit` and is used to rerandomize `c`. See Protocol 2 vs Protocol 1 in the paper.
+ *   - `x_i = H(x_{i-1} || L_i || R_i)`, where `x_{-1}` is passed through the `commit` variable and
+ *     must be a commitment to `P` and `c`.
+ *   - `s_i` and `s'_i` are computed as follows.
+ *
+ * Letting `i_j` be defined as 1 if `i & 2^j == 1`, and -1 otherwise,
+ *   - For `i` from       `1` to `n/2`, `s'_i = a_1 * prod_{j=1}^log2(n) x_j^i_j`
+ *   - For `i` from `n/2 + 1` to   `n`, `s'_i = a_2 * prod_{j=1}^log2(n) x_j^i_j`
+ *   - For `i` from       `1` to `n/2`, `s_i = b_1 * prod_{j=1}^log2(n) x_j^-i_j`
+ *   - For `i` from `n/2 + 1` to   `n`, `s_i = b_2 * prod_{j=1}^log2(n) x_j^-i_j`
+ *
+ * Observe that these can be computed iteratively by labelling the coefficients `s_i` for `i`
+ * from `0` to `2n-1` rather than 1-indexing and distinguishing between `s_i'`s and `s_i`s:
+ *
+ * Start with `s_0 = a_1 * prod_{j=1}^log2(n) x_j^-1`, then for later `s_i`s,
+ *   - For `i` from `1` to `n/2 - 1`, multiply some earlier `s'_j` by some `x_k^2`
+ *   - For `i = n/2`, multiply `s_{i-1} by `a_2/a_1`.
+ *   - For `i` from `n/2 + 1` to `n - 1`, multiply some earlier `s'_j` by some `x_k^2`
+ *   - For `i = n`, multiply `s'_{i-1}` by `b_1/a_2` to get `s_i`.
+ *   - For `i` from `n + 1` to `3n/2 - 1`, multiply some earlier `s_j` by some `x_k^-2`
+ *   - For `i = 3n/2`, multiply `s_{i-1}` by `b_2/b_1`.
+ *   - For `i` from `3n/2 + 1` to `2n - 1`, multiply some earlier `s_j` by some `x_k^-2`
+ * where of course, the indices `j` and `k` must be chosen carefully.
+ *
+ * The bulk of `secp256k1_bulletproof_innerproduct_vfy_ecmult_callback` involves computing
+ * these indices, given `a_2/a_1`, `b_1/a_1`, `b_2/b_1`, and the `x_k^2`s as input. It
+ * computes `x_k^-2` as a side-effect of its other computation.
+ */
 
 typedef int (secp256k1_bulletproof_vfy_callback)(secp256k1_scalar *sc, secp256k1_ge *pt, secp256k1_scalar *randomizer, size_t idx, void *data);
 
@@ -64,73 +116,38 @@ size_t secp256k1_bulletproof_innerproduct_proof_length(size_t n) {
     }
 }
 
-/* Bulletproof rangeproof verification comes down to a single multiexponentiation of the form
- *
- *   P + (c-a*b)*x*G - sum_{i=1}^n [a*s'_i*G_i + b*s_i*H_i] + sum_{i=1}^log2(n) [x_i^-2 L_i + x_i^2 R_i
- *
- * which will equal infinity if the rangeproof is correct. Here
- *   - `G_i` and `H_i` are standard NUMS generators. `G` is the standard secp256k1 generator.
- *   - `P` and `c` are inputs to the proof, which claims that there exist `a_i` and `b_i`, `i` ranging
- *     from 0 to `n-1`, such that `P = sum_i [a_i G_i + b_i H_i]` and that `<{a_i}, {b_i}> = c`.
- *   - `a`, `b`, `L_i` and `R_i`are auxillary components of the proof, where `i` ranges from 0 to `log2(n)-1`.
- *   - `x_i = H(x_{i-1} || L_i || R_i)`, where `x_{-1}` is passed through the `commit` variable and
- *     must be a commitment to `P` and `c`.
- *   - `x` is a hash of `commit` and is used to rerandomize `c`. See Protocol 2 vs Protocol 1 in the paper.
- *   - `s_i` and `s'_i` are computed as follows.
- *
- * For each `i` between 0 and `n-1` inclusive, let `b_{ij}` be -1 (1) if the `j`th bit of `i` is zero (one).
- * Here `j` ranges from 0 to `log2(n)-1`. Then for each such `i` we define
- *   - `s_i = prod_j x_j^{b_{ij}}`
- *   - `s'_i = 1/s_i`
- *
- * Alternately we can define `s_i` and `s'_i` recursively as follows:
- *   - `s_0 = s`_{n - 1} = 1 / prod_j x_j`
- *   - `s_i = s'_{n - 1 - i} = s_{i - 2^j} * x_j^2` where `j = i & (i - 1)` is `i` with its least significant 1 set to 0.
- *
- * Our ecmult_multi function takes `(c - a*b)*x` directly and multiplies this by `G`. For every other
+/* Our ecmult_multi function takes `(c - a*b)*x` directly and multiplies this by `G`. For every other
  * (scalar, point) pair it calls the following callback function, which takes an index and outputs a
  * pair. The function therefore has three regimes:
  *
- * For the first `2n` invocations, it alternately returns `(s'_{n - i}, G_{n - i})` and `(s_i, H_i)`,
- * where `i` is `floor(idx / 2)`. The reason for the funny indexing is that we use the above recursive
- * definition of `s_i` and `s'_i` which produces each element with only a single scalar multiplication,
- * but in this mixed order. (We start with an array of `x_j^2` for each `x_j`.)
- *
- * As a side-effect, whenever `n - i = 2^j` for some `j`, `s_i = x_j^{-1} * prod_{j' != j} x_{j'}`,
- * so `x_j^{-2} = s_i*s_0`. Therefore we compute an array of inverse squares during this computation,
- * using only one multiplication per. We will need it in the following step.
- *
- * For the next `2*log2(n)` invocations it alternately returns `(x_i^-2, L_i)` and `(x_i^2, R_i)`
- * where `i` is `idx - 2*n`.
+ * For the first `n` invocations, it returns `(s'_i, G_i)` for `i` from 1 to `n`.
+ * For the next `n` invocations, it returns `(s_i, H_i)` for `i` from 1 to `n`.
+ * For the next `2*log2(n)` invocations it returns `(x_i^-2, L_i)` and `(x_i^2, R_i)`,
+ *   alternating between the two choices, for `i` from 1 to `log2(n)`.
  *
  * For the remaining invocations it passes through to another callback, `rangeproof_cb_data` which
  * computes `P`. The reason for this is that in practice `P` is usually defined by another multiexp
  * rather than being a known point, and it is more efficient to compute one exponentiation.
  *
+ * Inline we refer to the first `2n` coefficients as `s_i` for `i` from 0 to `2n-1`, since that
+ * is the more convenient indexing. In particular we describe (a) how the indices `j` and `k`,
+ * from the big comment block above, are chosen; and (b) when/how each `x_k^-2` is computed.
  */
-
-/* For the G and H generators, we choose the ith generator with a scalar computed from the
- * L/R hashes as follows: prod_{j=1}^m x_j^{e_j}, where each exponent e_j is either -1 or 1.
- * The choice directly maps to the bits of i: for the G generators, a 0 bit means e_j is 1
- * and a 1 bit means e_j is -1. For the H generators it is the opposite. Finally, each of the
- * G scalars is further multiplied by -a, while each of the H scalars is further multiplied
- * by -b.
- *
- * These scalars are computed starting from I, the inverse of the product of every x_j, which
- * is then selectively multiplied by x_j^2 for whichever j's are needed. As it turns out, by
- * caching logarithmically many scalars, this can always be done by multiplying one of the
- * cached values by a single x_j, rather than starting from I and doing multiple multiplications.
- */
-
 static int secp256k1_bulletproof_innerproduct_vfy_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_bulletproof_innerproduct_vfy_ecmult_context *ctx = (secp256k1_bulletproof_innerproduct_vfy_ecmult_context *) data;
 
-    /* First 2N points use the standard Gi, Hi generators, and the scalars can be aggregated across proofs  */
+    /* First 2N points use the standard Gi, Hi generators, and the scalars can be aggregated across proofs.
+     * Inside this if clause, `idx` corresponds to the index `i` in the big comment, and runs from 0 to `2n-1`.
+     * Also `ctx->vec_len` corresponds to `n`. */
     if (idx < 2 * ctx->vec_len) {
+        /* Number of `a` scalars in the proof (same as number of `b` scalars in the proof). Will
+         * be 2 except for very small proofs that have fewer than 2 scalars as input. */
         const size_t grouping = ctx->vec_len < IP_AB_SCALARS / 2 ? ctx->vec_len : IP_AB_SCALARS / 2;
         const size_t lg_grouping = secp256k1_floor_lg(grouping);
         size_t i;
-        /* TODO zero this point when appropriate for non-2^n numbers of pairs */
+        VERIFY_CHECK(lg_grouping == 0 || lg_grouping == 1); /* TODO support higher IP_AB_SCALARS */
+
+        /* Determine whether we're multiplying by `G_i`s or `H_i`s. */
         if (idx < ctx->vec_len) {
             *pt = ctx->geng[idx];
         } else {
@@ -138,17 +155,51 @@ static int secp256k1_bulletproof_innerproduct_vfy_ecmult_callback(secp256k1_scal
         }
 
         secp256k1_scalar_clear(sc);
+        /* Loop over all the different inner product proofs we might be doing at once. Since they
+         * share generators `G_i` and `H_i`, we compute all of their scalars at once and add them.
+         * For each proof we start with the "seed value" `ctx->proof[i].xcache[0]` (see next comment
+         * for its meaning) from which every other scalar derived. We expect the caller to have
+         * randomized this to ensure that this wanton addition cannot enable cancellation attacks.
+         */
         for (i = 0; i < ctx->n_proofs; i++) {
+            /* To recall from the introductory comment: most `s_i` values are computed by taking an
+             * earlier `s_j` value and multiplying it by some `x_k^2`.
+             *
+             * We now explain the index `j`: it is the largest number with one fewer 1-bits than `i`.
+             * Alternately, the most recently returned `s_j` where `j` has one fewer 1-bits than `i`.
+             *
+             * To ensure that `s_j` is available when we need it, on each iteration we define the
+             * variable `cache_idx` which simply counts the 1-bits in `i`; before returning `s_i`
+             * we store it in `ctx->proof[i].xcache[cache_idx]`. Then later, when we want "most
+             * recently returned `s_j` with one fewer 1-bits than `i`, it'll be sitting right
+             * there in `ctx->proof[i].xcache[cache_idx - 1]`.
+             *
+             * Note that `ctx->proof[i].xcache[0]` will always equal `-a_1 * prod_{i=1}^{n-1} x_i^-2`,
+             * and we expect the caller to have set this.
+             */
             const size_t cache_idx = secp256k1_popcountl(idx);
             secp256k1_scalar term;
             VERIFY_CHECK(cache_idx < SECP256K1_BULLETPROOF_MAX_DEPTH);
-            /* Compute the normal inner-product scalar... */
+            /* For the special case `cache_idx == 0` (which is true iff `idx == 0`) there is nothing to do. */
             if (cache_idx > 0) {
+                /* Otherwise, check if this is one of the special indices where we transition from `a_1` to `a_2`,
+                 * from `a_2` to `b_1`, or from `b_1` to `b_2`. (For small proofs there is only one transition,
+                 * from `a` to `b`.) */
                 if (idx % (ctx->vec_len / grouping) == 0) {
                     const size_t abinv_idx = idx / (ctx->vec_len / grouping) - 1;
                     size_t prev_cache_idx;
+                    /* Check if it's the even specialer index where we're transitioning from `a`s to `b`s, from
+                     * `G`s to `H`s, and from `x_k^2`s to `x_k^-2`s. In rangeproof and circuit applications,
+                     * the caller secretly has a variable `y` such that `H_i` is really `y^-i H_i` for `i` ranging
+                     * from 0 to `n-1`. Rather than forcing the caller to tweak every `H_i` herself, which would
+                     * be very slow and prevent precomputation, we instead multiply our cached `x_k^-2` values
+                     * by `y^(-2^k)` respectively, which will ultimately result in every `s_i` we return having
+                     * been multiplied by `y^-i`.
+                     *
+                     * This is an underhanded trick but the result is that all `n` powers of `y^-i` show up
+                     * in the right place, and we only need log-many scalar squarings and multiplications.
+                     */
                     if (idx == ctx->vec_len) {
-                        /* Transition from G to H, a's to b's */
                         secp256k1_scalar yinvn = ctx->proof[i].proof->yinv;
                         size_t j;
                         prev_cache_idx = secp256k1_popcountl(idx - 1);
@@ -156,19 +207,25 @@ static int secp256k1_bulletproof_innerproduct_vfy_ecmult_callback(secp256k1_scal
                             secp256k1_scalar_mul(&ctx->proof[i].xsqinvy[j], &ctx->proof[i].xsqinv[j], &yinvn);
                             secp256k1_scalar_sqr(&yinvn, &yinvn);
                         }
-                        for (j = 0; j < lg_grouping; j++) {
-                            /* TODO this only does the right thing for lg_grouping = 0 or 1 */
+                        if (lg_grouping == 1) {
                             secp256k1_scalar_mul(&ctx->proof[i].abinv[2], &ctx->proof[i].abinv[2], &yinvn);
                             secp256k1_scalar_sqr(&yinvn, &yinvn);
                         }
                     } else {
                         prev_cache_idx = cache_idx - 1;
                     }
+                    /* Regardless of specialness, we multiply by `a_2/a_1` or whatever the appropriate multiplier
+                     * is. We expect the caller to have given these to us in the `ctx->proof[i].abinv` array. */
                     secp256k1_scalar_mul(
                         &ctx->proof[i].xcache[cache_idx],
                         &ctx->proof[i].xcache[prev_cache_idx],
                         &ctx->proof[i].abinv[abinv_idx]
                     );
+                /* If it's *not* a special index, just multiply by the appropriate `x_k^2`, or `x_k^-2` in case
+                 * we're in the `H_i` half of the multiexp. At this point we can explain the index `k`, which
+                 * is computed in the variable `xsq_idx` (`xsqinv_idx` respectively). In light of our discussion
+                 * of `j`, we see that this should be "the least significant bit that's 1 in `i` but not `i-1`."
+                 * In other words, it is the number of trailing 0 bits in the index `i`. */
                 } else if (idx < ctx->vec_len) {
                     const size_t xsq_idx = secp256k1_ctzl(idx);
                     secp256k1_scalar_mul(&ctx->proof[i].xcache[cache_idx], &ctx->proof[i].xcache[cache_idx - 1], &ctx->proof[i].xsq[xsq_idx]);
@@ -179,14 +236,19 @@ static int secp256k1_bulletproof_innerproduct_vfy_ecmult_callback(secp256k1_scal
             }
             term = ctx->proof[i].xcache[cache_idx];
 
-            /* When going through the G generators, compute the x-inverses as side effects */
-            if (idx < ctx->vec_len / grouping && secp256k1_popcountl(idx) == ctx->lg_vec_len - 1) {  /* if the scalar has only one 0, i.e. only one inverse... */
+            /* One last trick: compute `x_k^-2` while computing the `G_i` scalars, so that they'll be
+             * available when we need them for the `H_i` scalars. We can do this for every `i` value
+             * that has exactly one 0-bit, i.e. which is a product of all `x_i`s and one `x_k^-1`. By
+             * multiplying that by the special value `prod_{i=1}^n x_i^-1` we obtain simply `x_k^-2`.
+             * We expect the caller to give us this special value in `ctx->proof[i].xsqinv_mask`. */
+            if (idx < ctx->vec_len / grouping && secp256k1_popcountl(idx) == ctx->lg_vec_len - 1) {
                 const size_t xsqinv_idx = secp256k1_ctzl(~idx);
-                /* ...multiply it by the total inverse, to get x_j^-2 */
                 secp256k1_scalar_mul(&ctx->proof[i].xsqinv[xsqinv_idx], &ctx->proof[i].xcache[cache_idx], &ctx->proof[i].xsqinv_mask);
             }
 
-            /* ...add whatever offset the rangeproof wants... */
+            /* Finally, if the caller, in its computation of `P`, wants to multiply `G_i` or `H_i` by some scalar,
+             * we add that to our sum as well. Again, we trust the randomization in `xcache[0]` to prevent any
+             * cancellation attacks here. */
             if (ctx->proof[i].proof->rangeproof_cb != NULL) {
                 secp256k1_scalar rangeproof_offset;
                 if ((ctx->proof[i].proof->rangeproof_cb)(&rangeproof_offset, NULL, &ctx->randomizer[i], idx, ctx->proof[i].proof->rangeproof_cb_data) != 1) {
@@ -416,7 +478,7 @@ static int secp256k1_bulletproof_inner_product_verify_impl(const secp256k1_ecmul
         for (j = n_ab - 1; j > 0; j--) {
             size_t prev_idx;
             if (j == n_ab / 2) {
-                prev_idx = j - 1; /* we go from a_n to b_0  */
+                prev_idx = j - 1; /* we go from a_{n-1} to b_0  */
             } else {
                 prev_idx = j & (j - 1); /* but from a_i' to a_i, where i' is i with its lowest set bit unset */
             }
@@ -702,7 +764,7 @@ static int secp256k1_bulletproof_inner_product_prove_impl(const secp256k1_ecmult
     }
     *proof_len = secp256k1_bulletproof_innerproduct_proof_length(n);
 
-    /* Special-case lengths 0 and 1 whose proofs are just expliict lists of scalars */
+    /* Special-case lengths 0 and 1 whose proofs are just explicit lists of scalars */
     if (n <= IP_AB_SCALARS / 2) {
         secp256k1_scalar a[IP_AB_SCALARS / 2];
         secp256k1_scalar b[IP_AB_SCALARS / 2];
