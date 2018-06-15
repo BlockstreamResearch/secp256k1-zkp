@@ -14,7 +14,12 @@
 
 struct secp256k1_bulletproof_generators {
     size_t n;
+    /* `G_i`, `H_i` generators, `n` each of them which are generated when creating this struct */
     secp256k1_ge *gens;
+    /* `H` "alternate" generator, used in Pedersen commitments. Passed in by caller to
+     * `secp256k1_bulletproof_generators_create`; stored in this structure to allow consistent
+     * generators between functions using `secp256k1_bulletproof_generators` and functions
+     * using the Pedersen commitment module. */
     secp256k1_ge *blinding_gen;
 };
 
