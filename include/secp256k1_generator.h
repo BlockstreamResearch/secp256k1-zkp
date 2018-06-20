@@ -58,9 +58,9 @@ SECP256K1_API int secp256k1_generator_serialize(
  *  Out:  gen:     a generator object
  *  In:   seed32:  a 32-byte seed
  *
- *  If succesful, a valid generator will be placed in gen. The produced
+ *  If successful a valid generator will be placed in gen. The produced
  *  generators are distributed uniformly over the curve, and will not have a
- *  known dicrete logarithm with respect to any other generator produced,
+ *  known discrete logarithm with respect to any other generator produced,
  *  or to the base generator G.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
