@@ -28,7 +28,7 @@ typedef struct {
 /**
  * Static constant generator 'h' maintained for historical reasons.
  */
-extern const secp256k1_generator *secp256k1_generator_h;
+SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
 
 /** Parse a 33-byte commitment into a commitment object.
  *
