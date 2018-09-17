@@ -208,8 +208,14 @@ static int secp256k1_bulletproof_rangeproof_verify_impl(const secp256k1_ecmult_c
 
         /* Commit to all input data: min value, pedersen commit, asset generator, extra_commit */
         if (min_value != NULL && min_value[i] != NULL) {
+            unsigned char len[4];
             secp256k1_sha256_initialize(&sha256);
             secp256k1_sha256_write(&sha256, commit, 32);
+            len[0] = n_commits;
+            len[1] = n_commits >> 8;
+            len[2] = n_commits >> 16;
+            len[3] = n_commits >> 24;
+            secp256k1_sha256_write(&sha256, len, 4);
             for (j = 0; j < n_commits; j++) {
                 unsigned char vbuf[8];
                 vbuf[0] = min_value[i][j];
@@ -462,8 +468,14 @@ static int secp256k1_bulletproof_rangeproof_prove_impl(const secp256k1_ecmult_co
 
     /* Commit to all input data: min value, pedersen commit, asset generator, extra_commit */
     if (min_value != NULL) {
+        unsigned char len[4];
         secp256k1_sha256_initialize(&sha256);
         secp256k1_sha256_write(&sha256, commit, 32);
+        len[0] = n_commits;
+        len[1] = n_commits >> 8;
+        len[2] = n_commits >> 16;
+        len[3] = n_commits >> 24;
+        secp256k1_sha256_write(&sha256, len, 4);
         for (i = 0; i < n_commits; i++) {
             unsigned char vbuf[8];
             vbuf[0] = min_value[i];
@@ -684,6 +696,7 @@ static int secp256k1_bulletproof_rangeproof_rewind_impl(uint64_t *value, secp256
 
     if (min_value > 0) {
         unsigned char vbuf[8];
+        const unsigned char len[4] = { 1, 0, 0, 0 };
         vbuf[0] = min_value;
         vbuf[1] = min_value >> 8;
         vbuf[2] = min_value >> 16;
@@ -694,6 +707,7 @@ static int secp256k1_bulletproof_rangeproof_rewind_impl(uint64_t *value, secp256
         vbuf[7] = min_value >> 56;
         secp256k1_sha256_initialize(&sha256);
         secp256k1_sha256_write(&sha256, commit, 32);
+        secp256k1_sha256_write(&sha256, len, 4);
         secp256k1_sha256_write(&sha256, vbuf, 8);
         secp256k1_sha256_finalize(&sha256, commit);
     }
