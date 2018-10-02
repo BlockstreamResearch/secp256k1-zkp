@@ -44,22 +44,38 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
 }
 
 int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
+    secp256k1_fe x;
+    secp256k1_ge ge;
+
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
     ARG_CHECK(input != NULL);
     (void) ctx;
-    if ((input[0] & 0xFE) != 8) {
+
+    if ((input[0] & 0xFE) != 8 ||
+        !secp256k1_fe_set_b32(&x, &input[1]) ||
+        !secp256k1_ge_set_xquad(&ge, &x)) {
         return 0;
     }
-    memcpy(commit->data, input, sizeof(commit->data));
+    if (input[0] & 1) {
+        secp256k1_ge_neg(&ge, &ge);
+    }
+    secp256k1_pedersen_commitment_save(commit, &ge);
     return 1;
 }
 
 int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsigned char *output, const secp256k1_pedersen_commitment* commit) {
+    secp256k1_ge ge;
+
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output != NULL);
     ARG_CHECK(commit != NULL);
-    memcpy(output, commit->data, sizeof(commit->data));
+
+    secp256k1_pedersen_commitment_load(&ge, commit);
+
+    output[0] = 11 ^ secp256k1_fe_is_quad_var(&ge.y);
+    secp256k1_fe_normalize_var(&ge.x);
+    secp256k1_fe_get_b32(&output[1], &ge.x);
     return 1;
 }
 
