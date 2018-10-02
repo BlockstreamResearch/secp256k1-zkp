@@ -13,15 +13,12 @@ extern "C" {
  *
  *  The exact representation of data inside is implementation defined and not
  *  guaranteed to be portable between different platforms or versions. It is
- *  however guaranteed to be 33 bytes in size, and can be safely copied/moved.
- *  If you need to convert to a format suitable for storage or transmission, use
- *  the secp256k1_generator_serialize_*.
- *
- *  Furthermore, it is guaranteed to identical points will have identical
- *  representation, so they can be memcmp'ed.
+ *  however guaranteed to be 64 bytes in size, and can be safely copied/moved.
+ *  If you need to convert to a format suitable for storage, transmission, or
+ *  comparison, use secp256k1_generator_serialize and secp256k1_generator_parse.
  */
 typedef struct {
-    unsigned char data[33];
+    unsigned char data[64];
 } secp256k1_generator;
 
 /** Parse a 33-byte generator byte sequence into a generator object.
