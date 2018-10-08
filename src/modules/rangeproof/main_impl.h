@@ -73,7 +73,7 @@ int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsign
 
     secp256k1_pedersen_commitment_load(&ge, commit);
 
-    output[0] = 11 ^ secp256k1_fe_is_quad_var(&ge.y);
+    output[0] = 9 ^ secp256k1_fe_is_quad_var(&ge.y);
     secp256k1_fe_normalize_var(&ge.x);
     secp256k1_fe_get_b32(&output[1], &ge.x);
     return 1;
