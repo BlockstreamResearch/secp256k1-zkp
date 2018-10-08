@@ -672,10 +672,30 @@ void test_rangeproof_fixed_vectors(void) {
     ));
 }
 
+void test_pedersen_commitment_fixed_vector(void) {
+    const unsigned char two_g[33] = {
+        0x09,
+        0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d, 0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c, 0xd8,
+        0x5c, 0x77, 0x8e, 0x4b, 0x8c, 0xef, 0x3c, 0xa7, 0xab, 0xac, 0x09, 0xb9, 0x5c, 0x70, 0x9e, 0xe5
+    };
+    unsigned char result[33];
+    secp256k1_pedersen_commitment parse;
+
+    CHECK(secp256k1_pedersen_commitment_parse(ctx, &parse, two_g));
+    CHECK(secp256k1_pedersen_commitment_serialize(ctx, result, &parse));
+    CHECK(memcmp(two_g, result, 33) == 0);
+
+    result[0] = 0x08;
+    CHECK(secp256k1_pedersen_commitment_parse(ctx, &parse, result));
+    result[0] = 0x0c;
+    CHECK(!secp256k1_pedersen_commitment_parse(ctx, &parse, result));
+}
+
 void run_rangeproof_tests(void) {
     int i;
     test_api();
     test_rangeproof_fixed_vectors();
+    test_pedersen_commitment_fixed_vector();
     for (i = 0; i < 10*count; i++) {
         test_pedersen();
     }
