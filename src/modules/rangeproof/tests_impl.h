@@ -516,7 +516,7 @@ void run_rangeproof_tests(void) {
     test_api();
     test_rangeproof_fixed_vectors();
     test_pedersen_commitment_fixed_vector();
-    for (i = 0; i < 10*count; i++) {
+    for (i = 0; i < 2*count; i++) {
         test_borromean();
     }
     test_rangeproof();
