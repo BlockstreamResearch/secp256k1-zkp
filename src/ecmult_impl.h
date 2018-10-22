@@ -308,8 +308,10 @@ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx) {
 #endif
 }
 
-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const secp256k1_callback *cb) {
+static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc) {
     secp256k1_gej gj;
+    void* const base = *prealloc;
+    size_t const prealloc_size = SECP256K1_ECMULT_CONTEXT_PREALLOCATED_SIZE;
 
     if (ctx->pre_g != NULL) {
         return;
@@ -318,7 +320,7 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
     /* get the generator */
     secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
 
-    ctx->pre_g = (secp256k1_ge_storage (*)[])checked_malloc(cb, sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+    ctx->pre_g = (secp256k1_ge_storage (*)[])manual_alloc(prealloc, sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G), base, prealloc_size);
 
     /* precompute the tables with odd multiples */
     secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g, &gj);
@@ -328,7 +330,7 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
         secp256k1_gej g_128j;
         int i;
 
-        ctx->pre_g_128 = (secp256k1_ge_storage (*)[])checked_malloc(cb, sizeof((*ctx->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+        ctx->pre_g_128 = (secp256k1_ge_storage (*)[])manual_alloc(prealloc, sizeof((*ctx->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G), base, prealloc_size);
 
         /* calculate 2^128*generator */
         g_128j = gj;
@@ -340,22 +342,13 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
 #endif
 }
 
-static void secp256k1_ecmult_context_clone(secp256k1_ecmult_context *dst,
-                                           const secp256k1_ecmult_context *src, const secp256k1_callback *cb) {
-    if (src->pre_g == NULL) {
-        dst->pre_g = NULL;
-    } else {
-        size_t size = sizeof((*dst->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g = (secp256k1_ge_storage (*)[])checked_malloc(cb, size);
-        memcpy(dst->pre_g, src->pre_g, size);
+static void secp256k1_ecmult_context_finalize_memcpy(secp256k1_ecmult_context *dst, const secp256k1_ecmult_context *src) {
+    if (src->pre_g != NULL) {
+        dst->pre_g = (secp256k1_ge_storage (*)[])((unsigned char*)dst + ((unsigned char*)(src->pre_g) - (unsigned char*)src));
     }
 #ifdef USE_ENDOMORPHISM
-    if (src->pre_g_128 == NULL) {
-        dst->pre_g_128 = NULL;
-    } else {
-        size_t size = sizeof((*dst->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g_128 = (secp256k1_ge_storage (*)[])checked_malloc(cb, size);
-        memcpy(dst->pre_g_128, src->pre_g_128, size);
+    if (src->pre_g_128 != NULL) {
+        dst->pre_g_128 = (secp256k1_ge_storage (*)[])((unsigned char*)dst + ((unsigned char*)(src->pre_g_128) - (unsigned char*)src));
     }
 #endif
 }
@@ -365,10 +358,6 @@ static int secp256k1_ecmult_context_is_built(const secp256k1_ecmult_context *ctx
 }
 
 static void secp256k1_ecmult_context_clear(secp256k1_ecmult_context *ctx) {
-    free(ctx->pre_g);
-#ifdef USE_ENDOMORPHISM
-    free(ctx->pre_g_128);
-#endif
     secp256k1_ecmult_context_init(ctx);
 }
 
