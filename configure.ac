@@ -159,6 +159,11 @@ AC_ARG_ENABLE(module_surjectionproof,
     [enable_module_surjectionproof=$enableval],
     [enable_module_surjectionproof=no])
 
+AC_ARG_ENABLE(module_points,
+    AS_HELP_STRING([--enable-module-points],[enable general operations for points on secp256k1 curve]),
+    [enable_module_points=$enableval],
+    [enable_module_points=no])
+
 AC_ARG_WITH([field], [AS_HELP_STRING([--with-field=64bit|32bit|auto],
 [Specify Field Implementation. Default is auto])],[req_field=$withval], [req_field=auto])
 
@@ -483,6 +488,10 @@ if test x"$enable_module_surjectionproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SURJECTIONPROOF, 1, [Define this symbol to enable the surjection proof module])
 fi
 
+if test x"$enable_module_points" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_POINTS, 1, [Define this symbol to enable the point module])
+fi
+
 AC_C_BIGENDIAN()
 
 if test x"$use_external_asm" = x"yes"; then
@@ -510,6 +519,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
   AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
   AC_MSG_NOTICE([Building surjection proof module: $enable_module_surjectionproof])
+  AC_MSG_NOTICE([Building points module: $enable_module_points])
   AC_MSG_NOTICE([******])
 
   if test x"$enable_module_generator" != x"yes"; then
@@ -545,6 +555,9 @@ else
   if test x"$enable_module_surjectionproof" = x"yes"; then
     AC_MSG_ERROR([Surjection proof module is experimental. Use --enable-experimental to allow.])
   fi
+  if test x"$enable_module_points" = x"yes"; then
+    AC_MSG_ERROR([Points module is experimental. Use --enable-experimental to allow.])
+  fi
 fi
 
 AC_CONFIG_HEADERS([src/libsecp256k1-config.h])
@@ -568,6 +581,7 @@ AM_CONDITIONAL([USE_JNI], [test x"$use_jni" == x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_POINTS], [test x"$enable_module_points" = x"yes"])
 
 dnl make sure nothing new is exported so that we don't break the cache
 PKGCONFIG_PATH_TEMP="$PKG_CONFIG_PATH"
