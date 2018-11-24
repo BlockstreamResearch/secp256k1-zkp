@@ -35,7 +35,7 @@ typedef struct {
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_point_parse(
     secp256k1_point* point,
     const unsigned char *input
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 /** Serialize a point object into a serialized byte sequence.
  *
@@ -50,7 +50,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_point_parse(
 SECP256K1_API int secp256k1_point_serialize(
     unsigned char *output,
     const secp256k1_point* point
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 /** Sum a number of points together.
  *  Returns: 1: the sum of the points is valid.
@@ -65,7 +65,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_points_combine(
     secp256k1_point *out,
     const secp256k1_point * const * addends,
     size_t n
-) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 /** Multiply point on curve by scalar
  * Returns: 0 if the scalar was out of range (chance of around 1 in 2^128 for
