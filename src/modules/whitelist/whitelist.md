@@ -93,4 +93,13 @@ the remaining public keys are verified out-of-band when setting up the system,
 so there is no direct benefit to this. We do it only to reduce fragility and
 increase safety of unforeseen uses.
 
-
+Having to access the offline key `Q_i` to compute the secret to the sum `W +
+Q_i` for every authorization is onerous.  Instead, if the whitelisted keys are
+created using
+[BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
+unhardened derivation, the sum can be computed on an online machine. In order
+to achieve that, the offline key `Q_j` is set to the negated last hardened
+BIP32 derived parent key (typically, the public key corresponding to the xpub).
+As a result `W + Q_i = I_L*G` where `I_L` is the public tweak used
+to derive `W` and can be easily computed online using the extended public key
+and the derivation path.
