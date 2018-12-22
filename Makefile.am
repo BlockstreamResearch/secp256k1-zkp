@@ -182,6 +182,10 @@ if ENABLE_MODULE_SCHNORRSIG
 include src/modules/schnorrsig/Makefile.am.include
 endif
 
+if ENABLE_MODULE_MUSIG
+include src/modules/musig/Makefile.am.include
+endif
+
 if ENABLE_MODULE_RECOVERY
 include src/modules/recovery/Makefile.am.include
 endif
