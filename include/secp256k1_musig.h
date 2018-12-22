@@ -4,7 +4,9 @@
 #include <stdint.h>
 
 /** This module implements a Schnorr-based multi-signature scheme called MuSig
- * (https://eprint.iacr.org/2018/068.pdf).
+ * (https://eprint.iacr.org/2018/068.pdf). There's an example C source file in the
+ * module's directory (src/modules/musig/example.c) that demonstrates how it can be
+ * used.
  */
 
 /** Data structure containing data related to a signing session resulting in a single
