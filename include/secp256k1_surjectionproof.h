@@ -33,6 +33,11 @@ extern "C" {
  *  and secp256k1_surjectionproof_serialize to encode/decode proofs into a
  *  well-defined format.
  *
+ *  If you need to allocate new secp256k1_surjectionproof structure
+ *  for use with secp256k1_surjectionproof_initialize, you should allocate
+ *  a buffer of size SECP256K1_SURJECTIONPROOF_RAW_SIZE, and then treat the
+ *  data in this buffer as opaque data, as described above.
+ *
  *  The representation is exposed to allow creation of these objects on the
  *  stack; please *do not* use these internals directly.
  */
@@ -48,6 +53,8 @@ typedef struct {
     /** Borromean signature: e0, scalars */
     unsigned char data[32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS)];
 } secp256k1_surjectionproof;
+
+SECP256K1_API const int SECP256K1_SURJECTIONPROOF_RAW_SIZE;
 
 /** Parse a surjection proof
  *

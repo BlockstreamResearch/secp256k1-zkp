@@ -740,4 +740,5 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
 
 #ifdef ENABLE_MODULE_SURJECTIONPROOF
 # include "modules/surjection/main_impl.h"
+const int SECP256K1_SURJECTIONPROOF_RAW_SIZE = sizeof(secp256k1_surjectionproof);
 #endif
