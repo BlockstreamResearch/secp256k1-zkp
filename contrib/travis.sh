@@ -20,7 +20,9 @@ fi
     --enable-experimental="$EXPERIMENTAL" --enable-endomorphism="$ENDOMORPHISM" \
     --with-field="$FIELD" --with-bignum="$BIGNUM" --with-asm="$ASM" --with-scalar="$SCALAR" \
     --enable-ecmult-static-precomputation="$STATICPRECOMPUTATION" --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
-    --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" "$EXTRAFLAGS" "$USE_HOST"
+    --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
+    --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
+    "$EXTRAFLAGS" "$USE_HOST"
 
 if [ -n "$BUILD" ]
 then
