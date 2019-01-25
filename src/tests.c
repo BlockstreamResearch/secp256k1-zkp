@@ -5326,6 +5326,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/musig/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_THRESHOLD
+# include "modules/thresholdsig/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_RECOVERY
 # include "modules/recovery/tests_impl.h"
 #endif
@@ -5463,6 +5467,10 @@ int main(int argc, char **argv) {
 
 #ifdef ENABLE_MODULE_MUSIG
     run_musig_tests();
+#endif
+
+#ifdef ENABLE_MODULE_THRESHOLD
+    run_thresholdsig_tests();
 #endif
 
     /* ecdsa tests */
