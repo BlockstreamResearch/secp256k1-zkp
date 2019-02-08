@@ -110,7 +110,6 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
 }
 
 typedef struct {
-    const secp256k1_scalar *ss;
     const secp256k1_gej *pubs;
     const secp256k1_scalar *ks;
     const size_t *rsizes;
@@ -118,7 +117,7 @@ typedef struct {
 } secp256k1_borromean_sign_dummy_cbdata;
 
 
-int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k1_scalar **ss, size_t *rsize, const secp256k1_scalar **k, size_t *secidx, size_t ridx, const void* cbdata) {
+int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k1_scalar **k, size_t *rsize, size_t *secidx, size_t ridx, void *cbdata) {
     const secp256k1_borromean_sign_dummy_cbdata *data = cbdata;
     size_t npub = 0;
     size_t i;
@@ -126,9 +125,8 @@ int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k
         npub += data->rsizes[ridx];
     }
     *pubs = &data->pubs[npub];
-    *ss = &data->ss[npub];
-    *rsize = data->rsizes[ridx];
     *k = &data->ks[ridx];
+    *rsize = data->rsizes[ridx];
     *secidx = data->secidxs[ridx];
     return 1;
 }
@@ -137,22 +135,21 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
  unsigned char *e0, secp256k1_scalar *ss, const secp256k1_gej *pubs, const secp256k1_scalar *ks, const secp256k1_scalar *sec,
  const size_t *rsizes, const size_t *secidxs, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_borromean_sign_dummy_cbdata cbdata;
-    VERIFY_CHECK(ss != NULL);
     VERIFY_CHECK(pubs != NULL);
     VERIFY_CHECK(ks != NULL);
     VERIFY_CHECK(rsizes != NULL);
     VERIFY_CHECK(secidxs != NULL);
     /* Because wtf C89: "All the expressions (…) in an initializer list for an object that has aggregate or union type shall be constant expressions." */
-    cbdata.ss = ss;
     cbdata.pubs = pubs;
     cbdata.ks = ks;
     cbdata.rsizes = rsizes;
     cbdata.secidxs = secidxs;
-    return secp256k1_borromean_sign_with_callback(ecmult_ctx, ecmult_gen_ctx, e0, sec, nrings, m, mlen, *cb, &cbdata);
+    return secp256k1_borromean_sign_with_callback(ecmult_ctx, ecmult_gen_ctx, e0, ss, sec, nrings, m, mlen, &secp256k1_borromean_sign_dummy_cb, &cbdata);
 }
 
 int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
- unsigned char *e0, const secp256k1_scalar *sec, size_t nrings, const unsigned char *m, size_t mlen, secp256k1_borromean_sign_ring_callback *cb, void *cbdata) {
+ unsigned char *e0, secp256k1_scalar *ss, const secp256k1_scalar *sec, size_t nrings, const unsigned char *m, size_t mlen,
+ secp256k1_borromean_sign_ring_callback *cb, void *cbdata) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
@@ -163,23 +160,32 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
     size_t count;
     size_t size;
     int overflow;
+
+    /* data we'll obtain from the callback */
+    const secp256k1_gej *pubs;
+    const secp256k1_scalar *k;
+    size_t rsize;
+    size_t secidx;
+
     VERIFY_CHECK(ecmult_ctx != NULL);
     VERIFY_CHECK(ecmult_gen_ctx != NULL);
     VERIFY_CHECK(e0 != NULL);
+    VERIFY_CHECK(ss != NULL);
     VERIFY_CHECK(sec != NULL);
     VERIFY_CHECK(nrings > 0);
     VERIFY_CHECK(m != NULL);
     secp256k1_sha256_initialize(&sha256_e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        VERIFY_CHECK(INT_MAX - count > rsizes[i]);
-        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
+        cb(&pubs, &k, &rsize, &secidx, i, cbdata);
+        VERIFY_CHECK(INT_MAX - count > rsize);
+        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, k);
         secp256k1_ge_set_gej(&rge, &rgej);
         if (secp256k1_gej_is_infinity(&rgej)) {
             return 0;
         }
         secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
-        for (j = secidx[i] + 1; j < rsizes[i]; j++) {
+        for (j = secidx + 1; j < rsize; j++) {
             secp256k1_borromean_hash(tmp, m, mlen, tmp, 33, i, j);
             secp256k1_scalar_set_b32(&ens, tmp, &overflow);
             if (overflow || secp256k1_scalar_is_zero(&ens)) {
@@ -189,7 +195,7 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
              *  leaks which members are non-forgeries. That the forgeries themselves are variable time may leave
              *  an additional privacy impacting timing side-channel, but not a key loss one.
              */
-            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[count + j], &ens, &s[count + j]);
+            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[j], &ens, &ss[count + j]);
             if (secp256k1_gej_is_infinity(&rgej)) {
                 return 0;
             }
@@ -197,20 +203,20 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
             secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
         }
         secp256k1_sha256_write(&sha256_e0, tmp, size);
-        count += rsizes[i];
+        count += rsize;
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
     secp256k1_sha256_finalize(&sha256_e0, e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        VERIFY_CHECK(INT_MAX - count > rsizes[i]);
+        cb(&pubs, &k, &rsize, &secidx, i, cbdata);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
         if (overflow || secp256k1_scalar_is_zero(&ens)) {
             return 0;
         }
-        for (j = 0; j < secidx[i]; j++) {
-            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[count + j], &ens, &s[count + j]);
+        for (j = 0; j < secidx; j++) {
+            secp256k1_ecmult(ecmult_ctx, &rgej, &pubs[j], &ens, &ss[count + j]);
             if (secp256k1_gej_is_infinity(&rgej)) {
                 return 0;
             }
@@ -222,13 +228,13 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
                 return 0;
             }
         }
-        secp256k1_scalar_mul(&s[count + j], &ens, &sec[i]);
-        secp256k1_scalar_negate(&s[count + j], &s[count + j]);
-        secp256k1_scalar_add(&s[count + j], &s[count + j], &k[i]);
-        if (secp256k1_scalar_is_zero(&s[count + j])) {
+        secp256k1_scalar_mul(&ss[count + j], &ens, &sec[i]);
+        secp256k1_scalar_negate(&ss[count + j], &ss[count + j]);
+        secp256k1_scalar_add(&ss[count + j], &ss[count + j], k);
+        if (secp256k1_scalar_is_zero(&ss[count + j])) {
             return 0;
         }
-        count += rsizes[i];
+        count += rsize;
     }
     secp256k1_scalar_clear(&ens);
     secp256k1_ge_clear(&rge);

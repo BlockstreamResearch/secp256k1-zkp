@@ -14,15 +14,16 @@
 #include "ecmult.h"
 #include "ecmult_gen.h"
 
-typedef int (secp256k1_borromean_sign_ring_callback)(secp256k1_gej **pubs, secp256k1_scalar **ss, size_t *rsize, secp256k1_scalar **k, size_t *secidx, size_t ridx, void* cbdata);
-int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_scalar *evalues, const unsigned char *e0, const secp256k1_scalar *s,
+typedef int (secp256k1_borromean_sign_ring_callback)(const secp256k1_gej **pubs, const secp256k1_scalar **k, size_t *rsize, size_t *secidx, size_t ridx, void* cbdata);
+
+int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_scalar *evalues, const unsigned char *e0, const secp256k1_scalar *ss,
  const secp256k1_gej *pubs, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen);
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
- unsigned char *e0, secp256k1_scalar *ss, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
- const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen);
+ unsigned char *e0, secp256k1_scalar *ss, const secp256k1_gej *pubs, const secp256k1_scalar *ks, const secp256k1_scalar *sec,
+ const size_t *rsizes, const size_t *secidxs, size_t nrings, const unsigned char *m, size_t mlen);
 
 int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
- unsigned char *e0, const secp256k1_scalar *sec, size_t nrings, const unsigned char *m, size_t mlen, secp256k1_borromean_sign_ring_callback *cb, void *cbdata);
+ unsigned char *e0, secp256k1_scalar *ss, const secp256k1_scalar *sec, size_t nrings, const unsigned char *m, size_t mlen, secp256k1_borromean_sign_ring_callback *cb, void *cbdata);
 
 #endif
