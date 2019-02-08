@@ -109,9 +109,50 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
     return memcmp(e0, tmp, 32) == 0;
 }
 
+typedef struct {
+    const secp256k1_scalar *ss;
+    const secp256k1_gej *pubs;
+    const secp256k1_scalar *ks;
+    const size_t *rsizes;
+    const size_t *secidxs;
+} secp256k1_borromean_sign_dummy_cbdata;
+
+
+int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k1_scalar **ss, size_t *rsize, const secp256k1_scalar **k, size_t *secidx, size_t ridx, const void* cbdata) {
+    const secp256k1_borromean_sign_dummy_cbdata *data = cbdata;
+    size_t npub = 0;
+    size_t i;
+    for (i = 0; i < ridx; i++) {
+        npub += data->rsizes[ridx];
+    }
+    *pubs = &data->pubs[npub];
+    *ss = &data->ss[npub];
+    *rsize = data->rsizes[ridx];
+    *k = &data->ks[ridx];
+    *secidx = data->secidxs[ridx];
+    return 1;
+}
+
 int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
- unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
- const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen) {
+ unsigned char *e0, secp256k1_scalar *ss, const secp256k1_gej *pubs, const secp256k1_scalar *ks, const secp256k1_scalar *sec,
+ const size_t *rsizes, const size_t *secidxs, size_t nrings, const unsigned char *m, size_t mlen) {
+    secp256k1_borromean_sign_dummy_cbdata cbdata;
+    VERIFY_CHECK(ss != NULL);
+    VERIFY_CHECK(pubs != NULL);
+    VERIFY_CHECK(ks != NULL);
+    VERIFY_CHECK(rsizes != NULL);
+    VERIFY_CHECK(secidxs != NULL);
+    /* Because wtf C89: "All the expressions (…) in an initializer list for an object that has aggregate or union type shall be constant expressions." */
+    cbdata.ss = ss;
+    cbdata.pubs = pubs;
+    cbdata.ks = ks;
+    cbdata.rsizes = rsizes;
+    cbdata.secidxs = secidxs;
+    return secp256k1_borromean_sign_with_callback(ecmult_ctx, ecmult_gen_ctx, e0, sec, nrings, m, mlen, *cb, &cbdata);
+}
+
+int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
+ unsigned char *e0, const secp256k1_scalar *sec, size_t nrings, const unsigned char *m, size_t mlen, secp256k1_borromean_sign_ring_callback *cb, void *cbdata) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
@@ -125,12 +166,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     VERIFY_CHECK(ecmult_ctx != NULL);
     VERIFY_CHECK(ecmult_gen_ctx != NULL);
     VERIFY_CHECK(e0 != NULL);
-    VERIFY_CHECK(s != NULL);
-    VERIFY_CHECK(pubs != NULL);
-    VERIFY_CHECK(k != NULL);
     VERIFY_CHECK(sec != NULL);
-    VERIFY_CHECK(rsizes != NULL);
-    VERIFY_CHECK(secidx != NULL);
     VERIFY_CHECK(nrings > 0);
     VERIFY_CHECK(m != NULL);
     secp256k1_sha256_initialize(&sha256_e0);
