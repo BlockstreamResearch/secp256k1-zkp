@@ -12,6 +12,7 @@
 
 typedef struct {
     secp256k1_context* ctx;
+    secp256k1_scratch_space* scratch;
     secp256k1_pedersen_commitment commit;
     unsigned char proof[5134];
     unsigned char blind[32];
@@ -30,7 +31,7 @@ static void bench_rangeproof_setup(void* arg) {
     for (i = 0; i < 32; i++) data->blind[i] = i + 1;
     CHECK(secp256k1_pedersen_commit(data->ctx, &data->commit, data->blind, data->v, secp256k1_generator_h));
     data->len = 5134;
-    CHECK(secp256k1_rangeproof_sign(data->ctx, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v, NULL, 0, NULL, 0, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(data->ctx, data->scratch, data->proof, &data->len, 0, &data->commit, data->blind, (const unsigned char*)&data->commit, 0, data->min_bits, data->v, NULL, 0, NULL, 0, secp256k1_generator_h));
     CHECK(secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, secp256k1_generator_h));
 }
 
@@ -51,13 +52,16 @@ static void bench_rangeproof(void* arg) {
 
 int main(void) {
     bench_rangeproof_t data;
+    size_t scratch_size;
+    scratch_size = secp256k1_rangeproof_sign_scratch_space();
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-
+    data.scratch = secp256k1_scratch_space_create(data.ctx, scratch_size);
     data.min_bits = 32;
 
     run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, 1000 * data.min_bits);
 
     secp256k1_context_destroy(data.ctx);
+    secp256k1_scratch_space_destroy(data.scratch);
     return 0;
 }

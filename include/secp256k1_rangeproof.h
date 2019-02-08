@@ -224,10 +224,15 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
   const secp256k1_generator *gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10) SECP256K1_ARG_NONNULL(14);
 
+/** Returns the minimum size of a scratch space for `secp256k1_rangeproof_sign`.
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_sign_scratch_space(void);
+
 /** Author a proof that a committed value is within a range.
  *  Returns 1: Proof successfully created.
  *          0: Error
  *  In:     ctx:    pointer to a context object, initialized for range-proof, signing, and Pedersen commitment (cannot be NULL)
+ *          scratch: scratch space with remaining size of at least `secp256k1_rangeproof_sign_scratch_space` bytes (TODO: cannot be NULL)
  *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
  *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
  *          commit: the commitment being proved.
@@ -253,6 +258,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const secp256k1_context* ctx,
+  secp256k1_scratch_space *scratch,
   unsigned char *proof,
   size_t *plen,
   uint64_t min_value,
@@ -267,7 +273,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const unsigned char *extra_commit,
   size_t extra_commit_len,
   const secp256k1_generator *gen
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(15);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(16);
 
 /** Extract some basic information from a range-proof.
  *  Returns 1: Information successfully extracted.
