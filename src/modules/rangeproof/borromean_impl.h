@@ -117,7 +117,7 @@ typedef struct {
 } secp256k1_borromean_sign_dummy_cbdata;
 
 
-int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k1_scalar **k, size_t *rsize, size_t *secidx, size_t ridx, void *cbdata) {
+static int secp256k1_borromean_sign_dummy_cb(const secp256k1_gej **pubs, const secp256k1_scalar **k, size_t *rsize, size_t *secidx, size_t ridx, void *cbdata) {
     const secp256k1_borromean_sign_dummy_cbdata *data = cbdata;
     size_t npub = 0;
     size_t i;
@@ -177,7 +177,9 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
     secp256k1_sha256_initialize(&sha256_e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        cb(&pubs, &k, &rsize, &secidx, i, cbdata);
+        if (!cb(&pubs, &k, &rsize, &secidx, i, cbdata)) {
+            return 0;
+        }
         VERIFY_CHECK(INT_MAX - count > rsize);
         secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, k);
         secp256k1_ge_set_gej(&rge, &rgej);
@@ -209,7 +211,10 @@ int secp256k1_borromean_sign_with_callback(const secp256k1_ecmult_context* ecmul
     secp256k1_sha256_finalize(&sha256_e0, e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        cb(&pubs, &k, &rsize, &secidx, i, cbdata);
+        if (!cb(&pubs, &k, &rsize, &secidx, i, cbdata)) {
+            return 0;
+        }
+        VERIFY_CHECK(INT_MAX - count > rsize);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
         if (overflow || secp256k1_scalar_is_zero(&ens)) {
