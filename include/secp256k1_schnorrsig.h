@@ -1,6 +1,12 @@
 #ifndef SECP256K1_SCHNORRSIG_H
 #define SECP256K1_SCHNORRSIG_H
 
+#include "secp256k1.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** This module implements a variant of Schnorr signatures compliant with
  * BIP-schnorr
  * (https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki).
@@ -115,4 +121,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_schnorrsig_verify_batch
     const secp256k1_pubkey *const *pk,
     size_t n_sigs
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
+
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* SECP256K1_SCHNORRSIG_H */

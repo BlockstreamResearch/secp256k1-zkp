@@ -446,9 +446,8 @@ static SECP256K1_INLINE void buffer_append(unsigned char *buf, unsigned int *off
 
 /* This nonce function is described in BIP-schnorr
  * (https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) */
-static int secp256k1_nonce_function_bipschnorr(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *algo16, void *data, unsigned int counter) {
+static int nonce_function_bipschnorr(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *algo16, void *data, unsigned int counter) {
     secp256k1_sha256 sha;
-    (void) data;
     (void) counter;
     VERIFY_CHECK(counter == 0);
 
@@ -460,6 +459,9 @@ static int secp256k1_nonce_function_bipschnorr(unsigned char *nonce32, const uns
      * users depending on it to avoid nonce reuse across algorithms. */
     if (algo16 != NULL) {
         secp256k1_sha256_write(&sha, algo16, 16);
+    }
+    if (data != NULL) {
+        secp256k1_sha256_write(&sha, data, 32);
     }
     secp256k1_sha256_finalize(&sha, nonce32);
     return 1;
@@ -495,6 +497,7 @@ static int nonce_function_rfc6979(unsigned char *nonce32, const unsigned char *m
    return 1;
 }
 
+const secp256k1_nonce_function secp256k1_nonce_function_bipschnorr = nonce_function_bipschnorr;
 const secp256k1_nonce_function secp256k1_nonce_function_rfc6979 = nonce_function_rfc6979;
 const secp256k1_nonce_function secp256k1_nonce_function_default = nonce_function_rfc6979;
 
