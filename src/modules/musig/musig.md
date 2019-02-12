@@ -148,9 +148,13 @@ public key output from `secp256k1_musig_pubkey_combine`.
 ## Atomic Swaps
 
 The signing API supports the production of "adaptor signatures", modified partial signatures
-which have an auxiliary secret encrypted to them. A partial signature is revealed to a party
-who learns the secret; conversely, a party with the corresponding secret will learn the
-secret.
+which are offset by an auxiliary secret known to one party. That is,
+    1. One party generates a (secret) adaptor `t` with corresponding (public) adaptor `T = t*G`.
+    2. When combining nonces, each party adds `T` to the total nonce used in the signature.
+    3. The party who knows `t` must "adapt" their partial signature with `t` to complete the
+       signature.
+    4. Any party who sees both the final signature and the original partial signatures
+       can compute `t`.
 
 Using these adaptor signatures, two 2-of-2 MuSig signing protocols can be executed in
 parallel such that one party's partial signatures are made atomic. That is, when the other
@@ -182,8 +186,8 @@ coins) and "Session B" which benefits Bob (e.g. which sends him coins).
        with this adaptor signature and Alice's partial signature, to produce a complete
        signature for blockchain B.
     6. Alice reads this signature from blockchain B. She calls `secp256k1_musig_extract_secret_adaptor`,
-       passing the complete signature along with her and Bob's partial signatures. This function
-       outputs `t`, which until this point was only known to Bob.
+       passing the complete signature along with her and Bob's partial signatures from Session B.
+       This function outputs `t`, which until this point was only known to Bob.
     7. In Session A, Alice is now able to replicate Bob's action, calling
        `secp256k1_musig_partial_sig_adapt` with her own partial signature and `t`, ultimately
        producing a complete signature on blockchain A.
