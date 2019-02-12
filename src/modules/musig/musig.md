@@ -17,8 +17,8 @@ using the equation
 where `P_i` is the public key of the `i`th participant and `µ_i` is a so-called
 _MuSig coefficient_ computed according to the following equation
 
-    C = H(P_1 || P_2 || ... || P_n)
-    µ_i = H(C || i)
+    L = H(P_1 || P_2 || ... || P_n)
+    µ_i = H(L || i)
 
 where H is a hash function modelled as a random oracle.
 
@@ -61,7 +61,7 @@ by calling `secp256k1_musig_pubkey_combine`.
 
 This function takes as input a list of public keys `P_i` in the argument
 `pubkeys`. It outputs the combined public key `P` in the out-pointer `combined_pk`
-and hash `C` in the out-pointer `pk_hash32`, if this pointer is non-NULL.
+and hash `L` in the out-pointer `pk_hash32`, if this pointer is non-NULL.
 
 ## Signing
 
