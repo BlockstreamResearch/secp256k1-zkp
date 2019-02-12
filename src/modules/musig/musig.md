@@ -42,7 +42,9 @@ The complete signature is then the `(s, R)` where `s = sum_i s_i` and `R = sum_i
 
 # API Usage
 
-It is essential to security that signers use a unique uniformly random none for all
+The following sections describe use of our API, and are mirrored in code in `src/modules/musig/example.c`.
+
+It is essential to security that signers use a unique uniformly random nonce for all
 signing sessions, and that they do not reuse these nonces even in the case that a
 signing session fails to complete. To that end, all signing state is encapsulated
 in the data structure `secp256k1_musig_session`. The API does not expose any
@@ -70,8 +72,8 @@ signature process, which is also a supported mode) acts as follows.
 
 ### Signing Participant
 
-    1. Starts the session by calling `secp256k1_musig_session_initialize`. This
-       function outputs
+    1. The signer starts the session by calling `secp256k1_musig_session_initialize`.
+       This function outputs
            * an initialized session state in the out-pointer `session`
            * an array of initialized signer data in the out-pointer `signers`
            * a commitment `H(R_i)` to a nonce in the out-pointer `nonce_commitment32`
@@ -96,7 +98,8 @@ signature process, which is also a supported mode) acts as follows.
        from each signer `j`. On receipt of a nonce `R_j` he calls the function
        `secp256k1_musig_set_nonce` to record this fact. This function checks that
        the received nonce is consistent with the previously-received nonce and will
-       return 0 in this case.
+       return 0 in this case. The signer must also call this function with his own
+       nonce and his own index `i`.
        These nonces `R_i` are secp256k1 public keys; they should be serialized using
        `secp256k1_ec_pubkey_serialize` and parsed with `secp256k1_ec_pubkey_parse`.
     5. Once all nonces have been exchanged in this way, signers are able to compute
@@ -104,7 +107,7 @@ signature process, which is also a supported mode) acts as follows.
        which updates in place
            * the session state `session`
            * the array of signer data `signers`
-       It outputs an auxillary integer `nonce_is_negated` and has an auxillary input
+       It outputs an auxilary integer `nonce_is_negated` and has an auxilary input
        `adaptor`. Both of these may be set to NULL for ordinary signing purposes.
        If the signer did not provide a message to `secp256k1_musig_session_initialize`,
        a message must be provided now by calling `secp256k1_musig_session_set_msg` which
@@ -125,9 +128,9 @@ signature process, which is also a supported mode) acts as follows.
 
 ### Non-signing Participant
 
-A participant who wants to verify the signing process but not actually contribute a
-partial signature, may do so using the above instructions except for the following
-changes:
+A participant who wants to verify the signing process, i.e. check that nonce commitments
+are consistent and partial signatures are correct without contributing a partial signature,
+may do so using the above instructions except for the following changes:
 
     1. A signing session should be produced using `musig_session_initialize_verifier`
        rather than `musig_session_initialize`; this function takes no secret data or
@@ -170,7 +173,7 @@ as follows.
 
 The above steps are executed identically for both signing sessions. However, step 9 will
 not work as before, since the partial signatures will not add up to a valid total signature.
-Additonal steps must be taken, and it is at this point that the two signing sessions
+Additional steps must be taken, and it is at this point that the two signing sessions
 diverge. From here on we consider "Session A" which benefits Alice (e.g. which sends her
 coins) and "Session B" which benefits Bob (e.g. which sends him coins).
 
