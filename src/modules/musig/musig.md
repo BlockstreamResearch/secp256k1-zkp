@@ -31,11 +31,11 @@ To produce a multisignature `(s, R)` on a message `m` using verification key
    other participant. The recipients check that each `R_i` is consistent with
    the previously-communicated hash.
 3. Each participant computes a combined nonce
-    R = sum_i R_i
+    `R = sum_i R_i`
    and shared challenge
-    e = H(R || P || m)
+    `e = H(R || P || m)`
    and partial signature
-    s_i = k_i + µ_i*x_i*e
+    `s_i = k_i + µ_i*x_i*e`
    where `x_i` is the secret key corresponding to `P_i`.
 
 The complete signature is then the `(s, R)` where `s = sum_i s_i` and `R = sum_i R_i`.
