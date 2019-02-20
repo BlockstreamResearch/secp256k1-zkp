@@ -7,6 +7,10 @@
  * (https://eprint.iacr.org/2018/068.pdf). There's an example C source file in the
  * module's directory (src/modules/musig/example.c) that demonstrates how it can be
  * used.
+ *
+ * The documentation in this include file is for reference and may not be sufficient
+ * for users to begin using the library. A full description of API usage can be found
+ * in src/modules/musig/musig.md
  */
 
 /** Data structure containing data related to a signing session resulting in a single

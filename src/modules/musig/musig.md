@@ -7,14 +7,16 @@ in a multisignature scheme. This involves a somewhat complex state machine
 and significant effort has been taken to prevent accidental misuse of the
 API in ways that could lead to accidental signatures or loss of key material.
 
+The resulting signatures are valid Schnorr signatures as described in [2].
+
 # Theory
 
-In MuSig all participants contribute key material to a single signing key,
+In MuSig all signers contribute key material to a single signing key,
 using the equation
 
     P = sum_i µ_i - P_i
 
-where `P_i` is the public key of the `i`th participant and `µ_i` is a so-called
+where `P_i` is the public key of the `i`th signer and `µ_i` is a so-called
 _MuSig coefficient_ computed according to the following equation
 
     L = H(P_1 || P_2 || ... || P_n)
@@ -25,12 +27,12 @@ where H is a hash function modelled as a random oracle.
 To produce a multisignature `(s, R)` on a message `m` using verification key
 `P`, signers act as follows:
 
-1. Each computes a nonce, or ephemeral keypair, `(k_i, R_i)`. Every participant
-   communinicates `H(R_i)` to every other participant.
-2. Upon receipt of every `H(R_i)`, each participant communicates `R_i` to every
-   other participant. The recipients check that each `R_i` is consistent with
-   the previously-communicated hash.
-3. Each participant computes a combined nonce
+1. Each computes a nonce, or ephemeral keypair, `(k_i, R_i)`. Every signer
+   communicates `H(R_i)` to every participant (both signers and auditors).
+2. Upon receipt of every `H(R_i)`, each signer communicates `R_i` to every
+   participant. The recipients check that each `R_i` is consistent with the
+   previously-communicated hash.
+3. Each signer computes a combined nonce
     `R = sum_i R_i`
    and shared challenge
     `e = H(R || P || m)`
@@ -107,7 +109,7 @@ signature process, which is also a supported mode) acts as follows.
    which updates in place
    - the session state `session`
    - the array of signer data `signers`
-   It outputs an auxilary integer `nonce_is_negated` and has an auxilary input
+   It outputs an auxiliary integer `nonce_is_negated` and has an auxiliary input
    `adaptor`. Both of these may be set to NULL for ordinary signing purposes.
    If the signer did not provide a message to `secp256k1_musig_session_initialize`,
    a message must be provided now by calling `secp256k1_musig_session_set_msg` which
@@ -193,4 +195,5 @@ coins) and "Session B" which benefits Bob (e.g. which sends him coins).
    producing a complete signature on blockchain A.
 
 [1] https://eprint.iacr.org/2018/068
+[2] https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki
 
