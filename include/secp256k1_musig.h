@@ -19,22 +19,9 @@
  * This structure is not opaque, but it MUST NOT be copied or read or written to it
  * directly. A signer who is online throughout the whole process and can keep this
  * structure in memory can use the provided API functions for a safe standard
- * workflow.
- *
- * A signer who goes offline and needs to import/export or save/load this structure
- * **must** take measures prevent replay attacks wherein an old state is loaded and
- * the signing protocol forked from that point. One straightforward way to accomplish
- * this is to attach the output of a monotonic non-resettable counter (hardware
- * support is needed for this). Increment the counter before each output and
- * encrypt+sign the entire package. If a package is deserialized with an old counter
- * state or bad signature it should be rejected.
- *
- * Observe that an independent counter is needed for each concurrent signing session
- * such a device is involved in. To avoid fragility, it is therefore recommended that
- * any offline signer be usable for only a single session at once.
- *
- * Given access to such a counter, its output should be used as (or mixed into) the
- * session ID to ensure uniqueness.
+ * workflow. See https://blockstream.com/2019/02/18/musig-a-new-multisignature-standard/
+ * for more details about the risks associated with serializing or deserializing this
+ * structure.
  *
  * Fields:
  *      combined_pk: MuSig-computed combined public key
