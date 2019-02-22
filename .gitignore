@@ -8,6 +8,7 @@ bench_recover
 bench_internal
 tests
 exhaustive_tests
+example_musig
 gen_context
 *.exe
 *.so
@@ -48,3 +49,4 @@ build-aux/compile
 build-aux/test-driver
 src/stamp-h1
 libsecp256k1.pc
+.idea

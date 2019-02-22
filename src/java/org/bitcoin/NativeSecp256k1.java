@@ -32,7 +32,7 @@ import static org.bitcoin.NativeSecp256k1Util.*;
  * <p>You can find an example library that can be used for this at https://github.com/bitcoin/secp256k1</p>
  *
  * <p>To build secp256k1 for use with bitcoinj, run
- * `./configure --enable-jni --enable-experimental --enable-module-ecdh`
+ * `./configure --enable-jni --enable-experimental --enable-module-ecdh --enable-module-schnorrsig --enable-module-musig`
  * and `make` then copy `.libs/libsecp256k1.so` to your system library path
  * or point the JVM to the folder containing it with -Djava.library.path
  * </p>
@@ -79,10 +79,10 @@ public class NativeSecp256k1 {
      * libsecp256k1 Create an ECDSA signature.
      *
      * @param data Message hash, 32 bytes
-     * @param key Secret key, 32 bytes
+     * @param sec Secret key, 32 bytes
      *
      * Return values
-     * @param sig byte array of signature
+     * @return byte array of signature
      */
     public static byte[] sign(byte[] data, byte[] sec) throws AssertFailException{
         Preconditions.checkArgument(data.length == 32 && sec.length <= 32);
@@ -147,7 +147,7 @@ public class NativeSecp256k1 {
      * @param seckey ECDSA Secret key, 32 bytes
      *
      * Return values
-     * @param pubkey ECDSA Public key, 33 or 65 bytes
+     * @return ECDSA Public key, 33 or 65 bytes
      */
     //TODO add a 'compressed' arg
     public static byte[] computePubkey(byte[] seckey) throws AssertFailException{
@@ -204,7 +204,7 @@ public class NativeSecp256k1 {
      * libsecp256k1 PrivKey Tweak-Mul - Tweak privkey by multiplying to it
      *
      * @param tweak some bytes to tweak with
-     * @param seckey 32-byte seckey
+     * @param privkey 32-byte seckey
      */
     public static byte[] privKeyTweakMul(byte[] privkey, byte[] tweak) throws AssertFailException{
         Preconditions.checkArgument(privkey.length == 32);
@@ -243,7 +243,7 @@ public class NativeSecp256k1 {
      * libsecp256k1 PrivKey Tweak-Add - Tweak privkey by adding to it
      *
      * @param tweak some bytes to tweak with
-     * @param seckey 32-byte seckey
+     * @param privkey 32-byte seckey
      */
     public static byte[] privKeyTweakAdd(byte[] privkey, byte[] tweak) throws AssertFailException{
         Preconditions.checkArgument(privkey.length == 32);
@@ -417,6 +417,78 @@ public class NativeSecp256k1 {
         }
     }
 
+    /**
+     * libsecp256k1 Create a Schnorr signature.
+     *
+     * @param data Message hash, 32 bytes
+     * @param sec Secret key, 32 bytes
+     *
+     * Return values
+     * @return byte array of signature (64 bytes)
+     */
+    public static byte[] schnorrSign(byte[] data, byte[] sec) throws AssertFailException{
+        Preconditions.checkArgument(data.length == 32 && sec.length <= 32);
+
+        ByteBuffer byteBuff = nativeECDSABuffer.get();
+        if (byteBuff == null || byteBuff.capacity() < 32 + 32) {
+            byteBuff = ByteBuffer.allocateDirect(32 + 32);
+            byteBuff.order(ByteOrder.nativeOrder());
+            nativeECDSABuffer.set(byteBuff);
+        }
+        byteBuff.rewind();
+        byteBuff.put(data);
+        byteBuff.put(sec);
+
+        byte[][] retByteArray;
+
+        r.lock();
+        try {
+            retByteArray = secp256k1_schnorrsig_sign(byteBuff, Secp256k1Context.getContext());
+        } finally {
+            r.unlock();
+        }
+
+        byte[] sigArr = retByteArray[0];
+        int sigLen = new BigInteger(new byte[] { retByteArray[1][0] }).intValue();
+        int retVal = new BigInteger(new byte[] { retByteArray[1][1] }).intValue();
+
+        assertEquals(sigArr.length, sigLen, "Got bad signature length.");
+
+        return retVal == 0 ? new byte[0] : sigArr;
+    }
+    
+    /**
+     * Verifies the given Schnorr signature in native code.
+     * Calling when enabled == false is undefined (probably library not loaded)
+     *
+     * @param data The data which was signed, must be exactly 32 bytes
+     * @param signature The signature, must be exactly 32 bytes
+     * @param pub The public key which did the signing
+     */
+    public static boolean schnorrVerify(byte[] data, byte[] signature, byte[] pub) throws AssertFailException{
+        Preconditions.checkArgument(data.length == 32 && signature.length == 64 && pub.length <= 520);
+
+        ByteBuffer byteBuff = nativeECDSABuffer.get();
+        if (byteBuff == null || byteBuff.capacity() < 520) {
+            byteBuff = ByteBuffer.allocateDirect(520);
+            byteBuff.order(ByteOrder.nativeOrder());
+            nativeECDSABuffer.set(byteBuff);
+        }
+        byteBuff.rewind();
+        byteBuff.put(data);
+        byteBuff.put(signature);
+        byteBuff.put(pub);
+
+        byte[][] retByteArray;
+
+        r.lock();
+        try {
+            return secp256k1_schnorrsig_verify(byteBuff, Secp256k1Context.getContext(), pub.length) == 1;
+        } finally {
+            r.unlock();
+        }
+    }
+
     private static native long secp256k1_ctx_clone(long context);
 
     private static native int secp256k1_context_randomize(ByteBuffer byteBuff, long context);
@@ -443,4 +515,7 @@ public class NativeSecp256k1 {
 
     private static native byte[][] secp256k1_ecdh(ByteBuffer byteBuff, long context, int inputLen);
 
+    private static native byte[][] secp256k1_schnorrsig_sign(ByteBuffer byteBuff, long context);
+    
+    private static native int secp256k1_schnorrsig_verify(ByteBuffer byteBuff, long context, int pubLen);
 }
