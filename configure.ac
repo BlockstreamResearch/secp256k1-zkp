@@ -186,6 +186,16 @@ AC_ARG_WITH([scalar], [AS_HELP_STRING([--with-scalar=64bit|32bit|auto],
 AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=x86_64|arm|no|auto]
 [Specify assembly optimizations to use. Default is auto (experimental: arm)])],[req_asm=$withval], [req_asm=auto])
 
+# Default is window size 16 (or window size 15 with endomorphism) which needs 1.375 MiB. */
+AC_ARG_WITH([ecmult-window], [AS_HELP_STRING([--with-ecmult-window=SIZE|auto],
+[window size for ecmult precomputation for verification, specified as integer in range [3..24].]
+[Larger values result in possibly better performance at the cost of an exponentially larger precomputed table.]
+[The table will store 2^(SIZE-2) * 64 bytes of data but can be larger in memory due]
+[to platform-specific padding and alignment. "auto" is a reasonable setting for desktop machines]
+[(currently 15 if the endomorphism optimization is disabled and 16 if it is enabled). [default=auto]]
+)],
+[req_ecmult_window=$withval], [req_ecmult_window=auto])
+
 AC_CHECK_TYPES([__int128])
 
 AC_MSG_CHECKING([for __builtin_expect])
@@ -413,6 +423,32 @@ case $set_scalar in
   ;;
 esac
 
+#set ecmult window size
+if test x"$req_ecmult_window" = x"auto"; then
+    if test x"$use_endomorphism" = x"yes"; then
+        set_ecmult_window=16
+    else
+        set_ecmult_window=15
+    fi
+else
+  set_ecmult_window=$req_ecmult_window
+fi
+
+error_window_size=['window size for ecmult precomputation not an integer in range [3..24] or "auto"']
+case $set_ecmult_window in
+''|*[[!0-9]]*)
+  # no valid integer
+  AC_MSG_ERROR($error_window_size)
+  ;;
+*)
+  if test "$set_ecmult_window" -lt 3 -o "$set_ecmult_window" -gt 24 ; then
+    # not in range
+    AC_MSG_ERROR($error_window_size)
+  fi
+  AC_DEFINE_UNQUOTED(ECMULT_WINDOW_SIZE, $set_ecmult_window, [Set window size for ecmult precomputation])
+  ;;
+esac
+
 if test x"$use_tests" = x"yes"; then
   SECP_OPENSSL_CHECK
   if test x"$has_openssl_ec" = x"yes"; then
@@ -623,6 +659,7 @@ echo "  asm                     = $set_asm"
 echo "  bignum                  = $set_bignum"
 echo "  field                   = $set_field"
 echo "  scalar                  = $set_scalar"
+echo "  ecmult window size      = $set_ecmult_window"
 echo
 echo "  CC                      = $CC"
 echo "  CFLAGS                  = $CFLAGS"
