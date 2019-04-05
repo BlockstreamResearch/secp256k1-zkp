@@ -145,22 +145,22 @@ AC_ARG_ENABLE(module_recovery,
     [enable_module_recovery=no])
 
 AC_ARG_ENABLE(module_generator,
-    AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module (default is no)]),
+    AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module [default=no]]),
     [enable_module_generator=$enableval],
     [enable_module_generator=no])
 
 AC_ARG_ENABLE(module_rangeproof,
-    AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module (default is no)]),
+    AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module [default=no]]),
     [enable_module_rangeproof=$enableval],
     [enable_module_rangeproof=no])
 
 AC_ARG_ENABLE(module_whitelist,
-    AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module (default is no)]),
+    AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
     [enable_module_whitelist=$enableval],
     [enable_module_whitelist=no])
 
 AC_ARG_ENABLE(external_default_callbacks,
-    AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions (default is no)]),
+    AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]),
     [use_external_default_callbacks=$enableval],
     [use_external_default_callbacks=no])
 
@@ -170,7 +170,7 @@ AC_ARG_ENABLE(jni,
     [use_jni=no])
 
 AC_ARG_ENABLE(module_surjectionproof,
-    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module (default is no)]),
+    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
     [enable_module_surjectionproof=$enableval],
     [enable_module_surjectionproof=no])
 
