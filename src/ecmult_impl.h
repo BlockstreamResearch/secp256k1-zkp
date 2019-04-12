@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "util.h"
 #include "group.h"
 #include "scalar.h"
 #include "ecmult.h"
@@ -30,16 +31,34 @@
 #  endif
 #else
 /* optimal for 128-bit and 256-bit exponents. */
-#define WINDOW_A 5
-/** larger numbers may result in slightly better performance, at the cost of
-    exponentially larger precomputed tables. */
-#ifdef USE_ENDOMORPHISM
-/** Two tables for window size 15: 1.375 MiB. */
-#define WINDOW_G 15
-#else
-/** One table for window size 16: 1.375 MiB. */
-#define WINDOW_G 16
+#  define WINDOW_A 5
+/** Larger values for ECMULT_WINDOW_SIZE result in possibly better
+ * performance at the cost of an exponentially larger precomputed
+ * table. The exact table size is
+ *     (1 << (WINDOW_G - 2)) * sizeof(secp256k1_ge_storage)  bytes,
+ * where sizeof(secp256k1_ge_storage) is typically 64 bytes but can
+ * be larger due to platform-specific padding and alignment.
+ */
+#  ifdef USE_ENDOMORPHISM
+#    define WINDOW_G ((ECMULT_WINDOW_SIZE)-1)
+#  else
+#    define WINDOW_G (ECMULT_WINDOW_SIZE)
+#  endif
 #endif
+
+/* Noone will ever need more than a window size of 24. The code might
+ * be correct for larger values of ECMULT_WINDOW_SIZE but this is not
+ * not tested.
+ *
+ * The following limitations are known, and there are probably more:
+ * If WINDOW_G > 27 and size_t has 32 bits, then the code is incorrect
+ * because the size of the memory object that we allocate (in bytes)
+ * will not fit in a size_t.
+ * If WINDOW_G > 31 and int has 32 bits, then the code is incorrect
+ * because certain expressions will overflow.
+ * */
+#if ECMULT_WINDOW_SIZE < 3 || ECMULT_WINDOW_SIZE > 24
+#  error Set ECMULT_WINDOW_SIZE to an integer in range [3..24].
 #endif
 
 #ifdef USE_ENDOMORPHISM
@@ -293,6 +312,13 @@ static void secp256k1_ecmult_odd_multiples_table_storage_var(const int n, secp25
     } \
 } while(0)
 
+static const size_t SECP256K1_ECMULT_CONTEXT_PREALLOCATED_SIZE =
+    ROUND_TO_ALIGN(sizeof((*((secp256k1_ecmult_context*) NULL)->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G))
+#ifdef USE_ENDOMORPHISM
+    + ROUND_TO_ALIGN(sizeof((*((secp256k1_ecmult_context*) NULL)->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G))
+#endif
+    ;
+
 static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx) {
     ctx->pre_g = NULL;
 #ifdef USE_ENDOMORPHISM
@@ -300,8 +326,10 @@ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx) {
 #endif
 }
 
-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const secp256k1_callback *cb) {
+static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc) {
     secp256k1_gej gj;
+    void* const base = *prealloc;
+    size_t const prealloc_size = SECP256K1_ECMULT_CONTEXT_PREALLOCATED_SIZE;
 
     if (ctx->pre_g != NULL) {
         return;
@@ -310,7 +338,12 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
     /* get the generator */
     secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
 
-    ctx->pre_g = (secp256k1_ge_storage (*)[])checked_malloc(cb, sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+    {
+        size_t size = sizeof((*ctx->pre_g)[0]) * ((size_t)ECMULT_TABLE_SIZE(WINDOW_G));
+        /* check for overflow */
+        VERIFY_CHECK(size / sizeof((*ctx->pre_g)[0]) == ((size_t)ECMULT_TABLE_SIZE(WINDOW_G)));
+        ctx->pre_g = (secp256k1_ge_storage (*)[])manual_alloc(prealloc, size, base, prealloc_size);
+    }
 
     /* precompute the tables with odd multiples */
     secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g, &gj);
@@ -320,7 +353,10 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
         secp256k1_gej g_128j;
         int i;
 
-        ctx->pre_g_128 = (secp256k1_ge_storage (*)[])checked_malloc(cb, sizeof((*ctx->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+        size_t size = sizeof((*ctx->pre_g_128)[0]) * ((size_t) ECMULT_TABLE_SIZE(WINDOW_G));
+        /* check for overflow */
+        VERIFY_CHECK(size / sizeof((*ctx->pre_g_128)[0]) == ((size_t)ECMULT_TABLE_SIZE(WINDOW_G)));
+        ctx->pre_g_128 = (secp256k1_ge_storage (*)[])manual_alloc(prealloc, size, base, prealloc_size);
 
         /* calculate 2^128*generator */
         g_128j = gj;
@@ -332,22 +368,13 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, const 
 #endif
 }
 
-static void secp256k1_ecmult_context_clone(secp256k1_ecmult_context *dst,
-                                           const secp256k1_ecmult_context *src, const secp256k1_callback *cb) {
-    if (src->pre_g == NULL) {
-        dst->pre_g = NULL;
-    } else {
-        size_t size = sizeof((*dst->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g = (secp256k1_ge_storage (*)[])checked_malloc(cb, size);
-        memcpy(dst->pre_g, src->pre_g, size);
+static void secp256k1_ecmult_context_finalize_memcpy(secp256k1_ecmult_context *dst, const secp256k1_ecmult_context *src) {
+    if (src->pre_g != NULL) {
+        dst->pre_g = (secp256k1_ge_storage (*)[])((unsigned char*)dst + ((unsigned char*)(src->pre_g) - (unsigned char*)src));
     }
 #ifdef USE_ENDOMORPHISM
-    if (src->pre_g_128 == NULL) {
-        dst->pre_g_128 = NULL;
-    } else {
-        size_t size = sizeof((*dst->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g_128 = (secp256k1_ge_storage (*)[])checked_malloc(cb, size);
-        memcpy(dst->pre_g_128, src->pre_g_128, size);
+    if (src->pre_g_128 != NULL) {
+        dst->pre_g_128 = (secp256k1_ge_storage (*)[])((unsigned char*)dst + ((unsigned char*)(src->pre_g_128) - (unsigned char*)src));
     }
 #endif
 }
@@ -357,10 +384,6 @@ static int secp256k1_ecmult_context_is_built(const secp256k1_ecmult_context *ctx
 }
 
 static void secp256k1_ecmult_context_clear(secp256k1_ecmult_context *ctx) {
-    free(ctx->pre_g);
-#ifdef USE_ENDOMORPHISM
-    free(ctx->pre_g_128);
-#endif
     secp256k1_ecmult_context_init(ctx);
 }
 
@@ -417,7 +440,7 @@ static int secp256k1_ecmult_wnaf(int *wnaf, int len, const secp256k1_scalar *a, 
     CHECK(carry == 0);
     while (bit < 256) {
         CHECK(secp256k1_scalar_get_bits(&s, bit++, 1) == 0);
-    } 
+    }
 #endif
     return last_set_bit + 1;
 }
