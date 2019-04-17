@@ -54,7 +54,7 @@ typedef struct {
     unsigned char data[32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS)];
 } secp256k1_surjectionproof;
 
-SECP256K1_API const int SECP256K1_SURJECTIONPROOF_RAW_SIZE;
+#define SECP256K1_SURJECTIONPROOF_RAW_SIZE sizeof(secp256k1_surjectionproof)
 
 /** Parse a surjection proof
  *

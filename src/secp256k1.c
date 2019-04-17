@@ -740,5 +740,11 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
 
 #ifdef ENABLE_MODULE_SURJECTIONPROOF
 # include "modules/surjection/main_impl.h"
-const int SECP256K1_SURJECTIONPROOF_RAW_SIZE = sizeof(secp256k1_surjectionproof);
+/* In the headers, SECP256K1_SURJECTIONPROOF_RAW_SIZE is #defined
+ * as sizeof(secp256k1_surjectionproof), so it can be used in C code
+ * to do allocate the structure on stack, using that name.
+ * In this file, this #define is not be used, and we can safely
+ * #undef it to be able to define the exported symbol with the same name. */
+#undef SECP256K1_SURJECTIONPROOF_RAW_SIZE
+SECP256K1_API const int SECP256K1_SURJECTIONPROOF_RAW_SIZE = sizeof(secp256k1_surjectionproof);
 #endif
