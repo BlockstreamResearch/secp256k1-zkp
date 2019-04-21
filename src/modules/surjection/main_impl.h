@@ -151,6 +151,37 @@ static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_cs
     }
 }
 
+/* XXX secp256k1_surjectionproof_create is not a good name, because it can be confused with secp256k1_surjectionproof_generate */
+int secp256k1_surjectionproof_allocate_initialized(const secp256k1_context* ctx, secp256k1_surjectionproof** proof_out_p, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {
+    int ret = 0;
+    secp256k1_surjectionproof* proof;
+
+    VERIFY_CHECK(ctx != NULL);
+
+    ARG_CHECK(proof_out_p != NULL);
+    *proof_out_p = 0;
+
+    proof = (secp256k1_surjectionproof*)checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
+    if (proof != NULL) {
+        ret = secp256k1_surjectionproof_initialize(ctx, proof, input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, fixed_output_tag, n_max_iterations, random_seed32);
+        if (ret) {
+            *proof_out_p = proof;
+        }
+        else {
+            free(proof);
+        }
+    }
+    return ret;
+}
+
+/* XXX add checks to prevent destroy of stack-allocated struct ? */
+void secp256k1_surjectionproof_destroy(secp256k1_surjectionproof* proof) {
+    if (proof != NULL) {
+        VERIFY_CHECK(proof->n_inputs <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+        free(proof);
+    }
+}
+
 int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {
     secp256k1_surjectionproof_csprng csprng;
     size_t n_iterations = 0;
