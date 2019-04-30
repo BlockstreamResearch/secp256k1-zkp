@@ -77,7 +77,7 @@ SECP256K1_INLINE static int secp256k1_surjection_compute_public_keys(secp256k1_g
                 *ring_input_index = j;
             }
             j++;
-            if (j > n_pubkeys) {
+            if (j > n_pubkeys || j > SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS) {
                 return 0;
             }
         }
