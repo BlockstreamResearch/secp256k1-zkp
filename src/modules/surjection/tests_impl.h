@@ -456,7 +456,6 @@ static void test_no_used_inputs_verify(void) {
     size_t n_ephemeral_input_tags = 1;
     secp256k1_generator ephemeral_output_tag;
     unsigned char blinding_key[32];
-    secp256k1_ge inputs[1];
     secp256k1_ge output;
     secp256k1_sha256 sha256_e0;
     int result;
@@ -477,8 +476,7 @@ static void test_no_used_inputs_verify(void) {
 
     /* create "borromean signature" which is just a hash of metadata (pubkeys, etc) in this case */
     secp256k1_generator_load(&output, &ephemeral_output_tag);
-    secp256k1_generator_load(&inputs[0], &ephemeral_input_tags[0]);
-    secp256k1_surjection_genmessage(proof.data, inputs, 1, &output);
+    secp256k1_surjection_genmessage(proof.data, ephemeral_input_tags, 1, &ephemeral_output_tag);
     secp256k1_sha256_initialize(&sha256_e0);
     secp256k1_sha256_write(&sha256_e0, proof.data, 32);
     secp256k1_sha256_finalize(&sha256_e0, proof.data);
