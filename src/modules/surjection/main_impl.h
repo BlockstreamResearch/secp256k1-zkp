@@ -272,8 +272,6 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     size_t ring_input_index = 0;
     secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
     secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge inputs[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge output;
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
@@ -312,17 +310,12 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
         return 0;
     }
 
-    secp256k1_generator_load(&output, ephemeral_output_tag);
-    for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
-    }
-
-    secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, input_index, &ring_input_index);
+    secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, input_index, &ring_input_index);
 
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
     indices[0] = (int) ring_input_index;
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
     if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
     }
@@ -347,8 +340,6 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
     size_t n_used_pubkeys;
     secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
     secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge inputs[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge output;
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
@@ -364,12 +355,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
         return 0;
     }
 
-    secp256k1_generator_load(&output, ephemeral_output_tag);
-    for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
-    }
-
-    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, 0, NULL) == 0) {
+    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, 0, NULL) == 0) {
         return 0;
     }
 
@@ -382,7 +368,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
             return 0;
         }
     }
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
     return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
