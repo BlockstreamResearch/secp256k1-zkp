@@ -9,11 +9,12 @@
 #include <assert.h>
 #include <string.h>
 
+#include "include/secp256k1_rangeproof.h"
+#include "include/secp256k1_surjectionproof.h"
+
 #include "modules/rangeproof/borromean.h"
 #include "modules/surjection/surjection_impl.h"
 #include "hash.h"
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
 
 static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) {
     size_t ret = 0;
@@ -270,8 +271,8 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     size_t n_total_pubkeys;
     size_t n_used_pubkeys;
     size_t ring_input_index = 0;
-    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
+    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
+    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
@@ -310,7 +311,9 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
         return 0;
     }
 
-    secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, input_index, &ring_input_index);
+    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, input_index, &ring_input_index) == 0) {
+        return 0;
+    }
 
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
@@ -338,8 +341,8 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
     size_t i;
     size_t n_total_pubkeys;
     size_t n_used_pubkeys;
-    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
+    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
+    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);

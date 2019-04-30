@@ -671,7 +671,7 @@ void run_surjection_tests(void) {
 
     test_input_selection_distribution();
     test_gen_verify(10, 3);
-    test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
     test_no_used_inputs_verify();
     test_bad_serialize();
     test_bad_parse();
