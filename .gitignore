@@ -1,6 +1,8 @@
 bench_inv
 bench_ecdh
 bench_ecmult
+bench_generator
+bench_rangeproof
 bench_schnorrsig
 bench_sign
 bench_verify
