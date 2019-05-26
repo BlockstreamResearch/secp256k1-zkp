@@ -28,6 +28,7 @@ static void test_surjectionproof_api(void) {
     unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
     size_t  serialized_len;
     secp256k1_surjectionproof proof;
+    secp256k1_surjectionproof* proof_on_heap;
     size_t n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]);
     size_t input_index;
     int32_t ecount = 0;
@@ -51,6 +52,46 @@ static void test_surjectionproof_api(void) {
     secp256k1_rand256(output_blinding_key);
     memcpy(&fixed_output_tag, &fixed_input_tags[0], sizeof(fixed_input_tags[0]));
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_output_tag, fixed_output_tag.data, output_blinding_key));
+
+    /* check allocate_initialized */
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) != 0);
+    CHECK(proof_on_heap != 0);
+    secp256k1_surjectionproof_destroy(proof_on_heap);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, NULL, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, NULL, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, NULL, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS + 1, 3, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, n_inputs, &fixed_input_tags[0], 100, seed) != 0);
+    CHECK(proof_on_heap != 0);
+    secp256k1_surjectionproof_destroy(proof_on_heap);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, n_inputs + 1, &fixed_input_tags[0], 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 3, NULL, 100, seed) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 6);
+    CHECK((secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 0, seed) & 1) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 6);
+    CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, NULL) == 0);
+    CHECK(proof_on_heap == 0);
+    CHECK(ecount == 7);
+
+    /* we are now going to test essentially the same functions, just without heap allocation.
+     * reset ecount. */
+    ecount = 0;
 
     /* check initialize */
     CHECK(secp256k1_surjectionproof_initialize(none, &proof, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, seed) == 0);
