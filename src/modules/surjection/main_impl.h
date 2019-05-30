@@ -9,12 +9,20 @@
 #include <assert.h>
 #include <string.h>
 
+#if defined HAVE_CONFIG_H
+#include "libsecp256k1-config.h"
+#endif
+
 #include "include/secp256k1_rangeproof.h"
 #include "include/secp256k1_surjectionproof.h"
-
 #include "modules/rangeproof/borromean.h"
 #include "modules/surjection/surjection_impl.h"
 #include "hash.h"
+
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+#undef SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS
+#define SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS 16
+#endif
 
 static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) {
     size_t ret = 0;
@@ -36,6 +44,9 @@ static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) 
     return ret;
 }
 
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+static
+#endif
 int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surjectionproof *proof, const unsigned char *input, size_t inputlen) {
     size_t n_inputs;
     size_t signature_len;
@@ -214,6 +225,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
     ARG_CHECK(fixed_output_tag != NULL);
     ARG_CHECK(random_seed32 != NULL);
     ARG_CHECK(n_input_tags <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    ARG_CHECK(n_input_tags_to_use <= SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
     ARG_CHECK(n_input_tags_to_use <= n_input_tags);
     (void) ctx;
 
@@ -336,6 +348,9 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     return 1;
 }
 
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+static
+#endif
 int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
     size_t rsizes[1];    /* array needed for borromean sig API */
     size_t i;
