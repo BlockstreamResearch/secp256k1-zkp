@@ -644,18 +644,18 @@ void test_fixed_vectors(void) {
     bad[2] = 0x3f;  /* 0x1f -> 0x3f */
     CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used5_len));
     /* Correct for the length */
-    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used5_len + 32)); /* FIXME */
+    CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used5_len + 32));
     /* Alternately just turn off one of the "legit" bits */
     bad[2] = 0x37;  /* 0x1f -> 0x37 */
-    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used5_len)); /* FIXME */
+    CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used5_len));
 
     /* Similarly try setting 4 bits on the total5-used-3, with one bit out of range */
     memcpy(bad, total5_used3, total5_used3_len);
     bad[2] = 0x35;  /* 0x15 -> 0x35 */
     CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used3_len));
-    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used3_len + 32)); /* FIXME */
+    CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used3_len + 32));
     bad[2] = 0x34;  /* 0x15 -> 0x34 */
-    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used3_len)); /* FIXME */
+    CHECK(!secp256k1_surjectionproof_parse(ctx, &proof, bad, total5_used3_len));
 }
 
 void run_surjection_tests(void) {

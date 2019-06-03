@@ -55,6 +55,15 @@ int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surj
         return 0;
     }
 
+    /* Check that the bitvector of used inputs is of the claimed
+     * length; i.e. the final byte has no "padding bits" set */
+    if (n_inputs % 8 != 0) {
+        const unsigned char padding_mask = (~0U) << (n_inputs % 8);
+        if ((input[2 + (n_inputs + 7) / 8 - 1] & padding_mask) != 0) {
+            return 0;
+        }
+    }
+
     signature_len = 32 * (1 + secp256k1_count_bits_set(&input[2], (n_inputs + 7) / 8));
     if (inputlen != 2 + (n_inputs + 7) / 8 + signature_len) {
         return 0;
