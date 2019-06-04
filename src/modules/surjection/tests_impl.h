@@ -422,7 +422,7 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     /* trailing garbage */
     memcpy(&serialized_proof_trailing, &serialized_proof, serialized_len);
     serialized_proof_trailing[serialized_len] = seed[0];
-    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len + 1) == 0);
+    CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof_trailing, serialized_len + 1) == 0);
 
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len));
     result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
