@@ -427,6 +427,7 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len));
     result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
     CHECK(result == 1);
+
     /* various fail cases */
     if (n_inputs > 1) {
         result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
@@ -439,6 +440,15 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
         result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
         CHECK(result == 0);
         n_inputs += 1;
+    }
+
+    for (i = 0; i < n_inputs; i++) {
+        /* flip bit */
+        proof.used_inputs[i / 8] ^= (1 << (i % 8));
+        result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
+        CHECK(result == 0);
+        /* reset the bit */
+        proof.used_inputs[i / 8] ^= (1 << (i % 8));
     }
 
     /* cleanup */

@@ -69,6 +69,9 @@ SECP256K1_INLINE static int secp256k1_surjection_compute_public_keys(secp256k1_g
             secp256k1_ge tmpge;
             secp256k1_generator_load(&tmpge, &input_tags[i]);
             secp256k1_ge_neg(&tmpge, &tmpge);
+
+            VERIFY_CHECK(j < SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
+            VERIFY_CHECK(j < n_pubkeys);
             secp256k1_gej_set_ge(&pubkeys[j], &tmpge);
 
             secp256k1_generator_load(&tmpge, output_tag);
@@ -77,11 +80,10 @@ SECP256K1_INLINE static int secp256k1_surjection_compute_public_keys(secp256k1_g
                 *ring_input_index = j;
             }
             j++;
-            if (j > n_pubkeys || j > SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS) {
-                return 0;
-            }
         }
     }
+    /* Caller needs to ensure that the number of set bits in used_tags (which we counted in j) equals n_pubkeys. */
+    VERIFY_CHECK(j == n_pubkeys);
     return 1;
 }
 
