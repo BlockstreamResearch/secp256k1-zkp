@@ -373,6 +373,11 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
         return 0;
     }
 
+    /* Reject proofs with too many used inputs in USE_REDUCED_SURJECTION_PROOF_SIZE mode */
+    if (n_used_pubkeys > SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS) {
+        return 0;
+    }
+
     if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, 0, NULL) == 0) {
         return 0;
     }
