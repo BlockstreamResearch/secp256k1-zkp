@@ -427,6 +427,7 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len));
     result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
     CHECK(result == 1);
+
     /* various fail cases */
     if (n_inputs > 1) {
         result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
@@ -439,6 +440,15 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
         result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
         CHECK(result == 0);
         n_inputs += 1;
+    }
+
+    for (i = 0; i < n_inputs; i++) {
+        /* flip bit */
+        proof.used_inputs[i / 8] ^= (1 << (i % 8));
+        result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
+        CHECK(result == 0);
+        /* reset the bit */
+        proof.used_inputs[i / 8] ^= (1 << (i % 8));
     }
 
     /* cleanup */
@@ -456,7 +466,6 @@ static void test_no_used_inputs_verify(void) {
     size_t n_ephemeral_input_tags = 1;
     secp256k1_generator ephemeral_output_tag;
     unsigned char blinding_key[32];
-    secp256k1_ge inputs[1];
     secp256k1_ge output;
     secp256k1_sha256 sha256_e0;
     int result;
@@ -477,8 +486,7 @@ static void test_no_used_inputs_verify(void) {
 
     /* create "borromean signature" which is just a hash of metadata (pubkeys, etc) in this case */
     secp256k1_generator_load(&output, &ephemeral_output_tag);
-    secp256k1_generator_load(&inputs[0], &ephemeral_input_tags[0]);
-    secp256k1_surjection_genmessage(proof.data, inputs, 1, &output);
+    secp256k1_surjection_genmessage(proof.data, ephemeral_input_tags, 1, &ephemeral_output_tag);
     secp256k1_sha256_initialize(&sha256_e0);
     secp256k1_sha256_write(&sha256_e0, proof.data, 32);
     secp256k1_sha256_finalize(&sha256_e0, proof.data);
@@ -668,12 +676,11 @@ void run_surjection_tests(void) {
     test_input_selection(0);
     test_input_selection(1);
     test_input_selection(5);
-    test_input_selection(100);
-    test_input_selection(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    test_input_selection(SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
 
     test_input_selection_distribution();
     test_gen_verify(10, 3);
-    test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
     test_no_used_inputs_verify();
     test_bad_serialize();
     test_bad_parse();
