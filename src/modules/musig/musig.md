@@ -91,6 +91,8 @@ signature process, which is also a supported mode) acts as follows.
    length-32 byte arrays which can be communicated however is communicated.
 3. Once all signers nonce commitments have been received, the signer records
    these commitments with the function `secp256k1_musig_session_get_public_nonce`.
+   If the signer did not provide a message to `secp256k1_musig_session_initialize`,
+   a message must be provided now.
    This function updates in place
    - the session state `session`
    - the array of signer data `signers`
@@ -111,9 +113,6 @@ signature process, which is also a supported mode) acts as follows.
    - the array of signer data `signers`
    It outputs an auxiliary integer `nonce_is_negated` and has an auxiliary input
    `adaptor`. Both of these may be set to NULL for ordinary signing purposes.
-   If the signer did not provide a message to `secp256k1_musig_session_initialize`,
-   a message must be provided now by calling `secp256k1_musig_session_set_msg` which
-   updates the session state in place.
 6. The signer computes a partial signature `s_i` using the function
    `secp256k1_musig_partial_sign` which takes the session state as input and
    partial signature as output.

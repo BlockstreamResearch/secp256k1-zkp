@@ -77,7 +77,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     /* Communication round 1: Exchange nonce commitments */
     for (i = 0; i < N_SIGNERS; i++) {
         /* Set nonce commitments in the signer data and get the own public nonce */
-        if (!secp256k1_musig_session_get_public_nonce(ctx, &musig_session[i], signer_data[i], &nonce[i], nonce_commitment_ptr, N_SIGNERS)) {
+        if (!secp256k1_musig_session_get_public_nonce(ctx, &musig_session[i], signer_data[i], &nonce[i], nonce_commitment_ptr, N_SIGNERS, NULL)) {
             return 0;
         }
     }
