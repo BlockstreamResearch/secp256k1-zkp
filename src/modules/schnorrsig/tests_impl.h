@@ -720,7 +720,7 @@ void run_schnorrsig_tests(void) {
     test_schnorrsig_sign();
     test_schnorrsig_sign_verify(scratch);
 
-    secp256k1_scratch_space_destroy(scratch);
+    secp256k1_scratch_space_destroy(ctx, scratch);
 }
 
 #endif

@@ -331,7 +331,7 @@ int secp256k1_schnorrsig_verify_batch(const secp256k1_context *ctx, secp256k1_sc
     }
     secp256k1_scalar_negate(&s, &s);
 
-    return secp256k1_ecmult_multi_var(&ctx->ecmult_ctx, scratch, &rj, &s, secp256k1_schnorrsig_verify_batch_ecmult_callback, (void *) &ecmult_context, 2 * n_sigs)
+    return secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &rj, &s, secp256k1_schnorrsig_verify_batch_ecmult_callback, (void *) &ecmult_context, 2 * n_sigs)
             && secp256k1_gej_is_infinity(&rj);
 }
 
