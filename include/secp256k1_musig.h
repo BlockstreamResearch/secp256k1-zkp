@@ -151,9 +151,9 @@ SECP256K1_API int secp256k1_musig_pubkey_combine(
  *                     NULL). If a non-unique session_id32 was given then a partial
  *                     signature will LEAK THE SECRET KEY.
  *              msg32: the 32-byte message to be signed. Shouldn't be NULL unless you
- *                     require sharing public nonces before the message is known
+ *                     require sharing nonce commitments before the message is known
  *                     because it reduces nonce misuse resistance. If NULL, must be
- *                     set with `musig_session_set_msg` before signing and verifying.
+ *                     set with `musig_session_get_public_nonce`.
  *        combined_pk: the combined public key of all signers (cannot be NULL)
  *          pk_hash32: the 32-byte hash of the signers' individual keys (cannot be
  *                     NULL)
@@ -190,6 +190,8 @@ SECP256K1_API int secp256k1_musig_session_initialize(
  *  In:  commitments: array of 32-byte nonce commitments (cannot be NULL)
  *     n_commitments: the length of commitments and signers array. Must be the total
  *                    number of signers participating in the MuSig.
+ *             msg32: the 32-byte message to be signed. Must be NULL if already
+ *                    set with `musig_session_initialize` otherwise can not be NULL.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_get_public_nonce(
     const secp256k1_context* ctx,
@@ -197,7 +199,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_get_publi
     secp256k1_musig_session_signer_data *signers,
     secp256k1_pubkey *nonce,
     const unsigned char *const *commitments,
-    size_t n_commitments
+    size_t n_commitments,
+    const unsigned char *msg32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Initializes a verifier session that can be used for verifying nonce commitments
@@ -209,9 +212,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_get_publi
  *  Out:     session: the session structure to initialize (cannot be NULL)
  *           signers: an array of signers' data to be initialized. Array length must
  *                    equal to `n_signers`(cannot be NULL)
- *  In:        msg32: the 32-byte message to be signed If NULL, must be set with
- *                    `musig_session_set_msg` before using the session for verifying
- *                    partial signatures.
+ *  In:        msg32: the 32-byte message to be signed (cannot be NULL)
  *       combined_pk: the combined public key of all signers (cannot be NULL)
  *         pk_hash32: the 32-byte hash of the signers' individual keys (cannot be NULL)
  *       commitments: array of 32-byte nonce commitments. Array length must equal to
@@ -229,7 +230,7 @@ SECP256K1_API int secp256k1_musig_session_initialize_verifier(
     const unsigned char *pk_hash32,
     const unsigned char *const *commitments,
     size_t n_signers
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
 
 /** Checks a signer's public nonce against a commitment to said nonce, and update
  *  data structure if they match
@@ -273,20 +274,6 @@ SECP256K1_API int secp256k1_musig_session_combine_nonces(
     size_t n_signers,
     int *nonce_is_negated,
     const secp256k1_pubkey *adaptor
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-
-/** Sets the message of a session if previously unset
- *
- *  Returns 1 if the message was not set yet and is now successfully set
- *          0 otherwise
- *  Args:    ctx: pointer to a context object (cannot be NULL)
- *       session: the session structure to update with the message (cannot be NULL)
- *  In:    msg32: the 32-byte message to be signed (cannot be NULL)
- */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_set_msg(
-    const secp256k1_context* ctx,
-    secp256k1_musig_session *session,
-    const unsigned char *msg32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Serialize a MuSig partial signature or adaptor signature
