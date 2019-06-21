@@ -78,10 +78,10 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     /* pubkey_combine does not require a scratch space */
     CHECK(secp256k1_musig_pubkey_combine(vrfy, NULL, &combined_pk, pk_hash, pk, 2) == 1);
     CHECK(ecount == 2);
-    /* If a scratch space is given it shouldn't be too small */
+    /* A small scratch space works too, but will result in using an ineffecient algorithm */
     scratch_small = secp256k1_scratch_space_create(ctx, 1);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch_small, &combined_pk, pk_hash, pk, 2) == 0);
-    secp256k1_scratch_space_destroy(scratch_small);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch_small, &combined_pk, pk_hash, pk, 2) == 1);
+    secp256k1_scratch_space_destroy(ctx, scratch_small);
     CHECK(ecount == 2);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, NULL, pk_hash, pk, 2) == 0);
     CHECK(ecount == 3);
@@ -751,7 +751,7 @@ void run_musig_tests(void) {
     }
     sha256_tag_test();
 
-    secp256k1_scratch_space_destroy(scratch);
+    secp256k1_scratch_space_destroy(ctx, scratch);
 }
 
 #endif
