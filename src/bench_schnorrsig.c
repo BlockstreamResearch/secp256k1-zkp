@@ -123,7 +123,7 @@ int main(void) {
     free(data.msgs);
     free(data.sigs);
 
-    secp256k1_scratch_space_destroy(data.scratch);
+    secp256k1_scratch_space_destroy(data.ctx, data.scratch);
     secp256k1_context_destroy(data.ctx);
     return 0;
 }
