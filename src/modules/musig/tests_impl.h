@@ -404,7 +404,7 @@ int musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp256
     pks_tmp[0] = pks[0];
     CHECK(secp256k1_ec_pubkey_create(ctx, &pks_tmp[1], sk_dummy) == 1);
     CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk_tmp, pk_hash_tmp, pks_tmp, 2) == 1);
-    CHECK(secp256k1_musig_session_initialize(ctx, &session_tmp, signers_tmp, nonce_commitment, session_id, msg, &combined_pk_tmp, pk_hash_tmp, 2, 0, sk_dummy) == 1);
+    CHECK(secp256k1_musig_session_initialize(ctx, &session_tmp, signers_tmp, nonce_commitment, session_id, msg, &combined_pk_tmp, pk_hash_tmp, 2, 1, sk_dummy) == 1);
 
     CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pk_hash, 2, 0, sk) == 1);
     CHECK(memcmp(nonce_commitment, nonce_commitments[1], 32) == 0);
@@ -463,7 +463,7 @@ int musig_state_machine_missing_msg_test(secp256k1_pubkey *pks, secp256k1_pubkey
     secp256k1_musig_partial_signature partial_sig;
     int partial_sign, partial_verify;
 
-    CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pk_hash, 2, 0, sk) == 1);
+    CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pk_hash, 2, 1, sk) == 1);
     ncs[0] = nonce_commitment_other;
     ncs[1] = nonce_commitment;
     CHECK(secp256k1_musig_session_get_public_nonce(ctx, &session, signers, &nonce, ncs, 2) == 1);
@@ -495,7 +495,7 @@ int musig_state_machine_missing_combine_test(secp256k1_pubkey *pks, secp256k1_pu
     secp256k1_schnorrsig sig;
     int partial_verify, sig_combine;
 
-    CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pk_hash, 2, 0, sk) == 1);
+    CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pk_hash, 2, 1, sk) == 1);
     ncs[0] = nonce_commitment_other;
     ncs[1] = nonce_commitment;
     CHECK(secp256k1_musig_session_get_public_nonce(ctx, &session, signers, &nonce, ncs, 2) == 1);
