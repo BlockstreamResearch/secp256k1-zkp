@@ -119,7 +119,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
             }
         }
     }
-    return secp256k1_musig_partial_sig_combine(ctx, &musig_session[0], sig, partial_sig, N_SIGNERS);
+    return secp256k1_musig_partial_sig_combine(ctx, &musig_session[0], sig, partial_sig, N_SIGNERS, NULL);
 }
 
  int main(void) {

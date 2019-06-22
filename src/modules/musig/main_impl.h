@@ -473,7 +473,7 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, const secp256k1_m
     return 1;
 }
 
-int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp256k1_musig_session *session, secp256k1_schnorrsig *sig, const secp256k1_musig_partial_signature *partial_sigs, size_t n_sigs) {
+int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp256k1_musig_session *session, secp256k1_schnorrsig *sig, const secp256k1_musig_partial_signature *partial_sigs, size_t n_sigs, const unsigned char *tweak32) {
     size_t i;
     secp256k1_scalar s;
     secp256k1_ge noncep;
@@ -500,6 +500,25 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
             return 0;
         }
         secp256k1_scalar_add(&s, &s, &term);
+    }
+
+    /* If there is a tweak then add `msghash` times `tweak` to `s`.*/
+    if (tweak32 != NULL) {
+        unsigned char msghash[32];
+        secp256k1_scalar e, scalar_tweak;
+        int overflow = 0;
+
+        if (!secp256k1_musig_compute_messagehash(ctx, msghash, session)) {
+            return 0;
+        }
+        secp256k1_scalar_set_b32(&e, msghash, NULL);
+        secp256k1_scalar_set_b32(&scalar_tweak, tweak32, &overflow);
+        if (overflow || !secp256k1_eckey_privkey_tweak_mul(&e, &scalar_tweak)) {
+            /* This mimics the behavior of secp256k1_ec_privkey_tweak_mul regarding
+             * overflow and tweak32 being 0. */
+            return 0;
+        }
+        secp256k1_scalar_add(&s, &s, &e);
     }
 
     secp256k1_pubkey_load(ctx, &noncep, &session->combined_nonce);
