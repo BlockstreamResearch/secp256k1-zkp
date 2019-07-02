@@ -7,6 +7,7 @@
 #ifndef _SECP256K1_MODULE_MUSIG_MAIN_
 #define _SECP256K1_MODULE_MUSIG_MAIN_
 
+#include <stdint.h>
 #include "include/secp256k1.h"
 #include "include/secp256k1_musig.h"
 #include "hash.h"
@@ -97,10 +98,12 @@ static void secp256k1_musig_signers_init(secp256k1_musig_session_signer_data *si
     }
 }
 
-int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scratch_space *scratch, secp256k1_pubkey *combined_pk, unsigned char *pk_hash32, const secp256k1_pubkey *pubkeys, size_t n_pubkeys) {
+static const uint64_t keygen_aux_magic = 0xf4adbbdf7c7dd304UL;
+int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scratch_space *scratch, secp256k1_pubkey *combined_pk, secp256k1_musig_keygen_aux *keygen_aux, const secp256k1_pubkey *pubkeys, size_t n_pubkeys, const unsigned char *tweak32) {
     secp256k1_musig_pubkey_combine_ecmult_data ecmult_data;
     secp256k1_gej pkj;
     secp256k1_ge pkp;
+    char pubkey_is_negated = 0;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(combined_pk != NULL);
@@ -117,15 +120,38 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         return 0;
     }
     secp256k1_ge_set_gej(&pkp, &pkj);
+
+    /* If there is a tweak, add `tweak32` times `G` to the combined public key.*/
+    if (tweak32 != NULL) {
+        secp256k1_scalar scalar_tweak;
+        int overflow = 0;
+        secp256k1_scalar_set_b32(&scalar_tweak, tweak32, &overflow);
+        if (overflow || secp256k1_scalar_is_zero(&scalar_tweak)) {
+            /* This mimics the behavior of secp256k1_ec_pubkey_tweak_add regarding
+             * overflow and tweak32 being 0.*/
+            return 0;
+        }
+        if (!secp256k1_eckey_pubkey_tweak_add(&ctx->ecmult_ctx, &pkp, &scalar_tweak)) {
+            return 0;
+        }
+    }
+
+    secp256k1_fe_normalize(&pkp.y);
+    if (secp256k1_fe_is_odd(&pkp.y)) {
+        pubkey_is_negated = 1;
+        secp256k1_ge_neg(&pkp, &pkp);
+    }
     secp256k1_pubkey_save(combined_pk, &pkp);
 
-    if (pk_hash32 != NULL) {
-        memcpy(pk_hash32, ecmult_data.ell, 32);
+    if (keygen_aux != NULL) {
+        keygen_aux->magic = keygen_aux_magic;
+        memcpy(keygen_aux->pk_hash, ecmult_data.ell, 32);
+        keygen_aux->pubkey_is_negated = pubkey_is_negated;
     }
     return 1;
 }
 
-int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, unsigned char *nonce_commitment32, const unsigned char *session_id32, const unsigned char *msg32, const secp256k1_pubkey *combined_pk, const unsigned char *pk_hash32, size_t n_signers, size_t my_index, const unsigned char *seckey) {
+int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, unsigned char *nonce_commitment32, const unsigned char *session_id32, const unsigned char *msg32, const secp256k1_pubkey *combined_pk, const secp256k1_musig_keygen_aux *keygen_aux, size_t n_signers, size_t my_index, const unsigned char *seckey) {
     unsigned char combined_ser[33];
     size_t combined_ser_size = sizeof(combined_ser);
     int overflow;
@@ -142,7 +168,7 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
     ARG_CHECK(nonce_commitment32 != NULL);
     ARG_CHECK(session_id32 != NULL);
     ARG_CHECK(combined_pk != NULL);
-    ARG_CHECK(pk_hash32 != NULL);
+    ARG_CHECK(keygen_aux != NULL);
     ARG_CHECK(seckey != NULL);
 
     memset(session, 0, sizeof(*session));
@@ -154,7 +180,11 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
         session->msg_is_set = 0;
     }
     memcpy(&session->combined_pk, combined_pk, sizeof(*combined_pk));
-    memcpy(session->pk_hash, pk_hash32, 32);
+    if (keygen_aux->magic != keygen_aux_magic) {
+        /* keygen_aux not initialized */
+        return 0;
+    }
+    session->keygen_aux = *keygen_aux;
     session->nonce_is_set = 0;
     session->has_secret_data = 1;
     if (n_signers == 0 || my_index >= n_signers) {
@@ -173,7 +203,7 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
         secp256k1_scalar_clear(&secret);
         return 0;
     }
-    secp256k1_musig_coefficient(&mu, pk_hash32, (uint32_t) my_index);
+    secp256k1_musig_coefficient(&mu, session->keygen_aux.pk_hash, (uint32_t) my_index);
     secp256k1_scalar_mul(&secret, &secret, &mu);
     secp256k1_scalar_get_b32(session->seckey, &secret);
 
@@ -248,14 +278,14 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
     return 1;
 }
 
-int secp256k1_musig_session_initialize_verifier(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, const unsigned char *msg32, const secp256k1_pubkey *combined_pk, const unsigned char *pk_hash32, const unsigned char *const *commitments, size_t n_signers) {
+int secp256k1_musig_session_initialize_verifier(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, const unsigned char *msg32, const secp256k1_pubkey *combined_pk, const secp256k1_musig_keygen_aux *keygen_aux, const unsigned char *const *commitments, size_t n_signers) {
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(session != NULL);
     ARG_CHECK(signers != NULL);
     ARG_CHECK(combined_pk != NULL);
-    ARG_CHECK(pk_hash32 != NULL);
+    ARG_CHECK(keygen_aux != NULL);
     ARG_CHECK(commitments != NULL);
     /* Check n_signers before checking commitments to allow testing the case where
      * n_signers is big without allocating the space. */
@@ -276,7 +306,11 @@ int secp256k1_musig_session_initialize_verifier(const secp256k1_context* ctx, se
     session->n_signers = (uint32_t) n_signers;
     secp256k1_musig_signers_init(signers, session->n_signers);
 
-    memcpy(session->pk_hash, pk_hash32, 32);
+    if (keygen_aux->magic != keygen_aux_magic) {
+        /* keygen_aux not initialized */
+        return 0;
+    }
+    session->keygen_aux = *keygen_aux;
     session->nonce_is_set = 0;
     session->msg_is_set = 0;
     if (msg32 != NULL) {
@@ -462,6 +496,9 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, const secp256k1_m
     if (session->nonce_is_negated) {
         secp256k1_scalar_negate(&k, &k);
     }
+    if (session->keygen_aux.pubkey_is_negated) {
+        secp256k1_scalar_negate(&sk, &sk);
+    }
 
     /* Sign */
     secp256k1_scalar_mul(&e, &e, &sk);
@@ -518,6 +555,9 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
              * overflow and tweak32 being 0. */
             return 0;
         }
+        if (session->keygen_aux.pubkey_is_negated) {
+            secp256k1_scalar_negate(&e, &e);
+        }
         secp256k1_scalar_add(&s, &s, &e);
     }
 
@@ -561,11 +601,17 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     /* Multiplying the messagehash by the musig coefficient is equivalent
      * to multiplying the signer's public key by the coefficient, except
      * much easier to do. */
-    secp256k1_musig_coefficient(&mu, session->pk_hash, signer->index);
+    secp256k1_musig_coefficient(&mu, session->keygen_aux.pk_hash, signer->index);
     secp256k1_scalar_mul(&e, &e, &mu);
 
     if (!secp256k1_pubkey_load(ctx, &rp, &signer->nonce)) {
         return 0;
+    }
+    /* Verify against negated public key if the combined key was negated. */
+    if (session->keygen_aux.pubkey_is_negated) {
+        /* Negating the public key or negating e have the same effect, but
+         * negating e is fewer lines of code. */
+        secp256k1_scalar_negate(&e, &e);
     }
 
     if (!secp256k1_schnorrsig_real_verify(ctx, &rj, &s, &e, pubkey)) {
