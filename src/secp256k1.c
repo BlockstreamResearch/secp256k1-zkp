@@ -423,22 +423,47 @@ static SECP256K1_INLINE void buffer_append(unsigned char *buf, unsigned int *off
     *offset += len;
 }
 
+/* Initializes SHA256 with fixed midstate. This midstate was computed by applying
+ * SHA256 to SHA256("BIPSchnorrDerive")||SHA256("BIPSchnorrDerive"). */
+static void secp256k1_nonce_function_bipschnorr_sha256_tagged(secp256k1_sha256 *sha) {
+    secp256k1_sha256_initialize(sha);
+    sha->s[0] = 0x1cd78ec3ul;
+    sha->s[1] = 0xc4425f87ul;
+    sha->s[2] = 0xb4f1a9f1ul;
+    sha->s[3] = 0xa16abd8dul;
+    sha->s[4] = 0x5a6dea72ul;
+    sha->s[5] = 0xd28469e3ul;
+    sha->s[6] = 0x17119b2eul;
+    sha->s[7] = 0x7bd19a16ul;
+    sha->bytes = 64;
+}
+
 /* This nonce function is described in BIP-schnorr
  * (https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) */
 static int nonce_function_bipschnorr(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *algo16, void *data, unsigned int counter) {
     secp256k1_sha256 sha;
-    (void) counter;
-    VERIFY_CHECK(counter == 0);
 
-    /* Hash x||msg as per the spec */
-    secp256k1_sha256_initialize(&sha);
+    if (counter != 0) {
+        return 0;
+    }
+    /* Tag the hash with algo16 which is important to avoid nonce reuse across
+     * algorithms. If the this nonce function is used in BIP-schnorr signing as
+     * defined in the spec, an optimized tagging implementation is used. */
+    if (algo16 != NULL) {
+        if (memcmp(algo16, "BIPSchnorrDerive", 16) == 0) {
+            secp256k1_nonce_function_bipschnorr_sha256_tagged(&sha);
+        } else {
+            secp256k1_sha256_initialize_tagged(&sha, algo16, 16);
+        }
+    } else {
+        /* If algo16 is NULL use a 14-bytes tag to rule out collisions with any
+         * non-NULL algo16 */
+        secp256k1_sha256_initialize_tagged(&sha, (unsigned char *) "BIPSchnorrNULL", 14);
+    }
+
+    /* Hash x||msg using the tagged hash as per the spec */
     secp256k1_sha256_write(&sha, key32, 32);
     secp256k1_sha256_write(&sha, msg32, 32);
-    /* Hash in algorithm, which is not in the spec, but may be critical to
-     * users depending on it to avoid nonce reuse across algorithms. */
-    if (algo16 != NULL) {
-        secp256k1_sha256_write(&sha, algo16, 16);
-    }
     if (data != NULL) {
         secp256k1_sha256_write(&sha, data, 32);
     }
@@ -713,6 +738,139 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
     secp256k1_ge_set_gej(&Q, &Qj);
     secp256k1_pubkey_save(pubnonce, &Q);
     return 1;
+}
+
+/* Converts the point encoded by a secp256k1_pubkey into its "absolute" value.
+ * That means it is kept as is if it has a square Y and otherwise negated.
+ * is_negated is set to 1 in the former case and to 0 in the latter case. */
+static void secp256k1_ec_pubkey_absolute(const secp256k1_context* ctx, secp256k1_pubkey *pubkey, int *is_negated) {
+    secp256k1_ge ge;
+    secp256k1_pubkey_load(ctx, &ge, pubkey);
+    secp256k1_ge_absolute(&ge, is_negated);
+    secp256k1_pubkey_save(pubkey, &ge);
+}
+
+
+static SECP256K1_INLINE int secp256k1_xonly_pubkey_load(const secp256k1_context* ctx, secp256k1_ge* ge, const secp256k1_xonly_pubkey* pubkey) {
+    return secp256k1_pubkey_load(ctx, ge, (const secp256k1_pubkey *) pubkey);
+}
+
+static SECP256K1_INLINE void secp256k1_xonly_pubkey_save(secp256k1_xonly_pubkey* pubkey, secp256k1_ge* ge) {
+    secp256k1_pubkey_save((secp256k1_pubkey *) pubkey, ge);
+}
+
+int secp256k1_xonly_pubkey_create(const secp256k1_context* ctx, secp256k1_xonly_pubkey *pubkey, const unsigned char *seckey) {
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(pubkey != NULL);
+    ARG_CHECK(seckey != NULL);
+
+    if (!secp256k1_ec_pubkey_create(ctx, (secp256k1_pubkey *) pubkey, seckey)) {
+        return 0;
+    }
+    secp256k1_ec_pubkey_absolute(ctx, (secp256k1_pubkey *) pubkey, NULL);
+    return 1;
+}
+
+int secp256k1_xonly_pubkey_parse(const secp256k1_context* ctx, secp256k1_xonly_pubkey* pubkey, const unsigned char *input32) {
+    secp256k1_ge Q;
+    secp256k1_fe x;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pubkey != NULL);
+    memset(pubkey, 0, sizeof(*pubkey));
+    ARG_CHECK(input32 != NULL);
+
+    if (!secp256k1_fe_set_b32(&x, input32)) {
+        return 0;
+    }
+    if (!secp256k1_ge_set_xquad(&Q, &x)) {
+        return 0;
+    }
+    secp256k1_xonly_pubkey_save(pubkey, &Q);
+    secp256k1_ge_clear(&Q);
+    return 1;
+}
+
+int secp256k1_xonly_pubkey_serialize(const secp256k1_context* ctx, unsigned char *output32, const secp256k1_xonly_pubkey* pubkey) {
+    secp256k1_ge Q;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(output32 != NULL);
+    memset(output32, 0, 32);
+    ARG_CHECK(pubkey != NULL);
+
+    if (!secp256k1_xonly_pubkey_load(ctx, &Q, pubkey)) {
+        return 0;
+    }
+    secp256k1_fe_get_b32(output32, &Q.x);
+    return 1;
+}
+
+int secp256k1_xonly_pubkey_from_pubkey(const secp256k1_context* ctx, secp256k1_xonly_pubkey *xonly_pubkey, int *is_negated, const secp256k1_pubkey *pubkey) {
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(xonly_pubkey != NULL);
+    ARG_CHECK(pubkey != NULL);
+
+    *xonly_pubkey = *(const secp256k1_xonly_pubkey *) pubkey;
+
+    secp256k1_ec_pubkey_absolute(ctx, (secp256k1_pubkey *) xonly_pubkey, is_negated);
+    return 1;
+}
+
+int secp256k1_xonly_privkey_tweak_add(const secp256k1_context* ctx, unsigned char *seckey32, const unsigned char *tweak32) {
+    secp256k1_ge ge;
+    secp256k1_pubkey pubkey;
+    secp256k1_scalar sec;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(seckey32 != NULL);
+    ARG_CHECK(tweak32 != NULL);
+
+    if (!secp256k1_ec_pubkey_create(ctx, &pubkey, seckey32)) {
+        return 0;
+    }
+    secp256k1_pubkey_load(ctx, &ge, &pubkey);
+    if (!secp256k1_fe_is_quad_var(&ge.y)) {
+        /* Overflow can be ignored because ec_pubkey_create would already fail */
+        secp256k1_scalar_set_b32(&sec, seckey32, NULL);
+        secp256k1_scalar_negate(&sec, &sec);
+        secp256k1_scalar_get_b32(seckey32, &sec);
+        secp256k1_scalar_clear(&sec);
+    }
+
+    return secp256k1_ec_privkey_tweak_add(ctx, seckey32, tweak32);
+}
+
+int secp256k1_xonly_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_xonly_pubkey *output_pubkey, int *is_negated, const secp256k1_xonly_pubkey *internal_pubkey, const unsigned char *tweak32) {
+    secp256k1_pubkey pubkey_tmp;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(output_pubkey != NULL);
+    ARG_CHECK(is_negated != NULL);
+    ARG_CHECK(internal_pubkey != NULL);
+    ARG_CHECK(tweak32 != NULL);
+
+    pubkey_tmp = *(secp256k1_pubkey *)internal_pubkey;
+    if(!secp256k1_ec_pubkey_tweak_add(ctx, &pubkey_tmp, tweak32)) {
+        return 0;
+    }
+    return secp256k1_xonly_pubkey_from_pubkey(ctx, output_pubkey, is_negated, &pubkey_tmp);
+}
+
+int secp256k1_xonly_pubkey_tweak_test(const secp256k1_context* ctx, const secp256k1_xonly_pubkey *output_pubkey, int is_negated, const secp256k1_xonly_pubkey *internal_pubkey, const unsigned char *tweak32) {
+    secp256k1_xonly_pubkey pk_expected;
+    int is_negated_expected;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
+    ARG_CHECK(internal_pubkey != NULL);
+    ARG_CHECK(output_pubkey != NULL);
+    ARG_CHECK(tweak32 != NULL);
+
+    if (!secp256k1_xonly_pubkey_tweak_add(ctx, &pk_expected, &is_negated_expected, internal_pubkey, tweak32)) {
+        return 0;
+    }
+    return memcmp(&pk_expected, output_pubkey, sizeof(pk_expected)) == 0
+            && is_negated_expected == is_negated;
 }
 
 #ifdef ENABLE_MODULE_ECDH

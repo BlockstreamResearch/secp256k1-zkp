@@ -489,6 +489,60 @@ void run_sha256_tests(void) {
     }
 }
 
+/* Tests for the equality of two sha256 structs. This function only produces a
+ * correct result if an integer multiple of 64 many bytes have been written
+ * into the hash functions. */
+void test_sha256_eq(secp256k1_sha256 *sha1, secp256k1_sha256 *sha2) {
+    unsigned char buf[32] = { 0 };
+    unsigned char buf2[32];
+
+    /* Is buffer fully consumed? */
+    CHECK((sha1->bytes & 0x3F) == 0);
+
+    /* Compare the struct excluding the the buffer, because it may be
+     * uninitialized or already included in the state. */
+    CHECK(sha1->bytes == sha2->bytes);
+    CHECK(memcmp(sha1->s, sha2->s, sizeof(sha1->s)) == 0);
+
+    /* Compare the output */
+    secp256k1_sha256_write(sha1, buf, 32);
+    secp256k1_sha256_write(sha2, buf, 32);
+    secp256k1_sha256_finalize(sha1, buf);
+    secp256k1_sha256_finalize(sha2, buf2);
+    CHECK(memcmp(buf, buf2, 32) == 0);
+}
+
+void run_nonce_function_bipschnorr_tests(void) {
+    char tag[16] = "BIPSchnorrDerive";
+    secp256k1_sha256 sha;
+    secp256k1_sha256 sha_optimized;
+    unsigned char nonces[3][32];
+    unsigned char msg[32];
+    unsigned char key[32];
+
+    /* Check that hash initialized by
+     * secp256k1_nonce_function_bipschnorr_sha256_tagged has the expected
+     * state. */
+    secp256k1_sha256_initialize_tagged(&sha, (unsigned char *) tag, sizeof(tag));
+    secp256k1_nonce_function_bipschnorr_sha256_tagged(&sha_optimized);
+    test_sha256_eq(&sha, &sha_optimized);
+
+    /* Check that different choices of the algo16 argument result in different
+     * hashes. */
+    memset(msg, 0, sizeof(msg));
+    memset(key, 1, sizeof(key));
+    CHECK(nonce_function_bipschnorr(nonces[0], msg, key, (unsigned char *) "BIPSchnorrDerive", NULL, 0));
+    CHECK(nonce_function_bipschnorr(nonces[1], msg, key, NULL, NULL, 0));
+    CHECK(memcmp(nonces[1], nonces[0], sizeof(nonces[1])) != 0);
+    CHECK(nonce_function_bipschnorr(nonces[2], msg, key, (unsigned char *) "something16chars", NULL, 0));
+    CHECK(memcmp(nonces[2], nonces[0], sizeof(nonces[2])) != 0);
+    CHECK(memcmp(nonces[2], nonces[1], sizeof(nonces[2])) != 0);
+
+    /* Check that counter != 0 makes nonce function fail. */
+    CHECK(nonce_function_bipschnorr(nonces[0], msg, key, NULL, NULL, 0) == 1);
+    CHECK(nonce_function_bipschnorr(nonces[0], msg, key, NULL, NULL, 1) == 0);
+}
+
 void run_hmac_sha256_tests(void) {
     static const char *keys[6] = {
         "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
@@ -4260,6 +4314,257 @@ void run_eckey_edge_case_test(void) {
     secp256k1_context_set_illegal_callback(ctx, NULL, NULL);
 }
 
+void test_xonly_pubkey(void) {
+    unsigned char sk[32] = { 0 };
+    unsigned char ones32[32];
+    unsigned char zeros64[64] = { 0 };
+    secp256k1_pubkey xy_pk;
+    secp256k1_xonly_pubkey xonly_pk;
+    secp256k1_xonly_pubkey xonly_pk_tmp;
+    secp256k1_ge pk1;
+    secp256k1_ge pk2;
+    secp256k1_fe y;
+    int is_negated;
+    unsigned char buf32[SECP256K1_LEN_XONLY_PUBKEY];
+
+    /* sk = 0 should fail */
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &xonly_pk, sk) == 0);
+
+    /* Choose a secret key such that the resulting pubkey and xonly_pubkey match. */
+    sk[0] = 3;
+    CHECK(secp256k1_ec_pubkey_create(ctx, &xy_pk, sk) == 1);
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &xonly_pk, sk) == 1);
+    CHECK(memcmp(&xonly_pk, &xy_pk, sizeof(xonly_pk)) == 0);
+    /* Test result of from_pubkey */
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(ctx, &xonly_pk_tmp, &is_negated, &xy_pk) == 1);
+    CHECK(memcmp(&xonly_pk_tmp, &xonly_pk, sizeof(xonly_pk)) == 0);
+    CHECK(is_negated == 0);
+
+    /* Choose a secret key such that pubkey and xonly_pubkey are each others
+     * negation. */
+    sk[0] = 6;
+    CHECK(secp256k1_ec_pubkey_create(ctx, &xy_pk, sk) == 1);
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &xonly_pk, sk) == 1);
+    CHECK(memcmp(&xonly_pk, &xy_pk, sizeof(xonly_pk)) != 0);
+    secp256k1_pubkey_load(ctx, &pk1, &xy_pk);
+    secp256k1_pubkey_load(ctx, &pk2, (secp256k1_pubkey *) &xonly_pk);
+    CHECK(secp256k1_fe_equal(&pk1.x, &pk2.x) == 1);
+    secp256k1_fe_negate(&y, &pk2.y, 1);
+    CHECK(secp256k1_fe_equal(&pk1.y, &y) == 1);
+    /* Test result of from_pubkey */
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(ctx, &xonly_pk_tmp, &is_negated, &xy_pk) == 1);
+    CHECK(memcmp(&xonly_pk_tmp, &xonly_pk, sizeof(xonly_pk)) == 0);
+    CHECK(is_negated == 1);
+
+    /* Serialization and parse roundtrip */
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &xonly_pk, sk) == 1);
+    CHECK(secp256k1_xonly_pubkey_serialize(ctx, buf32, &xonly_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_parse(ctx, &xonly_pk_tmp, buf32) == 1);
+    CHECK(memcmp(&xonly_pk, &xonly_pk_tmp, sizeof(xonly_pk)) == 0);
+
+    /* Can't parse a byte string that's not a valid X coordinate */
+    memset(ones32, 0xFF, sizeof(ones32));
+    CHECK(secp256k1_xonly_pubkey_parse(ctx, &xonly_pk_tmp, ones32) == 0);
+    CHECK(memcmp(&xonly_pk_tmp, zeros64, sizeof(xonly_pk_tmp)) == 0);
+}
+
+void test_xonly_pubkey_api(void) {
+    secp256k1_xonly_pubkey pk;
+    secp256k1_xonly_pubkey pk_tweaked;
+    secp256k1_pubkey xy_pk;
+    unsigned char sk[32];
+    unsigned char xy_sk[32];
+    unsigned char buf32[32];
+    unsigned char tweak[32];
+    unsigned char ones32[32];
+    unsigned char zeros32[32] = { 0 };
+
+    int is_negated;
+
+    /** setup **/
+    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    int ecount;
+
+    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
+
+    secp256k1_rand256(sk);
+    secp256k1_rand256(tweak);
+    secp256k1_rand256(xy_sk);
+    CHECK(secp256k1_ec_pubkey_create(sign, &xy_pk, xy_sk) == 1);
+    memset(ones32, 0xFF, 32);
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_create(none, &pk, sk) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_create(sign, &pk, sk) == 1);
+    CHECK(secp256k1_xonly_pubkey_create(vrfy, &pk, sk) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_xonly_pubkey_create(sign, NULL, sk) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_xonly_pubkey_create(sign, &pk, NULL) == 0);
+    CHECK(ecount == 4);
+
+    CHECK(secp256k1_xonly_pubkey_create(sign, &pk, sk) == 1);
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_serialize(none, NULL, &pk) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_serialize(none, buf32, NULL) == 0);
+    CHECK(memcmp(buf32, zeros32, 32) == 0);
+    CHECK(ecount == 2);
+    {
+        /* A pubkey filled with 0s will fail to serialize due to pubkey_load
+         * special casing. */
+        secp256k1_xonly_pubkey pk_tmp;
+        memset(&pk_tmp, 0, sizeof(pk_tmp));
+        CHECK(secp256k1_xonly_pubkey_serialize(none, buf32, &pk_tmp) == 0);
+    }
+    /* pubkey_load called illegal callback */
+    CHECK(ecount == 3);
+    CHECK(secp256k1_xonly_pubkey_serialize(none, buf32, &pk) == 1);
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_parse(none, NULL, buf32) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_parse(none, &pk, NULL) == 0);
+    CHECK(ecount == 2);
+    /* Invalid field element */
+    CHECK(secp256k1_xonly_pubkey_parse(none, &pk, ones32) == 0);
+    CHECK(ecount == 2);
+    /* There's no point with x-coordinate 0 on secp256k1 */
+    CHECK(secp256k1_xonly_pubkey_parse(none, &pk, zeros32) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_xonly_pubkey_parse(none, &pk, buf32) == 1);
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_privkey_tweak_add(none, sk, tweak) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_privkey_tweak_add(sign, sk, tweak) == 1);
+    CHECK(secp256k1_xonly_privkey_tweak_add(vrfy, sk, tweak) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_xonly_privkey_tweak_add(sign, NULL, tweak) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_xonly_privkey_tweak_add(sign, sk, NULL) == 0);
+    CHECK(ecount == 4);
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_tweak_add(none, &pk, &is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(sign, &pk, &is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, &pk, &is_negated, &pk, tweak) == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, NULL, &is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, &pk, NULL, &pk, tweak) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, &pk, &is_negated, NULL, tweak) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, &pk, &is_negated, &pk, NULL) == 0);
+    CHECK(ecount == 6);
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_tweak_add(vrfy, &pk_tweaked, &is_negated, &pk, tweak) == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(none, &pk_tweaked, is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(sign, &pk_tweaked, is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(vrfy, &pk_tweaked, is_negated, &pk, tweak) == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(vrfy, NULL, is_negated, &pk, tweak) == 0);
+    CHECK(ecount == 3);
+    /* invalid is_negated value */
+    CHECK(secp256k1_xonly_pubkey_tweak_test(vrfy, &pk_tweaked, 2, &pk, tweak) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(vrfy, &pk_tweaked, is_negated, NULL, tweak) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(vrfy, &pk_tweaked, is_negated, &pk, NULL) == 0);
+    CHECK(ecount == 5);
+
+
+    ecount = 0;
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(none, &pk, &is_negated, &xy_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(sign, &pk, &is_negated, &xy_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(vrfy, &pk, &is_negated, &xy_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(none, NULL, &is_negated, &xy_pk) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(none, &pk, NULL, &xy_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(none, &pk, &is_negated, NULL) == 0);
+    CHECK(ecount == 2);
+
+    secp256k1_context_destroy(none);
+    secp256k1_context_destroy(sign);
+    secp256k1_context_destroy(vrfy);
+}
+
+void test_xonly_pubkey_tweak(void) {
+    unsigned char zeros[32];
+    unsigned char overflows[32];
+    unsigned char sk[32];
+    secp256k1_xonly_pubkey internal_pk;
+    secp256k1_xonly_pubkey output_pk;
+    secp256k1_pubkey xy_pk;
+    int is_negated;
+    unsigned char tweak[32];
+
+    memset(zeros, 0, sizeof(zeros));
+    memset(overflows, 0xff, sizeof(zeros));
+    secp256k1_rand256(sk);
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &internal_pk, sk) == 1);
+
+    memset(tweak, 1, sizeof(tweak));
+    CHECK(secp256k1_xonly_pubkey_tweak_add(ctx, &output_pk, &is_negated, &internal_pk, tweak) == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &output_pk, is_negated, &internal_pk, tweak) == 1);
+    /* Using privkey_tweak_add gives the same result */
+    CHECK(secp256k1_xonly_privkey_tweak_add(ctx, sk, tweak) == 1);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &xy_pk, sk) == 1);
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(ctx, &output_pk, &is_negated, &xy_pk) == 1);
+    CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &output_pk, is_negated, &internal_pk, tweak) == 1);
+
+    /* Wrong is_negated */
+    CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &output_pk, !is_negated, &internal_pk, tweak) == 0);
+    /* Wrong public key */
+    CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &internal_pk, is_negated, &internal_pk, tweak) == 0);
+
+    /* Overflowing secret key not allowed */
+    CHECK(secp256k1_xonly_privkey_tweak_add(ctx, overflows, tweak) == 0);
+
+    /* Overflowing tweak not allowed */
+    CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &output_pk, is_negated, &internal_pk, overflows) == 0);
+    CHECK(secp256k1_xonly_privkey_tweak_add(ctx, sk, overflows) == 0);
+    CHECK(secp256k1_xonly_pubkey_tweak_add(ctx, &output_pk, &is_negated, &internal_pk, overflows) == 0);
+}
+
+/* Starts with an initial pubkey and recursively creates N_PUBKEYS - 1
+ * additional pubkeys by calling tweak_add. Then verifies every tweak starting
+ * from the last pubkey. */
+#define N_PUBKEYS 32
+void test_xonly_pubkey_tweak_recursive(void) {
+    unsigned char sk[32];
+    secp256k1_xonly_pubkey pk[N_PUBKEYS];
+    int is_negated[N_PUBKEYS];
+    unsigned char tweak[N_PUBKEYS - 1][32];
+    int i;
+
+    secp256k1_rand256(sk);
+    CHECK(secp256k1_xonly_pubkey_create(ctx, &pk[0], sk) == 1);
+    /* Add tweaks */
+    for (i = 0; i < N_PUBKEYS - 1; i++) {
+        memset(tweak[i], i + 1, sizeof(tweak[i]));
+        CHECK(secp256k1_xonly_pubkey_tweak_add(ctx, &pk[i + 1], &is_negated[i +  1], &pk[i], tweak[i]) == 1);
+    }
+
+    /* Verify tweaks */
+    for (i = N_PUBKEYS - 1; i > 0; i--) {
+        CHECK(secp256k1_xonly_pubkey_tweak_test(ctx, &pk[i], is_negated[i], &pk[i - 1], tweak[i - 1]) == 1);
+    }
+}
+#undef N_PUBKEYS
+
 void random_sign(secp256k1_scalar *sigr, secp256k1_scalar *sigs, const secp256k1_scalar *key, const secp256k1_scalar *msg, int *recid) {
     secp256k1_scalar nonce;
     do {
@@ -5451,11 +5756,18 @@ int main(int argc, char **argv) {
     /* EC key edge cases */
     run_eckey_edge_case_test();
 
+    /* xonly key test cases */
+    test_xonly_pubkey();
+    test_xonly_pubkey_api();
+    test_xonly_pubkey_tweak();
+    test_xonly_pubkey_tweak_recursive();
+
 #ifdef ENABLE_MODULE_ECDH
     /* ecdh tests */
     run_ecdh_tests();
 #endif
 
+    run_nonce_function_bipschnorr_tests();
 #ifdef ENABLE_MODULE_SCHNORRSIG
     /* Schnorrsig tests */
     run_schnorrsig_tests();

@@ -241,6 +241,18 @@ static int secp256k1_ge_set_xo_var(secp256k1_ge *r, const secp256k1_fe *x, int o
 
 }
 
+static void secp256k1_ge_absolute(secp256k1_ge *r, int *is_negated) {
+    if (is_negated != NULL) {
+        *is_negated = 0;
+    }
+    if (!secp256k1_fe_is_quad_var(&r->y)) {
+        secp256k1_ge_neg(r, r);
+        if (is_negated != NULL) {
+            *is_negated = 1;
+        }
+    }
+}
+
 static void secp256k1_gej_set_ge(secp256k1_gej *r, const secp256k1_ge *a) {
    r->infinity = a->infinity;
    r->x = a->x;

@@ -35,7 +35,7 @@ void bench_schnorrsig_sign(void* arg) {
         msg[1] = i >> 8;
         sk[0] = i;
         sk[1] = i >> 8;
-        CHECK(secp256k1_schnorrsig_sign(data->ctx, &sig, NULL, msg, sk, NULL, NULL));
+        CHECK(secp256k1_schnorrsig_sign(data->ctx, &sig, msg, sk, NULL, NULL));
     }
 }
 
@@ -44,8 +44,8 @@ void bench_schnorrsig_verify(void* arg) {
     size_t i;
 
     for (i = 0; i < 1000; i++) {
-        secp256k1_pubkey pk;
-        CHECK(secp256k1_ec_pubkey_parse(data->ctx, &pk, data->pk[i], 33) == 1);
+        secp256k1_xonly_pubkey pk;
+        CHECK(secp256k1_xonly_pubkey_parse(data->ctx, &pk, data->pk[i]) == 1);
         CHECK(secp256k1_schnorrsig_verify(data->ctx, data->sigs[i], data->msgs[i], &pk));
     }
 }
@@ -53,13 +53,13 @@ void bench_schnorrsig_verify(void* arg) {
 void bench_schnorrsig_verify_n(void* arg) {
     bench_schnorrsig_data *data = (bench_schnorrsig_data *)arg;
     size_t i, j;
-    const secp256k1_pubkey **pk = (const secp256k1_pubkey **)malloc(data->n * sizeof(*pk));
+    const secp256k1_xonly_pubkey **pk = (const secp256k1_xonly_pubkey **)malloc(data->n * sizeof(*pk));
 
     CHECK(pk != NULL);
     for (j = 0; j < MAX_SIGS/data->n; j++) {
         for (i = 0; i < data->n; i++) {
-            secp256k1_pubkey *pk_nonconst = (secp256k1_pubkey *)malloc(sizeof(*pk_nonconst));
-            CHECK(secp256k1_ec_pubkey_parse(data->ctx, pk_nonconst, data->pk[i], 33) == 1);
+            secp256k1_xonly_pubkey *pk_nonconst = (secp256k1_xonly_pubkey *)malloc(sizeof(*pk_nonconst));
+            CHECK(secp256k1_xonly_pubkey_parse(data->ctx, pk_nonconst, data->pk[i]) == 1);
             pk[i] = pk_nonconst;
         }
         CHECK(secp256k1_schnorrsig_verify_batch(data->ctx, data->scratch, data->sigs, data->msgs, pk, data->n));
@@ -84,9 +84,8 @@ int main(void) {
         unsigned char sk[32];
         unsigned char *msg = (unsigned char *)malloc(32);
         secp256k1_schnorrsig *sig = (secp256k1_schnorrsig *)malloc(sizeof(*sig));
-        unsigned char *pk_char = (unsigned char *)malloc(33);
-        secp256k1_pubkey pk;
-        size_t pk_len = 33;
+        unsigned char *pk_char = (unsigned char *)malloc(32);
+        secp256k1_xonly_pubkey pk;
         msg[0] = sk[0] = i;
         msg[1] = sk[1] = i >> 8;
         msg[2] = sk[2] = i >> 16;
@@ -98,9 +97,9 @@ int main(void) {
         data.msgs[i] = msg;
         data.sigs[i] = sig;
 
-        CHECK(secp256k1_ec_pubkey_create(data.ctx, &pk, sk));
-        CHECK(secp256k1_ec_pubkey_serialize(data.ctx, pk_char, &pk_len, &pk, SECP256K1_EC_COMPRESSED) == 1);
-        CHECK(secp256k1_schnorrsig_sign(data.ctx, sig, NULL, msg, sk, NULL, NULL));
+        CHECK(secp256k1_xonly_pubkey_create(data.ctx, &pk, sk));
+        CHECK(secp256k1_xonly_pubkey_serialize(data.ctx, pk_char, &pk) == 1);
+        CHECK(secp256k1_schnorrsig_sign(data.ctx, sig, msg, sk, NULL, NULL));
     }
 
     run_benchmark("schnorrsig_sign", bench_schnorrsig_sign, NULL, NULL, (void *) &data, 10, 1000);
