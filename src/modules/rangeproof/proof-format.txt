@@ -1,0 +1,33 @@
+The minimum bytes for a proof is 675 bytes(somewhere says).
+but the function test_rangeproof_fixed_vectors in tests_impl.h gives an example with 651 bytes. Anyone knows why?
+
+The following info is from the funtion secp256k1_rangeproof_getheader_impl in rangeproof_impl.h.
+
+The first byte:
+        7th bit: ?
+        6th bit: nz_range, i.e. non zero range
+        5th bit: minimum value!=0
+        0-4th bits: the exponent value.
+followed by mantissa-1 if(nz_range) is true, then this is mantissa. its lowest bit is deemed as 0.5.
+        otherwise mantissa = 0. 
+followed by 8 bytes min_value, otherwise it is 0.
+        from mantissa, we have rings=mantissa/2 + (mantissa&1), nPub=mantissa/2*8 + (mantissa&1)*2
+                        the min_value and max_value calculated.
+followed by signs for rings points. 1 bit for each point.
+        for each byte, bits from right to left.
+followed by x-coordinates for rings points.
+followed by nPub scalars.
+
+
+
+According to the Table 1 in the bulletproof paper, a proof with m range and n bits value requires
+
+  2*(log(2,n)+log(2,m))+4 points and 5 scalars.
+  
+The above structure seems not consistent with this? why? rewind.
+
+
+
+
+
+
