@@ -24,7 +24,8 @@ According to the Table 1 in the bulletproof paper, a proof with m range and n bi
 
   2*(log(2,n)+log(2,m))+4 points and 5 scalars.
   
-The above structure seems not consistent with this? why? rewind.
+The above structure seems not consistent with this? why? 
+This is not used by grin! grin is using https://github.com/mimblewimble/secp256k1-zkp
 
 
 
