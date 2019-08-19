@@ -14,7 +14,7 @@
 #include "modules/rangeproof/rangeproof_impl.h"
 
 /** Alternative generator for secp256k1.
- *  This is the sha256 of 'g' after DER encoding (without compression),
+ *  This is the sha256 of 'g' after standard encoding (without compression),
  *  which happens to be a point on the curve. More precisely, the generator is
  *  derived by running the following script with the sage mathematics software.
 
