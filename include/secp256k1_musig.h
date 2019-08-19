@@ -1,6 +1,10 @@
 #ifndef SECP256K1_MUSIG_H
 #define SECP256K1_MUSIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /** This module implements a Schnorr-based multi-signature scheme called MuSig
@@ -425,5 +429,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_extract_secret_ad
     size_t n_partial_sigs,
     int nonce_is_negated
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
