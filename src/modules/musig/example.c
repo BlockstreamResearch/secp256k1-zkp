@@ -18,7 +18,7 @@
  /* Number of public keys involved in creating the aggregate signature */
 #define N_SIGNERS 3
  /* Create a key pair and store it in seckey and pubkey */
-int create_key(const secp256k1_context* ctx, unsigned char* seckey, secp256k1_pubkey* pubkey) {
+int create_key(const secp256k1_context* ctx, unsigned char* seckey, secp256k1_xonly_pubkey* pubkey) {
     int ret;
     FILE *frand = fopen("/dev/urandom", "r");
     if (frand == NULL) {
@@ -32,12 +32,12 @@ int create_key(const secp256k1_context* ctx, unsigned char* seckey, secp256k1_pu
     /* The probability that this not a valid secret key is approximately 2^-128 */
     } while (!secp256k1_ec_seckey_verify(ctx, seckey));
     fclose(frand);
-    ret = secp256k1_ec_pubkey_create(ctx, pubkey, seckey);
+    ret = secp256k1_xonly_pubkey_create(ctx, pubkey, seckey);
     return ret;
 }
 
 /* Sign a message hash with the given key pairs and store the result in sig */
-int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp256k1_pubkey* pubkeys, const unsigned char* msg32, secp256k1_schnorrsig *sig) {
+int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp256k1_xonly_pubkey* pubkeys, const unsigned char* msg32, secp256k1_schnorrsig *sig) {
     secp256k1_musig_session musig_session[N_SIGNERS];
     unsigned char nonce_commitment[N_SIGNERS][32];
     const unsigned char *nonce_commitment_ptr[N_SIGNERS];
@@ -49,11 +49,11 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     for (i = 0; i < N_SIGNERS; i++) {
         FILE *frand;
         unsigned char session_id32[32];
-        unsigned char pk_hash[32];
-        secp256k1_pubkey combined_pk;
+        secp256k1_xonly_pubkey combined_pk;
+        secp256k1_musig_pre_session pre_session;
 
         /* Create combined pubkey and initialize signer data */
-        if (!secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, pk_hash, pubkeys, N_SIGNERS)) {
+        if (!secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, &pre_session, pubkeys, N_SIGNERS)) {
             return 0;
         }
         /* Create random session ID. It is absolutely necessary that the session ID
@@ -69,7 +69,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
         }
         fclose(frand);
         /* Initialize session */
-        if (!secp256k1_musig_session_initialize(ctx, &musig_session[i], signer_data[i], nonce_commitment[i], session_id32, msg32, &combined_pk, pk_hash, N_SIGNERS, i, seckeys[i])) {
+        if (!secp256k1_musig_session_initialize(ctx, &musig_session[i], signer_data[i], nonce_commitment[i], session_id32, msg32, &combined_pk, &pre_session, N_SIGNERS, i, seckeys[i])) {
             return 0;
         }
         nonce_commitment_ptr[i] = &nonce_commitment[i][0];
@@ -119,15 +119,15 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
             }
         }
     }
-    return secp256k1_musig_partial_sig_combine(ctx, &musig_session[0], sig, partial_sig, N_SIGNERS, NULL);
+    return secp256k1_musig_partial_sig_combine(ctx, &musig_session[0], sig, partial_sig, N_SIGNERS);
 }
 
  int main(void) {
     secp256k1_context* ctx;
     int i;
     unsigned char seckeys[N_SIGNERS][32];
-    secp256k1_pubkey pubkeys[N_SIGNERS];
-    secp256k1_pubkey combined_pk;
+    secp256k1_xonly_pubkey pubkeys[N_SIGNERS];
+    secp256k1_xonly_pubkey combined_pk;
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     secp256k1_schnorrsig sig;
 
