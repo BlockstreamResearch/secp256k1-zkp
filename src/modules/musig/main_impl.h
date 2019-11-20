@@ -127,7 +127,26 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         pre_session->magic = pre_session_magic;
         memcpy(pre_session->pk_hash, ecmult_data.ell, 32);
         pre_session->is_negated = is_negated;
+        pre_session->tweak_is_set = 0;
     }
+    return 1;
+}
+
+int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_musig_pre_session *pre_session, secp256k1_xonly_pubkey *output_pubkey, int *is_negated, const secp256k1_xonly_pubkey *internal_pubkey, const unsigned char *tweak32) {
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pre_session != NULL);
+    ARG_CHECK(pre_session->magic == pre_session_magic);
+    /* This function can only be called once because otherwise signing would not
+     * succeed */
+    ARG_CHECK(pre_session->tweak_is_set == 0);
+
+    pre_session->internal_key_is_negated = pre_session->is_negated;
+    if(!secp256k1_xonly_pubkey_tweak_add(ctx, output_pubkey, is_negated, internal_pubkey, tweak32)) {
+        return 0;
+    }
+    memcpy(pre_session->tweak, tweak32, 32);
+    pre_session->tweak_is_set = 1;
+    pre_session->is_negated = *is_negated;
     return 1;
 }
 
@@ -180,20 +199,29 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
         return 0;
     }
     secp256k1_musig_coefficient(&mu, session->pre_session.pk_hash, (uint32_t) my_index);
-    /* Compute the signers public key point and determine if the secret needs to
-     * be negated before signing. If the signer's pubkey is negated XOR the
-     * MuSig-combined pubkey is negated the secret has to be negated. This can
-     * be seen by looking at the secret key belonging to `combined_pk`. Let's
-     * define
+    /* Compute the signers public key point and determine if the secret is
+     * negated before signing. That happens if the signer's pubkey is negated
+     * XOR the MuSig-combined pubkey is negated XOR (if tweaked) the internal
+     * key is negated before tweaking.  This can be seen by looking at the
+     * secret key belonging to `combined_pk`.
+     * Let's define
      * P' := mu_0*|P_0| + ... + mu_n*|P_n| where P_i is the i-th public key
      * point x_i*G, mu_i is the i-th musig coefficient and |.| is a function
      * that normalizes a point to a square Y by negating if necessary similar to
-     * secp256k1_ge_absolute.. Then we have
-     * P := |P'| the combined xonly public key. Also, P = x*G where x =
-     * sum_i(b_i*mu_i*x_i) and b_i = -1 if (P != |P'| XOR P_i != |P_i|) and 1
-     * otherwise. */
+     * secp256k1_ge_absolute.
+     * P := |P'| + t*G where t is the tweak. Then we have the combined xonly
+     * public key |P| = x*G
+     *      where x = sum_i(b_i*mu_i*x_i) + b'*t
+     *            b' = -1 if P != |P|, 1 otherwise
+     *            b_i = -1 if (P_i != |P_i| XOR P' != |P'| XOR P != |P|) and 1
+     *                otherwise.
+     */
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pj, &secret);
-    if ((!secp256k1_gej_has_quad_y_var(&pj)) != session->pre_session.is_negated) {
+    if((!secp256k1_gej_has_quad_y_var(&pj)
+            + session->pre_session.is_negated
+            + (session->pre_session.tweak_is_set
+                && session->pre_session.internal_key_is_negated))
+            % 2 == 1) {
         secp256k1_scalar_negate(&secret, &secret);
     }
     secp256k1_scalar_mul(&secret, &secret, &mu);
@@ -517,6 +545,27 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
         }
         secp256k1_scalar_add(&s, &s, &term);
     }
+    /* If there is a tweak then add (or subtract) `msghash` times `tweak` to `s`.*/
+    if (session->pre_session.tweak_is_set) {
+        unsigned char msghash[32];
+        secp256k1_scalar e, scalar_tweak;
+        int overflow = 0;
+
+        if (!secp256k1_musig_compute_messagehash(ctx, msghash, session)) {
+            return 0;
+        }
+        secp256k1_scalar_set_b32(&e, msghash, NULL);
+        secp256k1_scalar_set_b32(&scalar_tweak, session->pre_session.tweak, &overflow);
+        if (overflow || !secp256k1_eckey_privkey_tweak_mul(&e, &scalar_tweak)) {
+            /* This mimics the behavior of secp256k1_ec_privkey_tweak_mul regarding
+             * overflow and tweak being 0. */
+            return 0;
+        }
+        if (session->pre_session.is_negated) {
+            secp256k1_scalar_negate(&e, &e);
+        }
+        secp256k1_scalar_add(&s, &s, &e);
+    }
 
     secp256k1_pubkey_load(ctx, &noncep, &session->combined_nonce);
     VERIFY_CHECK(secp256k1_fe_is_quad_var(&noncep.y));
@@ -568,8 +617,13 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     }
     /* If the MuSig-combined point is negated, the signers will sign for the
      * negation of their individual xonly public key such that the combined
-     * signature is valid for the MuSig aggregated xonly key. */
-    if (session->pre_session.is_negated) {
+     * signature is valid for the MuSig aggregated xonly key. If the
+     * MuSig-combined point was tweaked then `e` is negated if the combined
+     * key is negated XOR the internal key is negated.*/
+    if (session->pre_session.is_negated
+            + (session->pre_session.tweak_is_set
+                && session->pre_session.internal_key_is_negated)
+            % 2 == 1) {
         secp256k1_scalar_negate(&e, &e);
     }
 

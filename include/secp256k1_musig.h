@@ -25,11 +25,18 @@ extern "C" {
  *        pk_hash: The 32-byte hash of the original public keys
  *     is_negated: Whether the MuSig-aggregated point was negated when
  *                 converting it to the combined xonly pubkey.
+ *   tweak_is_set: Whether the combined pubkey was tweaked
+ *          tweak: If tweak_is_set, array with the 32-byte tweak
+ *   internal_key_is_negated: If tweak_is_set whether the combined pubkey
+ *                 is negated before tweaking
  */
 typedef struct {
     uint64_t magic;
     unsigned char pk_hash[32];
     int is_negated;
+    int tweak_is_set;
+    unsigned char tweak[32];
+    int internal_key_is_negated;
 } secp256k1_musig_pre_session;
 
 /** Data structure containing data related to a signing session resulting in a single
@@ -136,7 +143,7 @@ typedef struct {
  *                    multiexponentiation. If NULL, an inefficient algorithm is used.
  *  Out: combined_pk: the MuSig-combined xonly public key (cannot be NULL)
  *       pre_session: if non-NULL, pointer to a musig_pre_session struct to be used in
- *                    `musig_session_initialize`.
+ *                    `musig_session_initialize` or `musig_pubkey_tweak_add`.
  *   In:     pubkeys: input array of public keys to combine. The order is important;
  *                    a different order will result in a different combined public
  *                    key (cannot be NULL)
@@ -150,6 +157,38 @@ SECP256K1_API int secp256k1_musig_pubkey_combine(
     const secp256k1_xonly_pubkey *pubkeys,
     size_t n_pubkeys
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
+
+/** Tweak a MuSig-combined public key by adding tweak times the generator to it.
+ *  Passes `secp256k1_xonly_pubkey_tweak_test`. `musig_pubkey_tweak_add` is
+ *  only useful before initializing a signing session. Otherwise just use
+ *  `secp256k1_xonly_pubkey_tweak_add`. Can only be called once with a given
+ *  pre_session.
+ *
+ *  Returns: 1 if tweak times the generator was successfully added to pubkey,
+ *           0 otherwise
+ *  Args:          ctx: pointer to a context object initialized for verification
+ *                      (cannot be NULL)
+ *         pre_session: pointer to a `musig_pre_session` struct initialized in
+ *                      `musig_pubkey_combine` (cannot be NULL)
+ *  Out: output_pubkey: pointer to a public key object which becomes the new
+ *                      combined_pk (cannot be NULL)
+ *          is_negated: pointer to an integer that will be set to 1 if
+ *                      `output_pubkey` is the negation of the point that
+ *                      resulted from adding the tweak and to 0 otherwise.
+ *                      (cannot be NULL)
+ *  In: internal_pubkey: pointer to the `combined_pk` from
+ *                       `musig_pubkey_combine` which will get added to the
+ *                       tweak (cannot be NULL)
+ *              tweak32: pointer to a 32-byte tweak (cannot be NULL)
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_tweak_add(
+    const secp256k1_context* ctx,
+    secp256k1_musig_pre_session *pre_session,
+    secp256k1_xonly_pubkey *output_pubkey,
+    int *is_negated,
+    const secp256k1_xonly_pubkey *internal_pubkey,
+    const unsigned char *tweak32
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 
 /** Initializes a signing session for a signer
  *
@@ -170,8 +209,9 @@ SECP256K1_API int secp256k1_musig_pubkey_combine(
  *                     because it reduces nonce misuse resistance. If NULL, must be
  *                     set with `musig_session_get_public_nonce`.
  *        combined_pk: the combined xonly public key of all signers (cannot be NULL)
- *        pre_session: pointer to a musig_pre_session struct from
- *                     `musig_pubkey_combine` (cannot be NULL)
+ *        pre_session: pointer to a musig_pre_session struct after initializing
+ *                     it with `musig_pubkey_combine` and optionally provided to
+ *                     `musig_pubkey_tweak_add` (cannot be NULL).
  *          n_signers: length of signers array. Number of signers participating in
  *                     the MuSig. Must be greater than 0 and at most 2^32 - 1.
  *           my_index: index of this signer in the signers array
