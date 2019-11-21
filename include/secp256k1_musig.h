@@ -22,7 +22,7 @@ extern "C" {
 /** Data structure containing auxiliary data generated in `pubkey_combine` and
  *  required for `session_*_initialize`.
  *  Fields:
- *          magic: Set during initialization in `pubkey_combine` in order to allow
+ *          magic: Set during initialization in `pubkey_combine` to allow
  *                 detecting an uninitialized object.
  *        pk_hash: The 32-byte hash of the original public keys
  *     is_negated: Whether the MuSig-aggregated point was negated when
@@ -45,6 +45,8 @@ typedef struct {
  * structure.
  *
  * Fields:
+ *            magic: Set in `musig_session_initialize` to allow detecting an
+ *                   uninitialized object.
  *            round: Current round of the session
  *      pre_session: Auxiliary data created in `pubkey_combine`
  *      combined_pk: MuSig-computed combined xonly public key
@@ -64,6 +66,7 @@ typedef struct {
  *                   coordinate is even.
  */
 typedef struct {
+    uint64_t magic;
     int round;
     secp256k1_musig_pre_session pre_session;
     secp256k1_xonly_pubkey combined_pk;
