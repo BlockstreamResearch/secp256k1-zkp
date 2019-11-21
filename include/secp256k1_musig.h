@@ -53,11 +53,6 @@ typedef struct {
  *      combined_pk: MuSig-computed combined xonly public key
  *      pre_session: Auxiliary data created in `pubkey_combine`
  *        n_signers: Number of signers
- *   combined_nonce: Summed combined public nonce (undefined if `nonce_is_set` is false)
- *     nonce_is_set: Whether the above nonce has been set
- * nonce_is_negated: If `nonce_is_set`, whether the above nonce was negated after
- *                   summing the participants' nonces. Needed to ensure the nonce's y
- *                   coordinate has a quadratic-residue y coordinate
  *              msg: The 32-byte message (hash) to be signed
  *       msg_is_set: Whether the above message has been set
  *  has_secret_data: Whether this session object has a signers' secret data; if this
@@ -65,18 +60,18 @@ typedef struct {
  *           seckey: If `has_secret_data`, the signer's secret key
  *         secnonce: If `has_secret_data`, the signer's secret nonce
  *            nonce: If `has_secret_data`, the signer's public nonce
- * nonce_commitments_hash: If `has_secret_data` and `nonce_commitments_hash_is_set`,
- *                   the hash of all signers' commitments
- * nonce_commitments_hash_is_set: If `has_secret_data`, whether the
- *                   nonce_commitments_hash has been set
+ * nonce_commitments_hash: If `has_secret_data` and round >= 1, the hash of all
+ *                   signers' commitments
+ *   combined_nonce: If round >= 2, the summed combined public nonce
+ * nonce_is_negated: If round >= 2, whether the above nonce was negated after
+ *                   summing the participants' nonces. Needed to ensure the nonce's y
+ *                   coordinate is square.
  */
 typedef struct {
-    secp256k1_xonly_pubkey combined_pk;
+    int round;
     secp256k1_musig_pre_session pre_session;
+    secp256k1_xonly_pubkey combined_pk;
     uint32_t n_signers;
-    secp256k1_pubkey combined_nonce;
-    int nonce_is_set;
-    int nonce_is_negated;
     unsigned char msg[32];
     int msg_is_set;
     int has_secret_data;
@@ -84,7 +79,8 @@ typedef struct {
     unsigned char secnonce[32];
     secp256k1_pubkey nonce;
     unsigned char nonce_commitments_hash[32];
-    int nonce_commitments_hash_is_set;
+    secp256k1_pubkey combined_nonce;
+    int nonce_is_negated;
 } secp256k1_musig_session;
 
 /** Data structure containing data on all signers in a single session.
