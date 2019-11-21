@@ -140,6 +140,8 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
     secp256k1_sha256 sha;
     secp256k1_gej pj;
     secp256k1_ge p;
+    unsigned char nonce_ser[33];
+    size_t nonce_ser_size = sizeof(nonce_ser);
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
@@ -162,7 +164,6 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
     }
     memcpy(&session->combined_pk, combined_pk, sizeof(*combined_pk));
     session->pre_session = *pre_session;
-    session->nonce_is_set = 0;
     session->has_secret_data = 1;
     if (n_signers == 0 || my_index >= n_signers) {
         return 0;
@@ -172,7 +173,6 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
     }
     session->n_signers = (uint32_t) n_signers;
     secp256k1_musig_signers_init(signers, session->n_signers);
-    session->nonce_commitments_hash_is_set = 0;
 
     /* Compute secret key */
     secp256k1_scalar_set_b32(&secret, seckey, &overflow);
@@ -223,15 +223,12 @@ int secp256k1_musig_session_initialize(const secp256k1_context* ctx, secp256k1_m
     secp256k1_ge_set_gej(&p, &pj);
     secp256k1_pubkey_save(&session->nonce, &p);
 
-    if (nonce_commitment32 != NULL) {
-        unsigned char commit[33];
-        size_t commit_size = sizeof(commit);
-        secp256k1_sha256_initialize(&sha);
-        secp256k1_ec_pubkey_serialize(ctx, commit, &commit_size, &session->nonce, SECP256K1_EC_COMPRESSED);
-        secp256k1_sha256_write(&sha, commit, commit_size);
-        secp256k1_sha256_finalize(&sha, nonce_commitment32);
-    }
+    secp256k1_sha256_initialize(&sha);
+    secp256k1_ec_pubkey_serialize(ctx, nonce_ser, &nonce_ser_size, &session->nonce, SECP256K1_EC_COMPRESSED);
+    secp256k1_sha256_write(&sha, nonce_ser, nonce_ser_size);
+    secp256k1_sha256_finalize(&sha, nonce_commitment32);
 
+    session->round = 0;
     secp256k1_scalar_clear(&secret);
     return 1;
 }
@@ -247,6 +244,7 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
     ARG_CHECK(signers != NULL);
     ARG_CHECK(nonce != NULL);
     ARG_CHECK(commitments != NULL);
+    ARG_CHECK(session->round == 0);
     /* If the message was not set during initialization it must be set now. */
     ARG_CHECK(!(!session->msg_is_set && msg32 == NULL));
     /* The message can only be set once. */
@@ -269,15 +267,9 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
         secp256k1_sha256_write(&sha, commitments[i], 32);
     }
     secp256k1_sha256_finalize(&sha, nonce_commitments_hash);
-    if (session->nonce_commitments_hash_is_set
-            && memcmp(session->nonce_commitments_hash, nonce_commitments_hash, 32) != 0) {
-        /* Abort if get_public_nonce has been called before with a different array of
-         * commitments. */
-        return 0;
-    }
     memcpy(session->nonce_commitments_hash, nonce_commitments_hash, 32);
-    session->nonce_commitments_hash_is_set = 1;
     memcpy(nonce, &session->nonce, sizeof(*nonce));
+    session->round = 1;
     return 1;
 }
 
@@ -313,15 +305,14 @@ int secp256k1_musig_session_initialize_verifier(const secp256k1_context* ctx, se
     secp256k1_musig_signers_init(signers, session->n_signers);
 
     session->pre_session = *pre_session;
-    session->nonce_is_set = 0;
     session->msg_is_set = 1;
     memcpy(session->msg, msg32, 32);
     session->has_secret_data = 0;
-    session->nonce_commitments_hash_is_set = 0;
 
     for (i = 0; i < n_signers; i++) {
         memcpy(signers[i].nonce_commitment, commitments[i], 32);
     }
+    session->round = 1;
     return 1;
 }
 
@@ -358,6 +349,7 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(session != NULL);
     ARG_CHECK(signers != NULL);
+    ARG_CHECK(session->round == 1);
 
     if (n_signers != session->n_signers) {
         return 0;
@@ -373,16 +365,13 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
         secp256k1_gej_add_ge_var(&combined_noncej, &combined_noncej, &noncep, NULL);
     }
     secp256k1_sha256_finalize(&sha, nonce_commitments_hash);
-    /* Either the session is a verifier session or or the nonce_commitments_hash has
-     * been set in `musig_session_get_public_nonce`. */
-    VERIFY_CHECK(!session->has_secret_data || session->nonce_commitments_hash_is_set);
+    /* If the signers' commitments changed between get_public_nonce and now we
+     * have to abort because in that case they may have seen our nonce before
+     * creating their commitment. That can happen if the signer_data given to
+     * this function is different to the signer_data given to get_public_nonce.
+     * */
     if (session->has_secret_data
             && memcmp(session->nonce_commitments_hash, nonce_commitments_hash, 32) != 0) {
-        /* If the signers' commitments changed between get_public_nonce and now we
-         * have to abort because in that case they may have seen our nonce before
-         * creating their commitment. That can happen if the signer_data given to
-         * this function is different to the signer_data given to get_public_nonce.
-         * */
         return 0;
     }
 
@@ -403,7 +392,7 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
         *nonce_is_negated = session->nonce_is_negated;
     }
     secp256k1_pubkey_save(&session->combined_nonce, &combined_noncep);
-    session->nonce_is_set = 1;
+    session->round = 2;
     return 1;
 }
 
@@ -429,19 +418,15 @@ static int secp256k1_musig_compute_messagehash(const secp256k1_context *ctx, uns
     secp256k1_ge rp;
     secp256k1_sha256 sha;
 
+    VERIFY_CHECK(session->round >= 2);
+
     secp256k1_schnorrsig_sha256_tagged(&sha);
-    if (!session->nonce_is_set) {
-        return 0;
-    }
     secp256k1_pubkey_load(ctx, &rp, &session->combined_nonce);
     secp256k1_fe_get_b32(buf, &rp.x);
     secp256k1_sha256_write(&sha, buf, 32);
 
     secp256k1_xonly_pubkey_serialize(ctx, buf, &session->combined_pk);
     secp256k1_sha256_write(&sha, buf, 32);
-    if (!session->msg_is_set) {
-        return 0;
-    }
     secp256k1_sha256_write(&sha, session->msg, 32);
     secp256k1_sha256_finalize(&sha, msghash);
     return 1;
@@ -456,8 +441,9 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, const secp256k1_m
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(partial_sig != NULL);
     ARG_CHECK(session != NULL);
+    ARG_CHECK(session->round == 2);
 
-    if (!session->nonce_is_set || !session->has_secret_data) {
+    if (!session->has_secret_data) {
         return 0;
     }
 
@@ -503,10 +489,8 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
     ARG_CHECK(sig64 != NULL);
     ARG_CHECK(partial_sigs != NULL);
     ARG_CHECK(session != NULL);
+    ARG_CHECK(session->round == 2);
 
-    if (!session->nonce_is_set) {
-        return 0;
-    }
     if (n_sigs != session->n_signers) {
         return 0;
     }
@@ -548,8 +532,9 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     ARG_CHECK(signer != NULL);
     ARG_CHECK(partial_sig != NULL);
     ARG_CHECK(pubkey != NULL);
+    ARG_CHECK(session->round == 2);
 
-    if (!session->nonce_is_set || !signer->present) {
+    if (!signer->present) {
         return 0;
     }
     secp256k1_scalar_set_b32(&s, partial_sig->data, &overflow);
