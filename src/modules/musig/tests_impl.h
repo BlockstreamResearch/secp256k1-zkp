@@ -226,18 +226,18 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session_uninitialized, 2, 0, sk[0]) == 0);
     CHECK(ecount == 9);
     CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 0, 0, sk[0]) == 0);
-    CHECK(ecount == 9);
+    CHECK(ecount == 10);
     /* If more than UINT32_MAX fits in a size_t, test that session_initialize
      * rejects n_signers that high. */
     if (SIZE_MAX > UINT32_MAX) {
         CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, ((size_t) UINT32_MAX) + 2, 0, sk[0]) == 0);
     }
-    CHECK(ecount == 9);
+    CHECK(ecount == 11);
     CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, 0, NULL) == 0);
-    CHECK(ecount == 10);
+    CHECK(ecount == 12);
     /* secret key overflows */
     CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, 0, ones) == 0);
-    CHECK(ecount == 10);
+    CHECK(ecount == 12);
 
     CHECK(secp256k1_musig_session_initialize(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, 0, sk[0]) == 1);
     CHECK(secp256k1_musig_session_initialize(sign, &session[1], signer1, nonce_commitment[1], session_id[1], msg, &combined_pk, &pre_session, 2, 1, sk[1]) == 1);
@@ -258,11 +258,11 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_session_initialize_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, NULL, 2) == 0);
     CHECK(ecount == 5);
     CHECK(secp256k1_musig_session_initialize_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, ncs, 0) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 6);
     if (SIZE_MAX > UINT32_MAX) {
         CHECK(secp256k1_musig_session_initialize_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, ncs, ((size_t) UINT32_MAX) + 2) == 0);
     }
-    CHECK(ecount == 5);
+    CHECK(ecount == 7);
     CHECK(secp256k1_musig_session_initialize_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, ncs, 2) == 1);
 
     /** Signing step 0 -- exchange nonce commitments */
@@ -303,7 +303,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
         CHECK(ecount == 5);
         /* Number of commitments and number of signers are different */
         CHECK(secp256k1_musig_session_get_public_nonce(none, &session_0_tmp, signer0, &public_nonce[0], ncs, 1, NULL) == 0);
-        CHECK(ecount == 5);
+        CHECK(ecount == 6);
 
         CHECK(secp256k1_musig_session_get_public_nonce(none, &session[0], signer0, &public_nonce[0], ncs, 2, NULL) == 1);
         CHECK(secp256k1_musig_session_get_public_nonce(none, &session[1], signer1, &public_nonce[1], ncs, 2, NULL) == 1);
@@ -312,12 +312,12 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
         CHECK(secp256k1_musig_set_nonce(none, &signer0[1], &public_nonce[0]) == 0);
         CHECK(secp256k1_musig_set_nonce(none, &signer0[1], &public_nonce[1]) == 1);
         CHECK(secp256k1_musig_set_nonce(none, &signer0[1], &public_nonce[1]) == 1);
-        CHECK(ecount == 5);
+        CHECK(ecount == 6);
 
         CHECK(secp256k1_musig_set_nonce(none, NULL, &public_nonce[0]) == 0);
-        CHECK(ecount == 6);
-        CHECK(secp256k1_musig_set_nonce(none, &signer1[0], NULL) == 0);
         CHECK(ecount == 7);
+        CHECK(secp256k1_musig_set_nonce(none, &signer1[0], NULL) == 0);
+        CHECK(ecount == 8);
 
         CHECK(secp256k1_musig_set_nonce(none, &signer1[0], &public_nonce[0]) == 1);
         CHECK(secp256k1_musig_set_nonce(none, &signer1[1], &public_nonce[1]) == 1);
@@ -337,9 +337,9 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
         CHECK(ecount == 3);
         /* Number of signers differs from number during intialization */
         CHECK(secp256k1_musig_session_combine_nonces(none, &session_0_tmp, signer0, 1, &nonce_is_negated, &adaptor) == 0);
-        CHECK(ecount == 3);
+        CHECK(ecount == 4);
         CHECK(secp256k1_musig_session_combine_nonces(none, &session_0_tmp, signer0, 2, NULL, &adaptor) == 1);
-        CHECK(ecount == 3);
+        CHECK(ecount == 4);
         memcpy(&session_0_tmp, &session[0], sizeof(session_0_tmp));
         CHECK(secp256k1_musig_session_combine_nonces(none, &session_0_tmp, signer0, 2, &nonce_is_negated, NULL) == 1);
 
@@ -364,7 +364,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sign(none, &session[1], &partial_sig[1]) == 1);
     /* observer can't sign */
     CHECK(secp256k1_musig_partial_sign(none, &verifier_session, &partial_sig[2]) == 0);
-    CHECK(ecount == 3);
+    CHECK(ecount == 4);
 
     ecount = 0;
     CHECK(secp256k1_musig_partial_signature_serialize(none, buf, &partial_sig[0]) == 1);
@@ -498,7 +498,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
  * ones and return the resulting messagehash. This should not result in a different
  * messagehash because the public keys of the signers are only used during session
  * initialization. */
-int musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp256k1_xonly_pubkey *pks, secp256k1_xonly_pubkey *combined_pk, secp256k1_musig_pre_session *pre_session, const unsigned char * const *nonce_commitments, unsigned char *msg, secp256k1_pubkey *nonce_other, unsigned char *sk, unsigned char *session_id) {
+void musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp256k1_xonly_pubkey *pks, secp256k1_xonly_pubkey *combined_pk, secp256k1_musig_pre_session *pre_session, const unsigned char * const *nonce_commitments, unsigned char *msg, secp256k1_pubkey *nonce_other, unsigned char *sk, unsigned char *session_id) {
     secp256k1_musig_session session;
     secp256k1_musig_session session_tmp;
     unsigned char nonce_commitment[32];
@@ -527,7 +527,7 @@ int musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp256
     CHECK(secp256k1_musig_set_nonce(ctx, &signers[1], &nonce) == 1);
     CHECK(secp256k1_musig_session_combine_nonces(ctx, &session, signers, 2, NULL, NULL) == 1);
 
-    return secp256k1_musig_compute_messagehash(ctx, msghash, &session);
+    secp256k1_musig_compute_messagehash(ctx, msghash, &session);
 }
 
 /* Creates a new session (with a different session id) and tries to use that session
@@ -693,8 +693,8 @@ void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
         /* messagehash should be the same as a session whose get_public_nonce was called
          * with different signers (i.e. they diff in public keys). This is because the
          * public keys of the signers is set in stone when initializing the session. */
-        CHECK(secp256k1_musig_compute_messagehash(ctx, msghash1, &session[1]) == 1);
-        CHECK(musig_state_machine_diff_signer_msghash_test(msghash2, pk, &combined_pk, &pre_session, ncs, msg, &nonce[0], sk[1], session_id[1]) == 1);
+        secp256k1_musig_compute_messagehash(ctx, msghash1, &session[1]);
+        musig_state_machine_diff_signer_msghash_test(msghash2, pk, &combined_pk, &pre_session, ncs, msg, &nonce[0], sk[1], session_id[1]);
         CHECK(memcmp(msghash1, msghash2, 32) == 0);
         CHECK(secp256k1_musig_partial_sign(ctx, &session[1], &partial_sig[1]) == 1);
 
