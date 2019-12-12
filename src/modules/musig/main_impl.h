@@ -258,10 +258,12 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
     return 1;
 }
 
-int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, secp256k1_pubkey *nonce, const unsigned char *const *commitments, size_t n_commitments, const unsigned char *msg32) {
+int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp256k1_musig_session *session, secp256k1_musig_session_signer_data *signers, unsigned char *nonce, const unsigned char *const *commitments, size_t n_commitments, const unsigned char *msg32) {
     secp256k1_sha256 sha;
     unsigned char nonce_commitments_hash[32];
     size_t i;
+    unsigned char nonce_ser[33];
+    size_t nonce_ser_size = sizeof(nonce_ser);
     (void) ctx;
 
     VERIFY_CHECK(ctx != NULL);
@@ -293,7 +295,9 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
     }
     secp256k1_sha256_finalize(&sha, nonce_commitments_hash);
     memcpy(session->nonce_commitments_hash, nonce_commitments_hash, 32);
-    memcpy(nonce, &session->nonce, sizeof(*nonce));
+
+    secp256k1_ec_pubkey_serialize(ctx, nonce_ser, &nonce_ser_size, &session->nonce, SECP256K1_EC_COMPRESSED);
+    memcpy(nonce, &nonce_ser, nonce_ser_size);
     session->round = 1;
     return 1;
 }
@@ -338,24 +342,25 @@ int secp256k1_musig_session_init_verifier(const secp256k1_context* ctx, secp256k
     return 1;
 }
 
-int secp256k1_musig_set_nonce(const secp256k1_context* ctx, secp256k1_musig_session_signer_data *signer, const secp256k1_pubkey *nonce) {
-    unsigned char commit[33];
-    size_t commit_size = sizeof(commit);
+int secp256k1_musig_set_nonce(const secp256k1_context* ctx, secp256k1_musig_session_signer_data *signer, const unsigned char *nonce) {
     secp256k1_sha256 sha;
+    unsigned char commit[32];
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(signer != NULL);
     ARG_CHECK(nonce != NULL);
 
     secp256k1_sha256_initialize(&sha);
-    secp256k1_ec_pubkey_serialize(ctx, commit, &commit_size, nonce, SECP256K1_EC_COMPRESSED);
-    secp256k1_sha256_write(&sha, commit, commit_size);
+    secp256k1_sha256_write(&sha, nonce, 33);
     secp256k1_sha256_finalize(&sha, commit);
 
     if (memcmp(commit, signer->nonce_commitment, 32) != 0) {
         return 0;
     }
     memcpy(&signer->nonce, nonce, sizeof(*nonce));
+    if (!secp256k1_ec_pubkey_parse(ctx, &signer->nonce, nonce, 33)) {
+        return 0;
+    }
     signer->present = 1;
     return 1;
 }
