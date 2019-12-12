@@ -45,7 +45,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     unsigned char nonce_commitment[N_SIGNERS][32];
     const unsigned char *nonce_commitment_ptr[N_SIGNERS];
     secp256k1_musig_session_signer_data signer_data[N_SIGNERS][N_SIGNERS];
-    unsigned char nonce[N_SIGNERS][33];
+    unsigned char nonce[N_SIGNERS][32];
     int i, j;
     secp256k1_musig_partial_signature partial_sig[N_SIGNERS];
 

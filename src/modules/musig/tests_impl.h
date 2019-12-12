@@ -31,7 +31,7 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     unsigned char session_id[2][32];
     secp256k1_xonly_pubkey pk[2];
     const unsigned char *ncs[2];
-    unsigned char public_nonce[3][33];
+    unsigned char public_nonce[3][32];
     secp256k1_musig_partial_signature partial_sig[2];
     unsigned char final_sig[64];
 
@@ -238,7 +238,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     /** Signing step 0 -- exchange nonce commitments */
     ecount = 0;
     {
-        unsigned char nonce[33];
+        unsigned char nonce[32];
         secp256k1_musig_session session_0_tmp;
 
         memcpy(&session_0_tmp, &session[0], sizeof(session_0_tmp));
@@ -252,7 +252,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     /** Signing step 1 -- exchange nonces */
     ecount = 0;
     {
-        unsigned char public_nonce[3][33];
+        unsigned char public_nonce[3][32];
         secp256k1_musig_session session_0_tmp;
 
         memcpy(&session_0_tmp, &session[0], sizeof(session_0_tmp));
@@ -479,7 +479,7 @@ void musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp25
     secp256k1_xonly_pubkey pks_tmp[2];
     secp256k1_xonly_pubkey combined_pk_tmp;
     secp256k1_musig_pre_session pre_session_tmp;
-    unsigned char nonce[33];
+    unsigned char nonce[32];
 
     /* Set up signers with different public keys */
     secp256k1_testrand256(sk_dummy);
@@ -512,7 +512,7 @@ int musig_state_machine_diff_signers_combine_nonce_test(secp256k1_xonly_pubkey *
     secp256k1_musig_session_signer_data *signers_to_use;
     unsigned char nonce_commitment[32];
     unsigned char session_id[32];
-    unsigned char nonce[33];
+    unsigned char nonce[32];
     const unsigned char *ncs[2];
 
     /* Initialize new signers */
@@ -545,7 +545,7 @@ void musig_state_machine_late_msg_test(secp256k1_xonly_pubkey *pks, secp256k1_xo
     secp256k1_musig_session_signer_data signers[2];
     unsigned char nonce_commitment[32];
     const unsigned char *ncs[2];
-    unsigned char nonce[33];
+    unsigned char nonce[32];
     secp256k1_musig_partial_signature partial_sig;
 
     secp256k1_context_set_illegal_callback(ctx_tmp, counting_illegal_callback_fn, &ecount);
@@ -586,7 +586,7 @@ void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
     secp256k1_xonly_pubkey pk[2];
     secp256k1_xonly_pubkey combined_pk;
     secp256k1_musig_pre_session pre_session;
-    unsigned char nonce[2][33];
+    unsigned char nonce[2][32];
     const unsigned char *ncs[2];
     secp256k1_musig_partial_signature partial_sig[2];
     unsigned char sig[64];
@@ -706,8 +706,8 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     unsigned char noncommit_b[2][32];
     const unsigned char *noncommit_a_ptr[2];
     const unsigned char *noncommit_b_ptr[2];
-    unsigned char pubnon_a[2][33];
-    unsigned char pubnon_b[2][33];
+    unsigned char pubnon_a[2][32];
+    unsigned char pubnon_b[2][32];
     int combined_nonce_parity_a;
     int combined_nonce_parity_b;
     secp256k1_musig_session_signer_data data_a[2];
