@@ -401,17 +401,14 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
         secp256k1_pubkey_load(ctx, &noncep, adaptor);
         secp256k1_gej_add_ge_var(&combined_noncej, &combined_noncej, &noncep, NULL);
     }
+
+    /* Negate nonce if Y coordinate is not square */
     secp256k1_ge_set_gej(&combined_noncep, &combined_noncej);
-    if (secp256k1_fe_is_quad_var(&combined_noncep.y)) {
-        session->is_nonce_negated = 0;
-    } else {
-        session->is_nonce_negated = 1;
-        secp256k1_ge_neg(&combined_noncep, &combined_noncep);
-    }
+    secp256k1_ge_absolute(&combined_noncep, &session->is_nonce_negated);
     if (is_nonce_negated != NULL) {
         *is_nonce_negated = session->is_nonce_negated;
     }
-    secp256k1_pubkey_save(&session->combined_nonce, &combined_noncep);
+    secp256k1_xonly_pubkey_save(&session->combined_nonce, &combined_noncep);
     session->round = 2;
     return 1;
 }
@@ -441,7 +438,7 @@ static void secp256k1_musig_compute_messagehash(const secp256k1_context *ctx, un
     VERIFY_CHECK(session->round >= 2);
 
     secp256k1_schnorrsig_sha256_tagged(&sha);
-    secp256k1_pubkey_load(ctx, &rp, &session->combined_nonce);
+    secp256k1_xonly_pubkey_load(ctx, &rp, &session->combined_nonce);
     secp256k1_fe_get_b32(buf, &rp.x);
     secp256k1_sha256_write(&sha, buf, 32);
 
@@ -541,7 +538,7 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
         secp256k1_scalar_add(&s, &s, &e);
     }
 
-    secp256k1_pubkey_load(ctx, &noncep, &session->combined_nonce);
+    secp256k1_xonly_pubkey_load(ctx, &noncep, &session->combined_nonce);
     VERIFY_CHECK(secp256k1_fe_is_quad_var(&noncep.y));
     secp256k1_fe_normalize(&noncep.x);
     secp256k1_fe_get_b32(&sig->data[0], &noncep.x);

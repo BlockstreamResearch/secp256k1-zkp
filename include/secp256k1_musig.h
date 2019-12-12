@@ -82,7 +82,7 @@ typedef struct {
     unsigned char secnonce[32];
     secp256k1_pubkey nonce;
     unsigned char nonce_commitments_hash[32];
-    secp256k1_pubkey combined_nonce;
+    secp256k1_xonly_pubkey combined_nonce;
     int is_nonce_negated;
 } secp256k1_musig_session;
 
