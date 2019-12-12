@@ -80,10 +80,11 @@ typedef struct {
     int has_secret_data;
     unsigned char seckey[32];
     unsigned char secnonce[32];
-    secp256k1_pubkey nonce;
+    secp256k1_xonly_pubkey nonce;
+    int is_partial_nonce_negated;
     unsigned char nonce_commitments_hash[32];
     secp256k1_xonly_pubkey combined_nonce;
-    int is_nonce_negated;
+    int is_combined_nonce_negated;
 } secp256k1_musig_session;
 
 /** Data structure containing data on all signers in a single session.
@@ -116,7 +117,7 @@ typedef struct {
 typedef struct {
     int present;
     uint32_t index;
-    secp256k1_pubkey nonce;
+    secp256k1_xonly_pubkey nonce;
     unsigned char nonce_commitment[32];
 } secp256k1_musig_session_signer_data;
 
@@ -245,7 +246,7 @@ SECP256K1_API int secp256k1_musig_session_init(
  *           signers: an array of signers' data initialized with
  *                    `musig_session_init`. Array length must equal to
  *                    `n_commitments` (cannot be NULL)
- *  Out:     nonce33: filled with a 33-byte public nonce which is supposed to be
+ *  Out:     nonce32: filled with a 32-byte public nonce which is supposed to be
  *                    sent to the other signers and then used in `musig_set nonce`
  *                    (cannot be NULL)
  *  In:  commitments: array of pointers to 32-byte nonce commitments (cannot be NULL)
@@ -258,7 +259,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_get_publi
     const secp256k1_context* ctx,
     secp256k1_musig_session *session,
     secp256k1_musig_session_signer_data *signers,
-    unsigned char *nonce33,
+    unsigned char *nonce32,
     const unsigned char *const *commitments,
     size_t n_commitments,
     const unsigned char *msg32
@@ -304,12 +305,12 @@ SECP256K1_API int secp256k1_musig_session_init_verifier(
  *          signer: pointer to the signer data to update (cannot be NULL). Must have
  *                  been used with `musig_session_get_public_nonce` or initialized
  *                  with `musig_session_init_verifier`.
- *  In:    nonce33: signer's alleged public nonce (cannot be NULL)
+ *  In:    nonce32: signer's alleged public nonce (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_set_nonce(
     const secp256k1_context* ctx,
     secp256k1_musig_session_signer_data *signer,
-    const unsigned char *nonce33
+    const unsigned char *nonce32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Updates a session with the combined public nonce of all signers. The combined

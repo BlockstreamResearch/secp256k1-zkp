@@ -159,7 +159,7 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
     secp256k1_sha256 sha;
     secp256k1_gej pj;
     secp256k1_ge p;
-    unsigned char nonce_ser[33];
+    unsigned char nonce_ser[32];
     size_t nonce_ser_size = sizeof(nonce_ser);
 
     VERIFY_CHECK(ctx != NULL);
@@ -246,10 +246,11 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
     /* Compute public nonce and commitment */
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pj, &secret);
     secp256k1_ge_set_gej(&p, &pj);
-    secp256k1_pubkey_save(&session->nonce, &p);
+    secp256k1_ge_absolute(&p, &session->is_partial_nonce_negated);
+    secp256k1_xonly_pubkey_save(&session->nonce, &p);
 
     secp256k1_sha256_initialize(&sha);
-    secp256k1_ec_pubkey_serialize(ctx, nonce_ser, &nonce_ser_size, &session->nonce, SECP256K1_EC_COMPRESSED);
+    secp256k1_xonly_pubkey_serialize(ctx, nonce_ser, &session->nonce);
     secp256k1_sha256_write(&sha, nonce_ser, nonce_ser_size);
     secp256k1_sha256_finalize(&sha, nonce_commitment32);
 
@@ -262,7 +263,7 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
     secp256k1_sha256 sha;
     unsigned char nonce_commitments_hash[32];
     size_t i;
-    unsigned char nonce_ser[33];
+    unsigned char nonce_ser[32];
     size_t nonce_ser_size = sizeof(nonce_ser);
     (void) ctx;
 
@@ -296,7 +297,7 @@ int secp256k1_musig_session_get_public_nonce(const secp256k1_context* ctx, secp2
     secp256k1_sha256_finalize(&sha, nonce_commitments_hash);
     memcpy(session->nonce_commitments_hash, nonce_commitments_hash, 32);
 
-    secp256k1_ec_pubkey_serialize(ctx, nonce_ser, &nonce_ser_size, &session->nonce, SECP256K1_EC_COMPRESSED);
+    secp256k1_xonly_pubkey_serialize(ctx, nonce_ser, &session->nonce);
     memcpy(nonce, &nonce_ser, nonce_ser_size);
     session->round = 1;
     return 1;
@@ -351,21 +352,21 @@ int secp256k1_musig_set_nonce(const secp256k1_context* ctx, secp256k1_musig_sess
     ARG_CHECK(nonce != NULL);
 
     secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(&sha, nonce, 33);
+    secp256k1_sha256_write(&sha, nonce, 32);
     secp256k1_sha256_finalize(&sha, commit);
 
     if (memcmp(commit, signer->nonce_commitment, 32) != 0) {
         return 0;
     }
     memcpy(&signer->nonce, nonce, sizeof(*nonce));
-    if (!secp256k1_ec_pubkey_parse(ctx, &signer->nonce, nonce, 33)) {
+    if (!secp256k1_xonly_pubkey_parse(ctx, &signer->nonce, nonce)) {
         return 0;
     }
     signer->present = 1;
     return 1;
 }
 
-int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256k1_musig_session *session, const secp256k1_musig_session_signer_data *signers, size_t n_signers, int *is_nonce_negated, const secp256k1_pubkey *adaptor) {
+int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256k1_musig_session *session, const secp256k1_musig_session_signer_data *signers, size_t n_signers, int *is_combined_nonce_negated, const secp256k1_pubkey *adaptor) {
     secp256k1_gej combined_noncej;
     secp256k1_ge combined_noncep;
     secp256k1_ge noncep;
@@ -387,7 +388,7 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
             return 0;
         }
         secp256k1_sha256_write(&sha, signers[i].nonce_commitment, 32);
-        secp256k1_pubkey_load(ctx, &noncep, &signers[i].nonce);
+        secp256k1_xonly_pubkey_load(ctx, &noncep, &signers[i].nonce);
         secp256k1_gej_add_ge_var(&combined_noncej, &combined_noncej, &noncep, NULL);
     }
     secp256k1_sha256_finalize(&sha, nonce_commitments_hash);
@@ -409,9 +410,9 @@ int secp256k1_musig_session_combine_nonces(const secp256k1_context* ctx, secp256
 
     /* Negate nonce if Y coordinate is not square */
     secp256k1_ge_set_gej(&combined_noncep, &combined_noncej);
-    secp256k1_ge_absolute(&combined_noncep, &session->is_nonce_negated);
-    if (is_nonce_negated != NULL) {
-        *is_nonce_negated = session->is_nonce_negated;
+    secp256k1_ge_absolute(&combined_noncep, &session->is_combined_nonce_negated);
+    if (is_combined_nonce_negated != NULL) {
+        *is_combined_nonce_negated = session->is_combined_nonce_negated;
     }
     secp256k1_xonly_pubkey_save(&session->combined_nonce, &combined_noncep);
     session->round = 2;
@@ -482,7 +483,7 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, const secp256k1_m
         secp256k1_scalar_clear(&k);
         return 0;
     }
-    if (session->is_nonce_negated) {
+    if (session->is_partial_nonce_negated != session->is_combined_nonce_negated) {
         secp256k1_scalar_negate(&k, &k);
     }
 
@@ -586,7 +587,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_musig_coefficient(&mu, session->pre_session.pk_hash, signer->index);
     secp256k1_scalar_mul(&e, &e, &mu);
 
-    if (!secp256k1_pubkey_load(ctx, &rp, &signer->nonce)) {
+    if (!secp256k1_xonly_pubkey_load(ctx, &rp, &signer->nonce)) {
         return 0;
     }
     /* If the MuSig-combined point is negated, the signers will sign for the
@@ -609,7 +610,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_gej_set_ge(&pkj, &pkp);
     secp256k1_ecmult(&ctx->ecmult_ctx, &rj, &pkj, &e, &s);
 
-    if (!session->is_nonce_negated) {
+    if (!session->is_combined_nonce_negated) {
         secp256k1_ge_neg(&rp, &rp);
     }
     secp256k1_gej_add_ge_var(&rj, &rj, &rp, NULL);
@@ -617,7 +618,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     return secp256k1_gej_is_infinity(&rj);
 }
 
-int secp256k1_musig_partial_sig_adapt(const secp256k1_context* ctx, secp256k1_musig_partial_signature *adaptor_sig, const secp256k1_musig_partial_signature *partial_sig, const unsigned char *sec_adaptor32, int is_nonce_negated) {
+int secp256k1_musig_partial_sig_adapt(const secp256k1_context* ctx, secp256k1_musig_partial_signature *adaptor_sig, const secp256k1_musig_partial_signature *partial_sig, const unsigned char *sec_adaptor32, int is_combined_nonce_negated) {
     secp256k1_scalar s;
     secp256k1_scalar t;
     int overflow;
@@ -638,7 +639,7 @@ int secp256k1_musig_partial_sig_adapt(const secp256k1_context* ctx, secp256k1_mu
         return 0;
     }
 
-    if (is_nonce_negated) {
+    if (is_combined_nonce_negated) {
         secp256k1_scalar_negate(&t, &t);
     }
 
@@ -648,7 +649,7 @@ int secp256k1_musig_partial_sig_adapt(const secp256k1_context* ctx, secp256k1_mu
     return 1;
 }
 
-int secp256k1_musig_extract_secret_adaptor(const secp256k1_context* ctx, unsigned char *sec_adaptor32, const secp256k1_schnorrsig *sig, const secp256k1_musig_partial_signature *partial_sigs, size_t n_partial_sigs, int is_nonce_negated) {
+int secp256k1_musig_extract_secret_adaptor(const secp256k1_context* ctx, unsigned char *sec_adaptor32, const secp256k1_schnorrsig *sig, const secp256k1_musig_partial_signature *partial_sigs, size_t n_partial_sigs, int is_combined_nonce_negated) {
     secp256k1_scalar t;
     secp256k1_scalar s;
     int overflow;
@@ -675,7 +676,7 @@ int secp256k1_musig_extract_secret_adaptor(const secp256k1_context* ctx, unsigne
         secp256k1_scalar_add(&t, &t, &s);
     }
 
-    if (!is_nonce_negated) {
+    if (!is_combined_nonce_negated) {
         secp256k1_scalar_negate(&t, &t);
     }
     secp256k1_scalar_get_b32(sec_adaptor32, &t);
