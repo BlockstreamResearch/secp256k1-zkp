@@ -600,6 +600,7 @@ void musig_state_machine_late_msg_test(secp256k1_xonly_pubkey *pks, secp256k1_xo
     CHECK(secp256k1_musig_session_combine_nonces(ctx, &session, signers, 2, NULL, NULL) == 1);
     CHECK(secp256k1_musig_partial_sign(ctx, &session, &partial_sig));
     CHECK(secp256k1_musig_partial_sig_verify(ctx, &session, &signers[1], &partial_sig, &pks[1]));
+    secp256k1_context_destroy(ctx_tmp);
 }
 
 void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
