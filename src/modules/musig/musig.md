@@ -74,7 +74,7 @@ signature process, which is also a supported mode) acts as follows.
 
 ### Signing Participant
 
-1. The signer starts the session by calling `secp256k1_musig_session_initialize`.
+1. The signer starts the session by calling `secp256k1_musig_session_init`.
    This function outputs
    - an initialized session state in the out-pointer `session`
    - an array of initialized signer data in the out-pointer `signers`
@@ -91,7 +91,7 @@ signature process, which is also a supported mode) acts as follows.
    length-32 byte arrays which can be communicated however is communicated.
 3. Once all signers nonce commitments have been received, the signer records
    these commitments with the function `secp256k1_musig_session_get_public_nonce`.
-   If the signer did not provide a message to `secp256k1_musig_session_initialize`,
+   If the signer did not provide a message to `secp256k1_musig_session_init`,
    a message must be provided now.
    This function updates in place
    - the session state `session`
@@ -133,8 +133,8 @@ A participant who wants to verify the signing process, i.e. check that nonce com
 are consistent and partial signatures are correct without contributing a partial signature,
 may do so using the above instructions except for the following changes:
 
-1. A signing session should be produced using `musig_session_initialize_verifier`
-   rather than `musig_session_initialize`; this function takes no secret data or
+1. A signing session should be produced using `musig_session_init_verifier`
+   rather than `musig_session_init`; this function takes no secret data or
    signer index.
 2. The participant receives nonce commitments, public nonces and partial signatures,
    but does not produce these values. Therefore `secp256k1_musig_session_get_public_nonce`
