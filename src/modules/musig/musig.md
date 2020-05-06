@@ -14,7 +14,7 @@ The resulting signatures are valid Schnorr signatures as described in [2].
 In MuSig all signers contribute key material to a single signing key,
 using the equation
 
-    P = sum_i µ_i - P_i
+    P = sum_i µ_i * P_i
 
 where `P_i` is the public key of the `i`th signer and `µ_i` is a so-called
 _MuSig coefficient_ computed according to the following equation
