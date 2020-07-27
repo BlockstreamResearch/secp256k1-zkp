@@ -541,16 +541,23 @@ if test x"$enable_module_ecdh" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_ECDH, 1, [Define this symbol to enable the ECDH module])
 fi
 
-if test x"$enable_module_schnorrsig" = x"yes"; then
-  AC_DEFINE(ENABLE_MODULE_SCHNORRSIG, 1, [Define this symbol to enable the schnorrsig module])
-fi
-
 if test x"$enable_module_musig" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_MUSIG, 1, [Define this symbol to enable the MuSig module])
 fi
 
 if test x"$enable_module_recovery" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RECOVERY, 1, [Define this symbol to enable the ECDSA pubkey recovery module])
+fi
+
+if test x"$enable_module_schnorrsig" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_SCHNORRSIG, 1, [Define this symbol to enable the schnorrsig module])
+  enable_module_extrakeys=yes
+fi
+
+# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
+# module to set enable_module_extrakeys=yes
+if test x"$enable_module_extrakeys" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_EXTRAKEYS, 1, [Define this symbol to enable the extrakeys module])
 fi
 
 if test x"$enable_module_generator" = x"yes"; then
@@ -567,10 +574,6 @@ fi
 
 if test x"$enable_module_surjectionproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SURJECTIONPROOF, 1, [Define this symbol to enable the surjection proof module])
-fi
-
-if test x"$enable_module_extrakeys" = x"yes"; then
-  AC_DEFINE(ENABLE_MODULE_EXTRAKEYS, 1, [Define this symbol to enable the extrakeys module])
 fi
 
 AC_C_BIGENDIAN()

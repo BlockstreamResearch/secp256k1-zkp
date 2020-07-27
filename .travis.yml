@@ -22,9 +22,9 @@ env:
     - SCALAR=32bit    FIELD=32bit       EXPERIMENTAL=yes RANGEPROOF=yes WHITELIST=yes GENERATOR=yes SCHNORRSIG=yes MUSIG=yes
     - FIELD=64bit     EXPERIMENTAL=yes RANGEPROOF=yes WHITELIST=yes GENERATOR=yes  SCHNORRSIG=yes MUSIG=yes
     - SCALAR=32bit    RECOVERY=yes
-    - SCALAR=32bit    FIELD=32bit       ECDH=yes  EXPERIMENTAL=yes
+    - SCALAR=32bit    FIELD=32bit       ECDH=yes  EXPERIMENTAL=yes   SCHNORRSIG=yes
     - SCALAR=64bit
-    - FIELD=64bit     RECOVERY=yes
+    - FIELD=64bit     RECOVERY=yes      EXPERIMENTAL=yes             SCHNORRSIG=yes
     - FIELD=64bit     ENDOMORPHISM=yes
     - FIELD=64bit     ENDOMORPHISM=yes  ECDH=yes EXPERIMENTAL=yes    SCHNORRSIG=yes MUSIG=yes
     - FIELD=64bit                       ASM=x86_64

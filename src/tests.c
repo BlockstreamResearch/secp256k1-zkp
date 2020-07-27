@@ -484,6 +484,29 @@ void run_sha256_tests(void) {
     }
 }
 
+/* Tests for the equality of two sha256 structs. This function only produces a
+ * correct result if an integer multiple of 64 many bytes have been written
+ * into the hash functions. */
+void test_sha256_eq(secp256k1_sha256 *sha1, secp256k1_sha256 *sha2) {
+    unsigned char buf[32] = { 0 };
+    unsigned char buf2[32];
+
+    /* Is buffer fully consumed? */
+    CHECK((sha1->bytes & 0x3F) == 0);
+
+    /* Compare the struct excluding the buffer, because it may be
+     * uninitialized or already included in the state. */
+    CHECK(sha1->bytes == sha2->bytes);
+    CHECK(memcmp(sha1->s, sha2->s, sizeof(sha1->s)) == 0);
+
+    /* Compare the output */
+    secp256k1_sha256_write(sha1, buf, 32);
+    secp256k1_sha256_write(sha2, buf, 32);
+    secp256k1_sha256_finalize(sha1, buf);
+    secp256k1_sha256_finalize(sha2, buf2);
+    CHECK(memcmp(buf, buf2, 32) == 0);
+}
+
 void run_hmac_sha256_tests(void) {
     static const char *keys[6] = {
         "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
