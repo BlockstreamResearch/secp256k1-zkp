@@ -3,10 +3,6 @@
 set -e
 set -x
 
-if [ -n "$HOST" ]
-then
-    export USE_HOST="--host=$HOST"
-fi
 if [ "$HOST" = "i686-linux-gnu" ]
 then
     export CC="$CC -m32"
@@ -23,7 +19,7 @@ fi
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" --enable-module-musig="$MUSIG" \
-    "$EXTRAFLAGS" "$USE_HOST"
+    --host="$HOST" $EXTRAFLAGS
 
 if [ -n "$BUILD" ]
 then
