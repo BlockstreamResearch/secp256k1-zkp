@@ -410,8 +410,8 @@ void run_scratch_tests(void) {
     CHECK(scratch->alloc_size != 0);
     CHECK(scratch->alloc_size % ALIGNMENT == 0);
 
-    /* Allocating another 500 bytes fails */
-    CHECK(secp256k1_scratch_alloc(&none->error_callback, scratch, 500) == NULL);
+    /* Allocating another 501 bytes fails */
+    CHECK(secp256k1_scratch_alloc(&none->error_callback, scratch, 501) == NULL);
     CHECK(secp256k1_scratch_max_allocation(&none->error_callback, scratch, 0) == 1000 - adj_alloc);
     CHECK(secp256k1_scratch_max_allocation(&none->error_callback, scratch, 1) == 1000 - adj_alloc - (ALIGNMENT - 1));
     CHECK(scratch->alloc_size != 0);
@@ -443,6 +443,18 @@ void run_scratch_tests(void) {
     CHECK(ecount == 4);
     secp256k1_scratch_space_destroy(none, scratch);
     CHECK(ecount == 5);
+
+    /* Test that large integers do not wrap around in a bad way */
+    scratch = secp256k1_scratch_space_create(none, 1000);
+    /* Try max allocation with a large number of objects. Only makes sense if
+     * ALIGNMENT is greater than 1 because otherwise the objects take no extra
+     * space. */
+    CHECK(ALIGNMENT <= 1 || !secp256k1_scratch_max_allocation(&none->error_callback, scratch, (SIZE_MAX / (ALIGNMENT - 1)) + 1));
+    /* Try allocating SIZE_MAX to test wrap around which only happens if
+     * ALIGNMENT > 1, otherwise it returns NULL anyway because the scratch
+     * space is too small. */
+    CHECK(secp256k1_scratch_alloc(&none->error_callback, scratch, SIZE_MAX) == NULL);
+    secp256k1_scratch_space_destroy(none, scratch);
 
     /* cleanup */
     secp256k1_scratch_space_destroy(none, NULL); /* no-op */
@@ -2462,6 +2474,39 @@ void test_ge(void) {
     free(zinv);
 }
 
+
+void test_intialized_inf(void) {
+    secp256k1_ge p;
+    secp256k1_gej pj, npj, infj1, infj2, infj3;
+    secp256k1_fe zinv;
+
+    /* Test that adding P+(-P) results in a fully initalized infinity*/
+    random_group_element_test(&p);
+    secp256k1_gej_set_ge(&pj, &p);
+    secp256k1_gej_neg(&npj, &pj);
+
+    secp256k1_gej_add_var(&infj1, &pj, &npj, NULL);
+    CHECK(secp256k1_gej_is_infinity(&infj1));
+    CHECK(secp256k1_fe_is_zero(&infj1.x));
+    CHECK(secp256k1_fe_is_zero(&infj1.y));
+    CHECK(secp256k1_fe_is_zero(&infj1.z));
+
+    secp256k1_gej_add_ge_var(&infj2, &npj, &p, NULL);
+    CHECK(secp256k1_gej_is_infinity(&infj2));
+    CHECK(secp256k1_fe_is_zero(&infj2.x));
+    CHECK(secp256k1_fe_is_zero(&infj2.y));
+    CHECK(secp256k1_fe_is_zero(&infj2.z));
+
+    secp256k1_fe_set_int(&zinv, 1);
+    secp256k1_gej_add_zinv_var(&infj3, &npj, &p, &zinv);
+    CHECK(secp256k1_gej_is_infinity(&infj3));
+    CHECK(secp256k1_fe_is_zero(&infj3.x));
+    CHECK(secp256k1_fe_is_zero(&infj3.y));
+    CHECK(secp256k1_fe_is_zero(&infj3.z));
+
+
+}
+
 void test_add_neg_y_diff_x(void) {
     /* The point of this test is to check that we can add two points
      * whose y-coordinates are negatives of each other but whose x
@@ -2535,6 +2580,7 @@ void run_ge(void) {
         test_ge();
     }
     test_add_neg_y_diff_x();
+    test_intialized_inf();
 }
 
 void test_ec_combine(void) {
