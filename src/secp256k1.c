@@ -7,6 +7,7 @@
 #include "include/secp256k1.h"
 #include "include/secp256k1_preallocated.h"
 
+#include "assumptions.h"
 #include "util.h"
 #include "num_impl.h"
 #include "field_impl.h"
@@ -19,6 +20,7 @@
 #include "eckey_impl.h"
 #include "hash_impl.h"
 #include "scratch_impl.h"
+#include "selftest.h"
 
 #if defined(VALGRIND)
 # include <valgrind/memcheck.h>
@@ -127,6 +129,9 @@ secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigne
     size_t prealloc_size;
     secp256k1_context* ret;
 
+    if (!secp256k1_selftest()) {
+        secp256k1_callback_call(&default_error_callback, "self test failed");
+    }
     VERIFY_CHECK(prealloc != NULL);
     prealloc_size = secp256k1_context_preallocated_size(flags);
     ret = (secp256k1_context*)manual_alloc(&prealloc, sizeof(secp256k1_context), base, prealloc_size);
