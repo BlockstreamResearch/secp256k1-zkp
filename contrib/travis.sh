@@ -18,7 +18,6 @@ fi
     --enable-ecmult-static-precomputation="$STATICPRECOMPUTATION" --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
-    --enable-module-schnorrsig="$SCHNORRSIG" \
     --host="$HOST" $EXTRAFLAGS
 
 if [ -n "$BUILD" ]
