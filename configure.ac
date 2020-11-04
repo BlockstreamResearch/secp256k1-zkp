@@ -156,6 +156,16 @@ AC_ARG_ENABLE(module_whitelist,
     [enable_module_whitelist=$enableval],
     [enable_module_whitelist=no])
 
+AC_ARG_ENABLE(module_extrakeys,
+    AS_HELP_STRING([--enable-module-extrakeys],[enable extrakeys module (experimental)]),
+    [enable_module_extrakeys=$enableval],
+    [enable_module_extrakeys=no])
+
+AC_ARG_ENABLE(module_schnorrsig,
+    AS_HELP_STRING([--enable-module-schnorrsig],[enable schnorrsig module (experimental)]),
+    [enable_module_schnorrsig=$enableval],
+    [enable_module_schnorrsig=no])
+
 AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]),
     [use_external_default_callbacks=$enableval],
@@ -483,6 +493,17 @@ if test x"$enable_module_surjectionproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SURJECTIONPROOF, 1, [Define this symbol to enable the surjection proof module])
 fi
 
+if test x"$enable_module_schnorrsig" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_SCHNORRSIG, 1, [Define this symbol to enable the schnorrsig module])
+  enable_module_extrakeys=yes
+fi
+
+# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
+# module to set enable_module_extrakeys=yes
+if test x"$enable_module_extrakeys" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_EXTRAKEYS, 1, [Define this symbol to enable the extrakeys module])
+fi
+
 if test x"$use_external_asm" = x"yes"; then
   AC_DEFINE(USE_EXTERNAL_ASM, 1, [Define this symbol if an external (non-inline) assembly implementation is used])
 fi
@@ -505,6 +526,8 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
   AC_MSG_NOTICE([Building surjection proof module: $enable_module_surjectionproof])
 #  AC_MSG_NOTICE([Building MuSig module: $enable_module_musig])
+  AC_MSG_NOTICE([Building extrakeys module: $enable_module_extrakeys])
+  AC_MSG_NOTICE([Building schnorrsig module: $enable_module_schnorrsig])
   AC_MSG_NOTICE([******])
 
 
@@ -535,6 +558,12 @@ else
 #  if test x"$enable_module_musig" = x"yes"; then
 #    AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
 #  fi
+  if test x"$enable_module_extrakeys" = x"yes"; then
+    AC_MSG_ERROR([extrakeys module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_schnorrsig" = x"yes"; then
+    AC_MSG_ERROR([schnorrsig module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$set_asm" = x"arm"; then
     AC_MSG_ERROR([ARM assembly optimization is experimental. Use --enable-experimental to allow.])
   fi
@@ -569,6 +598,8 @@ AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"ye
 AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
@@ -590,6 +621,8 @@ echo "  with benchmarks         = $use_benchmark"
 echo "  with coverage           = $enable_coverage"
 echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
+echo "  module extrakeys        = $enable_module_extrakeys"
+echo "  module schnorrsig       = $enable_module_schnorrsig"
 echo
 echo "  asm                     = $set_asm"
 echo "  bignum                  = $set_bignum"
