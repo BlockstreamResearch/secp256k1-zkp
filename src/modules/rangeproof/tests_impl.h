@@ -280,11 +280,11 @@ static void test_pedersen(void) {
     }
     totalv = 0;
     for (i = 0; i < inputs; i++) {
-        values[i] = secp256k1_rands64(0, INT64_MAX - totalv);
+        values[i] = secp256k1_testrandi64(0, INT64_MAX - totalv);
         totalv += values[i];
     }
     for (i = 0; i < outputs - 1; i++) {
-        values[i + inputs] = secp256k1_rands64(0, totalv);
+        values[i + inputs] = secp256k1_testrandi64(0, totalv);
         totalv -= values[i + inputs];
     }
     values[total - 1] = totalv;
@@ -480,7 +480,7 @@ static void test_rangeproof(void) {
     secp256k1_testrand256(blind);
     {
         /*Malleability test.*/
-        v = secp256k1_rands64(0, 255);
+        v = secp256k1_testrandi64(0, 255);
         CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v, secp256k1_generator_h));
         len = 5134;
         CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, 0, 3, v, NULL, 0, NULL, 0, secp256k1_generator_h));
@@ -501,19 +501,19 @@ static void test_rangeproof(void) {
     for (i = 0; i < (size_t) 2*count; i++) {
         int exp;
         int min_bits;
-        v = secp256k1_rands64(0, UINT64_MAX >> (secp256k1_testrand32()&63));
+        v = secp256k1_testrandi64(0, UINT64_MAX >> (secp256k1_testrand32()&63));
         vmin = 0;
         if ((v < INT64_MAX) && (secp256k1_testrand32()&1)) {
-            vmin = secp256k1_rands64(0, v);
+            vmin = secp256k1_testrandi64(0, v);
         }
         secp256k1_testrand256(blind);
         CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v, secp256k1_generator_h));
         len = 5134;
-        exp = (int)secp256k1_rands64(0,18)-(int)secp256k1_rands64(0,18);
+        exp = (int)secp256k1_testrandi64(0,18)-(int)secp256k1_testrandi64(0,18);
         if (exp < 0) {
             exp = -exp;
         }
-        min_bits = (int)secp256k1_rands64(0,64)-(int)secp256k1_rands64(0,64);
+        min_bits = (int)secp256k1_testrandi64(0,64)-(int)secp256k1_testrandi64(0,64);
         if (min_bits < 0) {
             min_bits = -min_bits;
         }
@@ -540,7 +540,7 @@ static void test_rangeproof(void) {
             len = k;
             CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit2, proof, len, NULL, 0, secp256k1_generator_h));
         }
-        len = secp256k1_rands64(0, 3072);
+        len = secp256k1_testrandi64(0, 3072);
         CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit2, proof, len, NULL, 0, secp256k1_generator_h));
     }
 }
@@ -582,11 +582,11 @@ void test_multiple_generators(void) {
     /* Compute all the values -- can be positive or negative */
     total_value = 0;
     for (i = 0; i < n_outputs; i++) {
-        value[n_inputs + i] = secp256k1_rands64(0, INT64_MAX - total_value);
+        value[n_inputs + i] = secp256k1_testrandi64(0, INT64_MAX - total_value);
         total_value += value[n_inputs + i];
     }
     for (i = 0; i < n_inputs - 1; i++) {
-        value[i] = secp256k1_rands64(0, total_value);
+        value[i] = secp256k1_testrandi64(0, total_value);
         total_value -= value[i];
     }
     value[i] = total_value;

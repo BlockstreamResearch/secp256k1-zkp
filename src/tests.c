@@ -171,11 +171,11 @@ void run_util_tests(void) {
     for (i = 0; i < 10; i++) {
         CHECK(secp256k1_clz64_var((~0ULL) - secp256k1_testrand32()) == 0);
         r = ((uint64_t)secp256k1_testrand32() << 32) | secp256k1_testrand32();
-        r2 = secp256k1_rands64(0, r);
+        r2 = secp256k1_testrandi64(0, r);
         CHECK(r2 <= r);
-        r3 = secp256k1_rands64(r2, r);
+        r3 = secp256k1_testrandi64(r2, r);
         CHECK((r3 >= r2) && (r3 <= r));
-        r = secp256k1_rands64(0, INT64_MAX);
+        r = secp256k1_testrandi64(0, INT64_MAX);
         s = (int64_t)r * (secp256k1_testrand32()&1?-1:1);
         CHECK(secp256k1_sign_and_abs64(&r2, s) == (s < 0));
         CHECK(r2 == r);

@@ -109,7 +109,7 @@ static void secp256k1_testrand256_test(unsigned char *b32) {
     secp256k1_testrand_bytes_test(b32, 32);
 }
 
-SECP256K1_INLINE static int64_t secp256k1_rands64(uint64_t min, uint64_t max) {
+SECP256K1_INLINE static int64_t secp256k1_testrandi64(uint64_t min, uint64_t max) {
     uint64_t range;
     uint64_t r;
     uint64_t clz;
