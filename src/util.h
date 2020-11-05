@@ -228,7 +228,7 @@ SECP256K1_INLINE static int secp256k1_clz64_var(uint64_t x) {
 #endif
 
 /* Zero memory if flag == 1. Flag must be 0 or 1. Constant time. */
-static SECP256K1_INLINE void memczero(void *s, size_t len, int flag) {
+static SECP256K1_INLINE void secp256k1_memczero(void *s, size_t len, int flag) {
     unsigned char *p = (unsigned char *)s;
     /* Access flag with a volatile-qualified lvalue.
        This prevents clang from figuring out (after inlining) that flag can
@@ -240,6 +240,24 @@ static SECP256K1_INLINE void memczero(void *s, size_t len, int flag) {
         p++;
         len--;
     }
+}
+
+/** Semantics like memcmp. Variable-time.
+ *
+ * We use this to avoid possible compiler bugs with memcmp, e.g.
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189
+ */
+static SECP256K1_INLINE int secp256k1_memcmp_var(const void *s1, const void *s2, size_t n) {
+    const unsigned char *p1 = s1, *p2 = s2;
+    size_t i;
+
+    for (i = 0; i < n; i++) {
+        int diff = p1[i] - p2[i];
+        if (diff != 0) {
+            return diff;
+        }
+    }
+    return 0;
 }
 
 /** If flag is true, set *r equal to *a; otherwise leave it. Constant-time.  Both *r and *a must be initialized and non-negative.*/
@@ -268,14 +286,20 @@ static SECP256K1_INLINE void secp256k1_int_cmov(int *r, const int *a, int flag) 
 # define SECP256K1_WIDEMUL_INT128 1
 #elif defined(USE_FORCE_WIDEMUL_INT64)
 # define SECP256K1_WIDEMUL_INT64 1
-#elif defined(__SIZEOF_INT128__)
+#elif defined(UINT128_MAX) || defined(__SIZEOF_INT128__)
 # define SECP256K1_WIDEMUL_INT128 1
 #else
 # define SECP256K1_WIDEMUL_INT64 1
 #endif
 #if defined(SECP256K1_WIDEMUL_INT128)
+# if !defined(UINT128_MAX) && defined(__SIZEOF_INT128__)
 SECP256K1_GNUC_EXT typedef unsigned __int128 uint128_t;
 SECP256K1_GNUC_EXT typedef __int128 int128_t;
+#define UINT128_MAX ((uint128_t)(-1))
+#define INT128_MAX ((int128_t)(UINT128_MAX >> 1))
+#define INT128_MIN (-INT128_MAX - 1)
+/* No (U)INT128_C macros because compilers providing __int128 do not support 128-bit literals.  */
+# endif
 #endif
 
 #endif /* SECP256K1_UTIL_H */
