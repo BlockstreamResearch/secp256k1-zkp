@@ -124,4 +124,8 @@ SECP256K1_INLINE static int64_t secp256k1_rands64(uint64_t min, uint64_t max) {
     return min + (int64_t)r;
 }
 
+static void secp256k1_rand_flip(unsigned char *b, size_t len) {
+    b[secp256k1_rand_int(len)] ^= (1 << secp256k1_rand_int(8));
+}
+
 #endif /* SECP256K1_TESTRAND_IMPL_H */

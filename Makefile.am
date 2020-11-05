@@ -151,10 +151,6 @@ if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
 endif
 
-if ENABLE_MODULE_SCHNORRSIG
-include src/modules/schnorrsig/Makefile.am.include
-endif
-
 if ENABLE_MODULE_MUSIG
 include src/modules/musig/Makefile.am.include
 endif
@@ -177,4 +173,12 @@ endif
 
 if ENABLE_MODULE_SURJECTIONPROOF
 include src/modules/surjection/Makefile.am.include
+endif
+
+if ENABLE_MODULE_EXTRAKEYS
+include src/modules/extrakeys/Makefile.am.include
+endif
+
+if ENABLE_MODULE_SCHNORRSIG
+include src/modules/schnorrsig/Makefile.am.include
 endif
