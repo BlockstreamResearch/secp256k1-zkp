@@ -35,11 +35,11 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     secp256k1_musig_partial_signature partial_sig[2];
     unsigned char final_sig[64];
 
-    secp256k1_rand256(session_id[0]);
-    secp256k1_rand256(session_id[1]);
-    secp256k1_rand256(sk[0]);
-    secp256k1_rand256(sk[1]);
-    secp256k1_rand256(msg);
+    secp256k1_testrand256(session_id[0]);
+    secp256k1_testrand256(session_id[1]);
+    secp256k1_testrand256(sk[0]);
+    secp256k1_testrand256(sk[1]);
+    secp256k1_testrand256(msg);
 
     CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
@@ -123,13 +123,13 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
      * behavior */
     memset(&pre_session_uninitialized, 0, sizeof(pre_session_uninitialized));
 
-    secp256k1_rand256(session_id[0]);
-    secp256k1_rand256(session_id[1]);
-    secp256k1_rand256(sk[0]);
-    secp256k1_rand256(sk[1]);
-    secp256k1_rand256(msg);
-    secp256k1_rand256(sec_adaptor);
-    secp256k1_rand256(tweak);
+    secp256k1_testrand256(session_id[0]);
+    secp256k1_testrand256(session_id[1]);
+    secp256k1_testrand256(sk[0]);
+    secp256k1_testrand256(sk[1]);
+    secp256k1_testrand256(msg);
+    secp256k1_testrand256(sec_adaptor);
+    secp256k1_testrand256(tweak);
 
     CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
@@ -459,7 +459,7 @@ int musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp256
     secp256k1_pubkey nonce;
 
     /* Set up signers with different public keys */
-    secp256k1_rand256(sk_dummy);
+    secp256k1_testrand256(sk_dummy);
     pks_tmp[0] = pks[0];
     CHECK(secp256k1_xonly_pubkey_create(&pks_tmp[1], sk_dummy) == 1);
     CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk_tmp, &pre_session_tmp, pks_tmp, 2) == 1);
@@ -493,7 +493,7 @@ int musig_state_machine_diff_signers_combine_nonce_test(secp256k1_xonly_pubkey *
     const unsigned char *ncs[2];
 
     /* Initialize new signers */
-    secp256k1_rand256(session_id);
+    secp256k1_testrand256(session_id);
     CHECK(secp256k1_musig_session_initialize(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pre_session, 2, 1, sk) == 1);
     ncs[0] = nonce_commitment_other;
     ncs[1] = nonce_commitment;
@@ -608,11 +608,11 @@ void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
      * reinitialize session and session_signer_data. */
     for (i = 0; i < 2; i++) {
         /* Setup */
-        secp256k1_rand256(session_id[0]);
-        secp256k1_rand256(session_id[1]);
-        secp256k1_rand256(sk[0]);
-        secp256k1_rand256(sk[1]);
-        secp256k1_rand256(msg);
+        secp256k1_testrand256(session_id[0]);
+        secp256k1_testrand256(session_id[1]);
+        secp256k1_testrand256(sk[0]);
+        secp256k1_testrand256(sk[1]);
+        secp256k1_testrand256(msg);
         CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
         CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
         CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk, &pre_session, pk, 2) == 1);
@@ -719,11 +719,11 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     const unsigned char msg32_b[32] = "this is the message blockchain b";
 
     /* Step 1: key setup */
-    secp256k1_rand256(seckey_a[0]);
-    secp256k1_rand256(seckey_a[1]);
-    secp256k1_rand256(seckey_b[0]);
-    secp256k1_rand256(seckey_b[1]);
-    secp256k1_rand256(sec_adaptor);
+    secp256k1_testrand256(seckey_a[0]);
+    secp256k1_testrand256(seckey_a[1]);
+    secp256k1_testrand256(seckey_b[0]);
+    secp256k1_testrand256(seckey_b[1]);
+    secp256k1_testrand256(sec_adaptor);
 
     CHECK(secp256k1_xonly_pubkey_create(&pk_a[0], seckey_a[0]));
     CHECK(secp256k1_xonly_pubkey_create(&pk_a[1], seckey_a[1]));

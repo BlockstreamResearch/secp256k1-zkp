@@ -96,6 +96,8 @@ const secp256k1_context *secp256k1_context_no_precomp = &secp256k1_context_no_pr
 
 size_t secp256k1_context_preallocated_size(unsigned int flags) {
     size_t ret = ROUND_TO_ALIGN(sizeof(secp256k1_context));
+    /* A return value of 0 is reserved as an indicator for errors when we call this function internally. */
+    VERIFY_CHECK(ret != 0);
 
     if (EXPECT((flags & SECP256K1_FLAGS_TYPE_MASK) != SECP256K1_FLAGS_TYPE_CONTEXT, 0)) {
             secp256k1_callback_call(&default_illegal_callback,
@@ -132,21 +134,21 @@ secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigne
     if (!secp256k1_selftest()) {
         secp256k1_callback_call(&default_error_callback, "self test failed");
     }
-    VERIFY_CHECK(prealloc != NULL);
+
     prealloc_size = secp256k1_context_preallocated_size(flags);
+    if (prealloc_size == 0) {
+        return NULL;
+    }
+    VERIFY_CHECK(prealloc != NULL);
     ret = (secp256k1_context*)manual_alloc(&prealloc, sizeof(secp256k1_context), base, prealloc_size);
     ret->illegal_callback = default_illegal_callback;
     ret->error_callback = default_error_callback;
 
-    if (EXPECT((flags & SECP256K1_FLAGS_TYPE_MASK) != SECP256K1_FLAGS_TYPE_CONTEXT, 0)) {
-            secp256k1_callback_call(&ret->illegal_callback,
-                                    "Invalid flags");
-            return NULL;
-    }
-
     secp256k1_ecmult_context_init(&ret->ecmult_ctx);
     secp256k1_ecmult_gen_context_init(&ret->ecmult_gen_ctx);
 
+    /* Flags have been checked by secp256k1_context_preallocated_size. */
+    VERIFY_CHECK((flags & SECP256K1_FLAGS_TYPE_MASK) == SECP256K1_FLAGS_TYPE_CONTEXT);
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_SIGN) {
         secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &prealloc);
     }
@@ -292,6 +294,9 @@ int secp256k1_ec_pubkey_parse(const secp256k1_context* ctx, secp256k1_pubkey* pu
     memset(pubkey, 0, sizeof(*pubkey));
     ARG_CHECK(input != NULL);
     if (!secp256k1_eckey_pubkey_parse(&Q, input, inputlen)) {
+        return 0;
+    }
+    if (!secp256k1_ge_is_in_correct_subgroup(&Q)) {
         return 0;
     }
     secp256k1_pubkey_save(pubkey, &Q);
@@ -587,7 +592,7 @@ int secp256k1_ec_pubkey_create(const secp256k1_context* ctx, secp256k1_pubkey *p
 
     ret = secp256k1_ec_pubkey_create_helper(&ctx->ecmult_gen_ctx, &seckey_scalar, &p, seckey);
     secp256k1_pubkey_save(pubkey, &p);
-    memczero(pubkey, sizeof(*pubkey), !ret);
+    secp256k1_memczero(pubkey, sizeof(*pubkey), !ret);
 
     secp256k1_scalar_clear(&seckey_scalar);
     return ret;
