@@ -127,7 +127,33 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         pre_session->magic = pre_session_magic;
         memcpy(pre_session->pk_hash, ecmult_data.ell, 32);
         pre_session->pk_parity = pk_parity;
+        pre_session->is_tweaked = 0;
     }
+    return 1;
+}
+
+int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_musig_pre_session *pre_session, secp256k1_pubkey *output_pubkey, const secp256k1_xonly_pubkey *internal_pubkey, const unsigned char *tweak32) {
+    secp256k1_ge pk;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pre_session != NULL);
+    ARG_CHECK(pre_session->magic == pre_session_magic);
+    /* This function can only be called once because otherwise signing would not
+     * succeed */
+    ARG_CHECK(pre_session->is_tweaked == 0);
+
+    pre_session->internal_key_parity = pre_session->pk_parity;
+    if(!secp256k1_xonly_pubkey_tweak_add(ctx, output_pubkey, internal_pubkey, tweak32)) {
+        return 0;
+    }
+
+    memcpy(pre_session->tweak, tweak32, 32);
+    pre_session->is_tweaked = 1;
+
+    if (!secp256k1_pubkey_load(ctx, &pk, output_pubkey)) {
+        return 0;
+    }
+    pre_session->pk_parity = secp256k1_extrakeys_ge_even_y(&pk);
     return 1;
 }
 
@@ -181,22 +207,33 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
         return 0;
     }
     secp256k1_musig_coefficient(&mu, session->pre_session.pk_hash, (uint32_t) my_index);
-    /* Compute the signers public key point and determine if the secret needs to
-     * be negated before signing. If the signer's pubkey has an odd Y coordinate
-     * XOR the MuSig-combined pubkey has an odd Y coordinate, the secret has to
-     * be negated. This can be seen by looking at the secret key belonging to
-     * `combined_pk`. Let's define
+    /* Compute the signer's public key point and determine if the secret is
+     * negated before signing. That happens if if the signer's pubkey has an odd
+     * Y coordinate XOR the MuSig-combined pubkey has an odd Y coordinate XOR
+     * (if tweaked) the internal key has an odd Y coordinate.
+     *
+     * This can be seen by looking at the secret key belonging to `combined_pk`.
+     * Let's define
      * P' := mu_0*|P_0| + ... + mu_n*|P_n| where P_i is the i-th public key
      * point x_i*G, mu_i is the i-th musig coefficient and |.| is a function
      * that normalizes a point to an even Y by negating if necessary similar to
      * secp256k1_extrakeys_ge_even_y. Then we have
-     * P := |P'| the combined xonly public key. Also, P = x*G where x =
-     * sum_i(b_i*mu_i*x_i) and b_i = -1 if (P != |P'| XOR P_i != |P_i|) and 1
-     * otherwise. */
+     * P := |P'| + t*G where t is the tweak.
+     * And the combined xonly public key is
+     * |P| = x*G
+     *      where x = sum_i(b_i*mu_i*x_i) + b'*t
+     *            b' = -1 if P != |P|, 1 otherwise
+     *            b_i = -1 if (P_i != |P_i| XOR P' != |P'| XOR P != |P|) and 1
+     *                otherwise.
+     */
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pj, &secret);
     secp256k1_ge_set_gej(&p, &pj);
     secp256k1_fe_normalize(&p.y);
-    if (secp256k1_fe_is_odd(&p.y) != session->pre_session.pk_parity) {
+    if((secp256k1_fe_is_odd(&p.y)
+            + session->pre_session.pk_parity
+            + (session->pre_session.is_tweaked
+                && session->pre_session.internal_key_parity))
+            % 2 == 1) {
         secp256k1_scalar_negate(&secret, &secret);
     }
     secp256k1_scalar_mul(&secret, &secret, &mu);
@@ -502,6 +539,26 @@ int secp256k1_musig_partial_sig_combine(const secp256k1_context* ctx, const secp
         secp256k1_scalar_add(&s, &s, &term);
     }
 
+    /* If there is a tweak then add (or subtract) `msghash` times `tweak` to `s`.*/
+    if (session->pre_session.is_tweaked) {
+        unsigned char msghash[32];
+        secp256k1_scalar e, scalar_tweak;
+        int overflow = 0;
+
+        secp256k1_musig_compute_messagehash(ctx, msghash, session);
+        secp256k1_scalar_set_b32(&e, msghash, NULL);
+        secp256k1_scalar_set_b32(&scalar_tweak, session->pre_session.tweak, &overflow);
+        if (overflow || !secp256k1_eckey_privkey_tweak_mul(&e, &scalar_tweak)) {
+            /* This mimics the behavior of secp256k1_ec_seckey_tweak_mul regarding
+             * overflow and tweak being 0. */
+            return 0;
+        }
+        if (session->pre_session.pk_parity) {
+            secp256k1_scalar_negate(&e, &e);
+        }
+        secp256k1_scalar_add(&s, &s, &e);
+    }
+
     secp256k1_xonly_pubkey_load(ctx, &noncep, &session->combined_nonce);
     VERIFY_CHECK(!secp256k1_fe_is_odd(&noncep.y));
     secp256k1_fe_normalize(&noncep.x);
@@ -548,10 +605,15 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     if (!secp256k1_xonly_pubkey_load(ctx, &rp, &signer->nonce)) {
         return 0;
     }
+
     /* If the MuSig-combined point has an odd Y coordinate, the signers will
      * sign for the negation of their individual xonly public key such that the
-     * combined signature is valid for the MuSig aggregated xonly key. */
-    if (session->pre_session.pk_parity) {
+     * combined signature is valid for the MuSig aggregated xonly key. If the
+     * MuSig-combined point was tweaked then `e` is negated if the combined key
+     * has an odd Y coordinate XOR the internal key has an odd Y coordinate.*/
+    if (session->pre_session.pk_parity
+            != (session->pre_session.is_tweaked
+                && session->pre_session.internal_key_parity)) {
         secp256k1_scalar_negate(&e, &e);
     }
 
