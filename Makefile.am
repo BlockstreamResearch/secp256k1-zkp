@@ -147,6 +147,10 @@ endif
 
 EXTRA_DIST = autogen.sh src/gen_context.c src/basic-config.h
 
+if ENABLE_MODULE_BULLETPROOFS
+include src/modules/bulletproofs/Makefile.am.include
+endif
+
 if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
 endif

@@ -1,0 +1,10 @@
+include_HEADERS += include/secp256k1_bulletproofs.h
+noinst_HEADERS += src/modules/bulletproofs/tests_impl.h
+noinst_HEADERS += src/modules/bulletproofs/main_impl.h
+
+if USE_BENCHMARK
+noinst_PROGRAMS += bench_bulletproofs
+bench_bulletproofs_SOURCES = src/bench_bulletproofs.c
+bench_bulletproofs_LDADD = libsecp256k1.la $(SECP_LIBS)
+bench_bulletproofs_LDFLAGS = -static
+endif

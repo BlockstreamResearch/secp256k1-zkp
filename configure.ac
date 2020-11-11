@@ -121,6 +121,11 @@ AC_ARG_ENABLE(ecmult_static_precomputation,
     [use_ecmult_static_precomputation=$enableval],
     [use_ecmult_static_precomputation=auto])
 
+AC_ARG_ENABLE(module_bulletproofs,
+    AS_HELP_STRING([--enable-module-bulletproofs],[enable Bulletproofs module (experimental)]),
+    [enable_module_bulletproofs=$enableval],
+    [enable_module_bulletproofs=no])
+
 AC_ARG_ENABLE(module_ecdh,
     AS_HELP_STRING([--enable-module-ecdh],[enable ECDH shared secret computation]),
     [enable_module_ecdh=$enableval],
@@ -470,6 +475,10 @@ if test x"$set_precomp" = x"yes"; then
   AC_DEFINE(USE_ECMULT_STATIC_PRECOMPUTATION, 1, [Define this symbol to use a statically generated ecmult table])
 fi
 
+if test x"$enable_module_bulletproofs" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_BULLETPROOFS, 1, [Define this symbol to enable the Bulletproofs module])
+fi
+
 if test x"$enable_module_ecdh" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_ECDH, 1, [Define this symbol to enable the ECDH module])
 fi
@@ -525,6 +534,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([******])
   AC_MSG_NOTICE([WARNING: experimental build])
   AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
+  AC_MSG_NOTICE([Building Bulletproofs module: $enable_module_bulletproofs])
   AC_MSG_NOTICE([Building NUMS generator module: $enable_module_generator])
   AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
   AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
@@ -542,6 +552,9 @@ if test x"$enable_experimental" = x"yes"; then
   fi
 
   if test x"$enable_module_generator" != x"yes"; then
+    if test x"$enable_module_bulletproofs" = x"yes"; then
+      AC_MSG_ERROR([Bulletproofs module requires the generator module. Use --enable-module-generator to allow.])
+    fi
     if test x"$enable_module_rangeproof" = x"yes"; then
       AC_MSG_ERROR([Rangeproof module requires the generator module. Use --enable-module-generator to allow.])
     fi
@@ -556,6 +569,9 @@ if test x"$enable_experimental" = x"yes"; then
     fi
   fi
 else
+  if test x"$enable_module_bulletproofs" = x"yes"; then
+    AC_MSG_ERROR([Bulletproofs module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_musig" = x"yes"; then
     AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
   fi
@@ -593,6 +609,7 @@ AM_CONDITIONAL([USE_TESTS], [test x"$use_tests" != x"no"])
 AM_CONDITIONAL([USE_EXHAUSTIVE_TESTS], [test x"$use_exhaustive_tests" != x"no"])
 AM_CONDITIONAL([USE_BENCHMARK], [test x"$use_benchmark" = x"yes"])
 AM_CONDITIONAL([USE_ECMULT_STATIC_PRECOMPUTATION], [test x"$set_precomp" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_BULLETPROOFS], [test x"$enable_module_bulletproofs" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
