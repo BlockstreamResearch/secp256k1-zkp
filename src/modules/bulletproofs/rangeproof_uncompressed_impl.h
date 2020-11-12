@@ -143,4 +143,135 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step0_impl(
     return 1;
 }
 
+/* Step 1 of the proof.
+ * Uses the value but not the blinding factor. Takes the complete commitment,
+ * but only to put it into the hash.
+ * Outputs the points T1 and T2, encoded in 65 bytes (one byte with T1's parity
+ * in the LSB, T2's parity in the second-LSB, 32-byte T1.x, 32-byte T2.x).
+ * Updates the state to include the hash x.
+ */
+static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step1_impl(
+    const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
+    secp256k1_bulletproofs_prover_context* prover_ctx,
+    unsigned char* output,
+    const size_t n_bits,
+    const uint64_t value,
+    const uint64_t min_value,
+    const secp256k1_ge* asset_genp,
+    const unsigned char* nonce
+) {
+    secp256k1_bulletproofs_bulletproofs_lrgen lr_gen;
+    secp256k1_sha256 sha256;
+    secp256k1_scalar tau1, tau2;
+    secp256k1_scalar t0, t1, t2;
+    secp256k1_scalar y, z;
+    secp256k1_scalar tmps;
+    secp256k1_gej gej;
+    secp256k1_ge ge;
+    size_t i;
+    int overflow;
+
+    memset(output, 0, 65);
+
+    /* Unpack challenges y and z from step 0 */
+    secp256k1_scalar_set_b32(&y, &prover_ctx->data[32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&y)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&z, &prover_ctx->data[64], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 65);
+        return 0;
+    }
+
+    /* Compute coefficients t0, t1, t2 of the <l, r> polynomial */
+    /* t0 = l(0) dot r(0) */
+    secp256k1_bulletproofs_lrgen_init(&lr_gen, nonce, &y, &z, value - min_value);
+    secp256k1_scalar_clear(&t0);
+    secp256k1_scalar_clear(&tmps);
+    for (i = 0; i < n_bits; i++) {
+        secp256k1_scalar l, r;
+        secp256k1_lr_generate(&lr_gen, &l, &r, &tmps);
+        secp256k1_scalar_mul(&l, &l, &r);
+        secp256k1_scalar_add(&t0, &t0, &l);
+    }
+
+    /* A = t0 + t1 + t2 = l(1) dot r(1) */
+    secp256k1_bulletproofs_lrgen_init(&lr_gen, nonce, &y, &z, value - min_value);
+    secp256k1_scalar_clear(&t1);
+    for (i = 0; i < n_bits; i++) {
+        secp256k1_scalar one;
+        secp256k1_scalar l, r;
+        secp256k1_scalar_set_int(&one, 1);
+        secp256k1_lr_generate(&lr_gen, &l, &r, &one);
+        secp256k1_scalar_mul(&l, &l, &r);
+        secp256k1_scalar_add(&t1, &t1, &l);
+    }
+
+    /* B = t0 - t1 + t2 = l(-1) dot r(-1) */
+    secp256k1_bulletproofs_lrgen_init(&lr_gen, nonce, &y, &z, value - min_value);
+    secp256k1_scalar_clear(&t2);
+    for (i = 0; i < n_bits; i++) {
+        secp256k1_scalar negone;
+        secp256k1_scalar l, r;
+        secp256k1_scalar_set_int(&negone, 1);
+        secp256k1_scalar_negate(&negone, &negone);
+        secp256k1_lr_generate(&lr_gen, &l, &r, &negone);
+        secp256k1_scalar_mul(&l, &l, &r);
+        secp256k1_scalar_add(&t2, &t2, &l);
+    }
+
+    /* t1 = (A - B)/2 */
+    secp256k1_scalar_set_int(&tmps, 2);
+    secp256k1_scalar_inverse_var(&tmps, &tmps);
+    secp256k1_scalar_negate(&t2, &t2);
+    secp256k1_scalar_add(&t1, &t1, &t2);
+    secp256k1_scalar_mul(&t1, &t1, &tmps);
+
+    /* t2 = -(-B + t0) + t1 */
+    secp256k1_scalar_add(&t2, &t2, &t0);
+    secp256k1_scalar_negate(&t2, &t2);
+    secp256k1_scalar_add(&t2, &t2, &t1);
+
+    /* Compute and output Ti = t_i*A + tau_i*G for i = 1 */
+    secp256k1_ecmult_const(&gej, asset_genp, &t1, 256);
+    secp256k1_ge_set_gej(&ge, &gej);
+    secp256k1_ecmult_gen(ecmult_gen_ctx, &gej, &tau1);
+    secp256k1_gej_add_ge(&gej, &gej, &ge);
+    secp256k1_ge_set_gej(&ge, &gej);
+    secp256k1_fe_normalize_var(&ge.x);
+    secp256k1_fe_normalize_var(&ge.y);
+    output[0] = secp256k1_fe_is_odd(&ge.y) << 1;
+    secp256k1_fe_get_b32(&output[1], &ge.x);
+
+    /* Compute and output Ti = t_i*A + tau_i*G for i = 2 */
+    secp256k1_ecmult_const(&gej, asset_genp, &t2, 256);
+    secp256k1_ge_set_gej(&ge, &gej);
+    secp256k1_ecmult_gen(ecmult_gen_ctx, &gej, &tau2);
+    secp256k1_gej_add_ge(&gej, &gej, &ge);
+    secp256k1_ge_set_gej(&ge, &gej);
+    secp256k1_fe_normalize_var(&ge.x);
+    secp256k1_fe_normalize_var(&ge.y);
+    output[0] |= secp256k1_fe_is_odd(&ge.y);
+    secp256k1_fe_get_b32(&output[33], &ge.x);
+
+    /* get challenge x */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, &prover_ctx->data[64], 32); /* y, which commits to all data from before this step */
+    secp256k1_sha256_write(&sha256, output, 65);
+    secp256k1_sha256_finalize(&sha256, &prover_ctx->data[0]);
+    secp256k1_scalar_set_b32(&tmps, &prover_ctx->data[0], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&tmps)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 65);
+        return 0;
+    }
+
+    /* Success */
+    return 1;
+}
+
+
 #endif

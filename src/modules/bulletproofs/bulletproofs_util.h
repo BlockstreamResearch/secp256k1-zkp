@@ -59,4 +59,55 @@ static void secp256k1_bulletproofs_commit_initial_data(
     secp256k1_sha256_finalize(&sha256, commit);
 }
 
+/* Iterator which produces each l,r pair in succession with a minimum
+ * of scalar operations */
+typedef struct {
+    const unsigned char *nonce;
+    const secp256k1_scalar *y;
+    const secp256k1_scalar *z;
+    secp256k1_scalar yn;
+    secp256k1_scalar z22n;
+    uint64_t val_less_min;
+    size_t count;
+} secp256k1_bulletproofs_bulletproofs_lrgen;
+
+static void secp256k1_bulletproofs_lrgen_init(secp256k1_bulletproofs_bulletproofs_lrgen *generator, const unsigned char *nonce, const secp256k1_scalar *y, const secp256k1_scalar *z, const uint64_t val_less_min) {
+    generator->nonce = nonce;
+    generator->y = y;
+    generator->z = z;
+    secp256k1_scalar_set_int(&generator->yn, 1);
+    generator->val_less_min = val_less_min;
+    generator->count = 0;
+}
+
+static void secp256k1_lr_generate(secp256k1_bulletproofs_bulletproofs_lrgen *generator, secp256k1_scalar *lout, secp256k1_scalar *rout, const secp256k1_scalar *x) {
+    const int bit = (generator->val_less_min >> generator->count) & 1;
+    secp256k1_scalar sl, sr;
+    secp256k1_scalar negz;
+
+    if (generator->count == 0) {
+        secp256k1_scalar_sqr(&generator->z22n, generator->z);
+    }
+
+    secp256k1_scalar_chacha20(&sl, &sr, generator->nonce, generator->count + 2);
+    secp256k1_scalar_mul(&sl, &sl, x);
+    secp256k1_scalar_mul(&sr, &sr, x);
+
+    secp256k1_scalar_set_int(lout, bit);
+    secp256k1_scalar_negate(&negz, generator->z);
+    secp256k1_scalar_add(lout, lout, &negz);
+    secp256k1_scalar_add(lout, lout, &sl);
+
+    secp256k1_scalar_set_int(rout, 1 - bit);
+    secp256k1_scalar_negate(rout, rout);
+    secp256k1_scalar_add(rout, rout, generator->z);
+    secp256k1_scalar_add(rout, rout, &sr);
+    secp256k1_scalar_mul(rout, rout, &generator->yn);
+    secp256k1_scalar_add(rout, rout, &generator->z22n);
+
+    generator->count++;
+    secp256k1_scalar_mul(&generator->yn, &generator->yn, generator->y);
+    secp256k1_scalar_add(&generator->z22n, &generator->z22n, &generator->z22n);
+}
+
 #endif
