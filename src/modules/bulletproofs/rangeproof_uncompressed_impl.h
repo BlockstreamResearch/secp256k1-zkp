@@ -336,4 +336,62 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step2_impl(
     return 1;
 }
 
+/* Step 3 of the proof. Should be called n_bits many times.
+ * Only step to use the blinding factor of the commitment.
+ * Outputs the scalars tau_x and mu, encoded in 64 bytes (tau_x first then mu).
+ * Does not update the state.
+ */
+static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step3_impl(
+    secp256k1_bulletproofs_prover_context* prover_ctx,
+    unsigned char* output,
+    size_t idx,
+    const uint64_t value,
+    const uint64_t min_value,
+    const unsigned char* nonce
+) {
+    secp256k1_bulletproofs_bulletproofs_lrgen lr_gen;
+    secp256k1_scalar x, y, z, l, r;
+    int overflow;
+
+    /* Extract challenges */
+    secp256k1_scalar_set_b32(&x, &prover_ctx->data[0], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&x)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 64);
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&y, &prover_ctx->data[32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&y)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 64);
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&z, &prover_ctx->data[64], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 64);
+        return 0;
+    }
+
+    /* Restore lrgen state */
+    if (idx == 0) {
+        secp256k1_bulletproofs_lrgen_init(&lr_gen, nonce, &y, &z, value - min_value);
+    } else {
+        if (!secp256k1_bulletproofs_lrgen_deserialize(&lr_gen, &prover_ctx->data[96], idx, nonce, &y, &z, value - min_value)) {
+            memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+            memset(output, 0, 64);
+            return 0;
+        }
+    }
+
+    /* Generate l(x) and r(x) */
+    secp256k1_lr_generate(&lr_gen, &l, &r, &x);
+
+    /* Success */
+    secp256k1_bulletproofs_lrgen_serialize(&prover_ctx->data[96], &lr_gen);
+    secp256k1_scalar_get_b32(&output[0], &l);
+    secp256k1_scalar_get_b32(&output[32], &r);
+    return 1;
+}
+
 #endif

@@ -80,6 +80,28 @@ static void secp256k1_bulletproofs_lrgen_init(secp256k1_bulletproofs_bulletproof
     generator->count = 0;
 }
 
+/* Serializes yn and z22n as a 64-byte char array */
+static void secp256k1_bulletproofs_lrgen_serialize(unsigned char* output, const secp256k1_bulletproofs_bulletproofs_lrgen *generator) {
+    secp256k1_scalar_get_b32(&output[0], &generator->yn);
+    secp256k1_scalar_get_b32(&output[32], &generator->z22n);
+}
+
+/* Deserializes yn and z22n from a 64-byte char array, otherwise the same as `secp256k1_bulletproofs_lrgen_init` */
+static int secp256k1_bulletproofs_lrgen_deserialize(secp256k1_bulletproofs_bulletproofs_lrgen *generator, const unsigned char *saved_state, size_t idx, const unsigned char *nonce, const secp256k1_scalar *y, const secp256k1_scalar *z, const uint64_t val_less_min) {
+    int overflow;
+    secp256k1_bulletproofs_lrgen_init(generator, nonce, y, z, val_less_min);
+    secp256k1_scalar_set_b32(&generator->yn, &saved_state[0], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&generator->yn)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&generator->z22n, &saved_state[32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&generator->z22n)) {
+        return 0;
+    }
+    generator->count = idx;
+    return 1;
+}
+
 static void secp256k1_lr_generate(secp256k1_bulletproofs_bulletproofs_lrgen *generator, secp256k1_scalar *lout, secp256k1_scalar *rout, const secp256k1_scalar *x) {
     const int bit = (generator->val_less_min >> generator->count) & 1;
     secp256k1_scalar sl, sr;
