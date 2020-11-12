@@ -144,8 +144,7 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step0_impl(
 }
 
 /* Step 1 of the proof.
- * Uses the value but not the blinding factor. Takes the complete commitment,
- * but only to put it into the hash.
+ * Does not use the Pedersen commitment at all.
  * Outputs the points T1 and T2, encoded in 65 bytes (one byte with T1's parity
  * in the LSB, T2's parity in the second-LSB, 32-byte T1.x, 32-byte T2.x).
  * Updates the state to include the hash x.
@@ -185,6 +184,9 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step1_impl(
         memset(output, 0, 65);
         return 0;
     }
+
+    /* Generate new blinding factors tau1 and tau2 */
+    secp256k1_scalar_chacha20(&tau1, &tau2, nonce, 1);
 
     /* Compute coefficients t0, t1, t2 of the <l, r> polynomial */
     /* t0 = l(0) dot r(0) */
@@ -273,5 +275,65 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step1_impl(
     return 1;
 }
 
+/* Step 2 of the proof.
+ * Only step to use the blinding factor of the commitment.
+ * Outputs the scalars tau_x and mu, encoded in 64 bytes (tau_x first then mu).
+ * Does not update the state except to zero it out if something goes wrong
+ */
+static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step2_impl(
+    secp256k1_bulletproofs_prover_context* prover_ctx,
+    unsigned char* output,
+    const unsigned char* nonce,
+    const secp256k1_scalar* blind,
+    const secp256k1_scalar* enc_data
+) {
+    secp256k1_scalar alpha, rho;
+    secp256k1_scalar tau1, tau2, taux, mu;
+    secp256k1_scalar x, z, xsq, zsq;
+    secp256k1_scalar tmps;
+    int overflow;
+
+    /* Recompute alpha, rho, tau1, tau2 */
+    secp256k1_scalar_chacha20(&alpha, &rho, nonce, 0);
+    secp256k1_scalar_add(&alpha, &alpha, enc_data);
+    secp256k1_scalar_chacha20(&tau1, &tau2, nonce, 1);
+
+    /* Extract challenges x and z */
+    secp256k1_scalar_set_b32(&x, &prover_ctx->data[0], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&x)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 64);
+        return 0;
+    }
+    secp256k1_scalar_mul(&xsq, &x, &x);
+
+    secp256k1_scalar_set_b32(&z, &prover_ctx->data[64], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        memset(prover_ctx->data, 0, sizeof(prover_ctx->data));
+        memset(output, 0, 64);
+        return 0;
+    }
+    secp256k1_scalar_mul(&zsq, &z, &z);
+
+    /* compute tau_x and mu */
+    secp256k1_scalar_mul(&taux, &tau1, &x);
+    secp256k1_scalar_mul(&tmps, &tau2, &xsq);
+    secp256k1_scalar_add(&taux, &taux, &tmps);
+
+    secp256k1_scalar_mul(&tmps, &zsq, blind);
+    secp256k1_scalar_add(&taux, &taux, &tmps);
+
+    secp256k1_scalar_mul(&mu, &rho, &x);
+    secp256k1_scalar_add(&mu, &mu, &alpha);
+
+    /* Negate taux and mu so the verifier doesn't have to */
+    secp256k1_scalar_negate(&taux, &taux);
+    secp256k1_scalar_negate(&mu, &mu);
+
+    /* Success */
+    secp256k1_scalar_get_b32(&output[0], &taux);
+    secp256k1_scalar_get_b32(&output[32], &mu);
+    return 1;
+}
 
 #endif
