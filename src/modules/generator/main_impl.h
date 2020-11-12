@@ -249,6 +249,7 @@ static void secp256k1_pedersen_commitment_load(secp256k1_ge* ge, const secp256k1
     if (commit->data[0] & 1) {
         secp256k1_ge_neg(ge, ge);
     }
+    secp256k1_fe_normalize(&ge->y);
 }
 
 static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* commit, secp256k1_ge* ge) {
@@ -391,6 +392,7 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
     }
 
     secp256k1_scalar_set_int(&sum, 0);
+    secp256k1_scalar_set_int(&tmp, 0);
     for (i = 0; i < n_total; i++) {
         int overflow = 0;
         secp256k1_scalar addend;
