@@ -88,7 +88,7 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step0_impl(
     secp256k1_ecmult_gen(ecmult_gen_ctx, &gej, &alpha);
     for (i = 0; i < n_bits; i++) {
         secp256k1_ge aterm = gens->gens[2 * i + 1];
-        size_t al = !!((value - min_value) & (1ull << i));
+        int al = !!((value - min_value) & (1ull << i));
 
         secp256k1_ge_neg(&aterm, &aterm);
         secp256k1_fe_cmov(&aterm.x, &gens->gens[2 * i].x, al);
@@ -399,6 +399,143 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step3_impl(
     secp256k1_scalar_get_b32(&output[0], &l);
     secp256k1_scalar_get_b32(&output[32], &r);
     return 1;
+}
+
+typedef struct {
+    const secp256k1_ge *t1p;
+    const secp256k1_ge *t2p;
+    const secp256k1_ge *asset_genp;
+    const secp256k1_ge *commitp;
+    secp256k1_scalar neg_t;
+    secp256k1_scalar z_sq;
+    secp256k1_scalar delta_y_z__minus_t__minus_mv_z_sq;
+    secp256k1_scalar x;
+} secp256k1_bulletproofs_eq65_data;
+
+/** Equation (65) is the sum of these 4 scalar-point multiplications, minus tau_x*G. */
+static int secp256k1_bulletproofs_eq65_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    const secp256k1_bulletproofs_eq65_data* ctx = (const secp256k1_bulletproofs_eq65_data*) data;
+    switch(idx) {
+        case 0:  /* (delta - t - min*z^2) H */
+            *pt = *ctx->asset_genp;
+            *sc = ctx->delta_y_z__minus_t__minus_mv_z_sq;
+            break;
+        case 1:  /* z^2 V */
+            *pt = *ctx->commitp;
+            *sc = ctx->z_sq;
+            break;
+        case 2:  /* x T1 */
+            *pt = *ctx->t1p;
+            *sc = ctx->x;
+            break;
+        case 3:  /* x^2 T2 */
+            *pt = *ctx->t2p;
+            secp256k1_scalar_sqr(sc, &ctx->x);
+            break;
+        default:
+            VERIFY_CHECK(!"should only call indexes 0-3");
+            break;
+    }
+    return 1;
+}
+
+
+static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const unsigned char* proof,
+    const secp256k1_scalar* l_dot_r,
+    const uint64_t n_bits,
+    const uint64_t min_value,
+    const secp256k1_ge* commitp,
+    const secp256k1_ge* asset_genp,
+    const secp256k1_ge* t1p,
+    const secp256k1_ge* t2p,
+    const secp256k1_bulletproofs_generators* gens,
+    const unsigned char* extra_commit,
+    const size_t extra_commit_len
+) {
+    secp256k1_sha256 sha256;
+    secp256k1_scalar x, y, z;
+    secp256k1_scalar neg_tau_x, neg_mu;
+    unsigned char commit[32];
+    int overflow;
+
+    /* Sanity checks */
+    if (n_bits > 64) {
+        return 0;
+    }
+    if (gens->n < n_bits * 2) {
+        return 0;
+    }
+    if (extra_commit_len > 0 && extra_commit == NULL) {
+        return 0;
+    }
+
+    /* Unpack tau_x and mu */
+    secp256k1_scalar_set_b32(&neg_tau_x, &proof[130], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&neg_tau_x)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&neg_mu, &proof[162], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&neg_mu)) {
+        return 0;
+    }
+
+    /* Commit to all input data: min value, pedersen commit, asset generator, extra_commit */
+    secp256k1_bulletproofs_commit_initial_data(commit, n_bits, min_value, commitp, asset_genp, extra_commit, extra_commit_len);
+    /* Then y, z will be the hash of the first 65 bytes of the proof */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &proof[0], 65);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&y, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&y)) {
+        return 0;
+    }
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&z, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        return 0;
+    }
+    /* x additionally covers the next 65 bytes */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &proof[65], 65);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&x, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&x)) {
+        return 0;
+    }
+
+    /* There are two equations to verify: the one in eq (65) and the one in
+     * eq (66-67). To ease review we'll implement both of them separately
+     * and then combine them in a followup commit. First (65).
+     */
+    {
+        secp256k1_gej res_j;
+        secp256k1_bulletproofs_eq65_data eq65;
+        eq65.t1p = t1p;
+        eq65.t2p = t2p;
+        eq65.asset_genp = asset_genp;
+        eq65.commitp = commitp;
+        secp256k1_scalar_sqr(&eq65.z_sq, &z);
+        /**/
+        secp256k1_scalar_set_u64(&eq65.delta_y_z__minus_t__minus_mv_z_sq, min_value);
+        secp256k1_scalar_mul(&eq65.delta_y_z__minus_t__minus_mv_z_sq, &eq65.delta_y_z__minus_t__minus_mv_z_sq, &eq65.z_sq);
+        secp256k1_scalar_add(&eq65.delta_y_z__minus_t__minus_mv_z_sq, &eq65.delta_y_z__minus_t__minus_mv_z_sq, l_dot_r);
+        secp256k1_scalar_negate(&eq65.delta_y_z__minus_t__minus_mv_z_sq, &eq65.delta_y_z__minus_t__minus_mv_z_sq);
+        secp256k1_bulletproofs_add_delta(&eq65.delta_y_z__minus_t__minus_mv_z_sq, &y, &z, &eq65.z_sq, n_bits);
+        /**/
+        eq65.x = x;
+
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res_j, &neg_tau_x, secp256k1_bulletproofs_eq65_cb, (void*) &eq65, 4)) {
+            return 0;
+        }
+        return secp256k1_gej_is_infinity(&res_j);
+    }
 }
 
 #endif
