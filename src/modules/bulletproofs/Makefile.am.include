@@ -1,6 +1,8 @@
 include_HEADERS += include/secp256k1_bulletproofs.h
-noinst_HEADERS += src/modules/bulletproofs/tests_impl.h
+noinst_HEADERS += src/modules/bulletproofs/bulletproofs_util.h
 noinst_HEADERS += src/modules/bulletproofs/main_impl.h
+noinst_HEADERS += src/modules/bulletproofs/rangeproof_uncompressed_impl.h
+noinst_HEADERS += src/modules/bulletproofs/tests_impl.h
 
 if USE_BENCHMARK
 noinst_PROGRAMS += bench_bulletproofs

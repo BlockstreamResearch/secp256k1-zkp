@@ -9,6 +9,21 @@ extern "C" {
 
 #include <stdint.h>
 
+/** Opaque data structure that holds the current state of an uncompressed
+ * Bulletproof proof generation. This data is not secret and does not need
+ * to be handled carefully, but neither does it have any meaning outside
+ * of the API functions that use it.
+ *
+ * Obviously you should not modify it or else you will get invalid proofs.
+ *
+ * Typical users do not need this structure. If you have more than a few
+ * hundred bytes of memory to spare create a proof in one shot with the
+ * TODO function instead.
+ */
+typedef struct {
+    unsigned char data[160];
+} secp256k1_bulletproofs_prover_context;
+
 /** Opaque structure representing a large number of NUMS generators */
 typedef struct secp256k1_bulletproofs_generators secp256k1_bulletproofs_generators;
 
