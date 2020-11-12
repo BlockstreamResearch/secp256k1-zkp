@@ -394,4 +394,77 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step3_impl(
     return 1;
 }
 
+static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
+    const secp256k1_ecmult_context* ecmult_ctx,
+    secp256k1_scratch_space *scratch,
+    const unsigned char* proof,
+    const secp256k1_scalar* l_dot_r,
+    const uint64_t n_bits,
+    const uint64_t min_value,
+    const secp256k1_ge* commitp,
+    const secp256k1_ge* asset_genp,
+    const secp256k1_bulletproofs_generators* gens,
+    const unsigned char* extra_commit,
+    const size_t extra_commit_len
+) {
+    secp256k1_sha256 sha256;
+    secp256k1_scalar x, y, z;
+    secp256k1_scalar tau_x, mu;
+    unsigned char scratch_bytes[65];
+    unsigned char commit[32];
+    int overflow;
+
+    /* Sanity checks */
+    if (n_bits > 64) {
+        return 0;
+    }
+    if (gens->n < n_bits * 2) {
+        return 0;
+    }
+    if (extra_commit_len > 0 && extra_commit == NULL) {
+        return 0;
+    }
+
+    /* Unpack tau_x and mu */
+    secp256k1_scalar_set_b32(&tau_x, &proof[130], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&tau_x)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&mu, &proof[162], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&mu)) {
+        return 0;
+    }
+
+    /* Commit to all input data: min value, pedersen commit, asset generator, extra_commit */
+    secp256k1_bulletproofs_commit_initial_data(commit, scratch_bytes, n_bits, min_value, commitp, asset_genp, extra_commit, extra_commit_len);
+    /* Then y, z will be the hash of the first 65 bytes of the proof */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &proof[0], 65);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&y, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&y)) {
+        return 0;
+    }
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&z, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&z)) {
+        return 0;
+    }
+    /* x additionally covers the next 65 bytes */
+    secp256k1_sha256_initialize(&sha256);
+    secp256k1_sha256_write(&sha256, commit, 32);
+    secp256k1_sha256_write(&sha256, &proof[65], 65);
+    secp256k1_sha256_finalize(&sha256, commit);
+    secp256k1_scalar_set_b32(&x, commit, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&x)) {
+        return 0;
+    }
+
+    /* TODO: Do the EC verification */
+    return 1;
+}
+
 #endif

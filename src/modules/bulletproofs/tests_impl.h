@@ -7,6 +7,10 @@
 #ifndef _SECP256K1_MODULE_BULLETPROOFS_TEST_
 #define _SECP256K1_MODULE_BULLETPROOFS_TEST_
 
+#include <stdint.h>
+
+#include "include/secp256k1_bulletproofs.h"
+
 static void test_bulletproofs_generators_api(void) {
     /* The BP generator API requires no precomp */
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
@@ -93,9 +97,127 @@ static void test_bulletproofs_generators_fixed(void) {
     secp256k1_bulletproofs_generators_destroy(ctx, gens);
 }
 
+static void test_bulletproofs_rangeproof_uncompressed_api(void) {
+    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    secp256k1_bulletproofs_generators *gens = secp256k1_bulletproofs_generators_create(ctx, 32);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 250); /* shouldn't need much */
+    unsigned char proof[SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_] = {0};
+    size_t plen = sizeof(proof);
+    const size_t min_value = 99;
+    const size_t value = 100;
+    secp256k1_pedersen_commitment commit;
+    const unsigned char blind[32] = "help me! i'm bliiiiiiiiiiiiiiind";
+    const unsigned char nonce[32] = "nonce? non ce n'est vrai amirite";
+    const unsigned char enc_data[32] = "this data is encrypted: ********";
+    /* Extra commit is a Joan Shelley lyric */
+    const unsigned char extra_commit[] = "Shock of teal blue beneath clouds gathering, and the light of empty black on the waves at the horizon";
+    const size_t extra_commit_len = sizeof(extra_commit);
+
+    int ecount;
+
+    CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, value, secp256k1_generator_h));
+
+    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
+
+    /* size estimate */
+    ecount = 0;
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_proof_length(none, 0) == 194);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_proof_length(none, 1) == 258);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_proof_length(none, 64)
+        == SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_proof_length(none, 65) == 0);
+    CHECK(ecount == 0);
+
+    /* proving */
+    ecount = 0;
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, NULL, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, NULL, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, NULL, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, NULL, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 0, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    plen = sizeof(proof);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 17, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    plen = sizeof(proof);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 1000, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    plen = sizeof(proof);
+    CHECK(ecount == 4); /* bad n_bits is not an API error */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 1);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, value + 1, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 4); /* bad value vs min_value is not an API error */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, NULL, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, NULL, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 6);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, NULL, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, NULL, extra_commit, extra_commit_len) == 1);
+    CHECK(ecount == 7); /* enc_data can be NULL */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, NULL, extra_commit_len) == 0);
+    CHECK(ecount == 8);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, NULL, 0) == 1);
+    CHECK(ecount == 8); /* extra_commit can be NULL as long as its length is 0 */
+
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(none, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 9);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(vrfy, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 10);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_prove(sign, gens, secp256k1_generator_h, proof, &plen, 16, value, min_value, &commit, blind, nonce, enc_data, extra_commit, extra_commit_len) == 1);
+    CHECK(ecount == 10);
+
+    /* verifying */
+    ecount = 0;
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, NULL, gens, secp256k1_generator_h, proof, plen, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, NULL, secp256k1_generator_h, proof, plen, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, NULL, proof, plen, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 3);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, NULL, plen, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, 0, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 4);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen + 1, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen + 64, min_value, &commit, extra_commit, extra_commit_len) == 0);
+    /* TODO wrong min_value will pass until we implement the EC check */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value + 1, &commit, extra_commit, extra_commit_len) == 1);
+    CHECK(ecount == 4);  /* bad plen, min_value are not API errors */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, NULL, extra_commit, extra_commit_len) == 0);
+    CHECK(ecount == 5);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, extra_commit_len) == 0);
+    CHECK(ecount == 6);
+    /* TODO wrong extra_commitment will also pass until we implement the EC check */
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 1);
+    CHECK(ecount == 6); /* zeroed out extra_commitment is not an API error */
+
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(none, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(sign, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 0);
+    CHECK(ecount == 8);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, extra_commit, extra_commit_len) == 1);
+    CHECK(ecount == 8);
+
+    secp256k1_bulletproofs_generators_destroy(ctx, gens);
+    secp256k1_scratch_space_destroy(ctx, scratch);
+    secp256k1_context_destroy(none);
+    secp256k1_context_destroy(sign);
+    secp256k1_context_destroy(vrfy);
+}
+
 void run_bulletproofs_tests(void) {
     test_bulletproofs_generators_api();
     test_bulletproofs_generators_fixed();
+    test_bulletproofs_rangeproof_uncompressed_api();
 }
 
 #endif
