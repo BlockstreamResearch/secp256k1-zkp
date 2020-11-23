@@ -189,15 +189,13 @@ static void test_bulletproofs_rangeproof_uncompressed_api(void) {
     CHECK(ecount == 4);
     CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen + 1, min_value, &commit, extra_commit, extra_commit_len) == 0);
     CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen + 64, min_value, &commit, extra_commit, extra_commit_len) == 0);
-    /* TODO wrong min_value will pass until we implement the EC check */
-    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value + 1, &commit, extra_commit, extra_commit_len) == 1);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value + 1, &commit, extra_commit, extra_commit_len) == 0);
     CHECK(ecount == 4);  /* bad plen, min_value are not API errors */
     CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, NULL, extra_commit, extra_commit_len) == 0);
     CHECK(ecount == 5);
     CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, extra_commit_len) == 0);
     CHECK(ecount == 6);
-    /* TODO wrong extra_commitment will also pass until we implement the EC check */
-    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 1);
+    CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(vrfy, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 0);
     CHECK(ecount == 6); /* zeroed out extra_commitment is not an API error */
 
     CHECK(secp256k1_bulletproofs_rangeproof_uncompressed_verify(none, scratch, gens, secp256k1_generator_h, proof, plen, min_value, &commit, NULL, 0) == 0);

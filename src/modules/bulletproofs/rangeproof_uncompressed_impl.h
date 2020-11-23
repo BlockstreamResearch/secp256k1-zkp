@@ -394,22 +394,63 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_prove_step3_impl(
     return 1;
 }
 
+typedef struct {
+    const secp256k1_ge *t1p;
+    const secp256k1_ge *t2p;
+    const secp256k1_ge *asset_genp;
+    const secp256k1_ge *commitp;
+    secp256k1_scalar neg_t;
+    secp256k1_scalar z_sq;
+    secp256k1_scalar delta_y_z__minus_t__minus_mv;
+    secp256k1_scalar x;
+} secp256k1_bulletproofs_eq65_data;
+
+/** Equation (65) is the sum of these 4 scalar-point multiplications, minus tau_x*G. */
+static int secp256k1_bulletproofs_eq65_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    const secp256k1_bulletproofs_eq65_data* ctx = (const secp256k1_bulletproofs_eq65_data*) data;
+    switch(idx) {
+        case 0:  /* (delta - t - min*z^2) H */
+            *pt = *ctx->asset_genp;
+            *sc = ctx->delta_y_z__minus_t__minus_mv;
+            break;
+        case 1:  /* z^2 V */
+            *pt = *ctx->commitp;
+            *sc = ctx->z_sq;
+            break;
+        case 2:  /* x T1 */
+            *pt = *ctx->t1p;
+            *sc = ctx->x;
+            break;
+        case 3:  /* x^2 T2 */
+            *pt = *ctx->t2p;
+            secp256k1_scalar_sqr(sc, &ctx->x);
+            break;
+        default:
+            VERIFY_CHECK(!"should only call indexes 0-3");
+            break;
+    }
+    return 1;
+}
+
+
 static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
-    const secp256k1_ecmult_context* ecmult_ctx,
-    secp256k1_scratch_space *scratch,
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
     const unsigned char* proof,
     const secp256k1_scalar* l_dot_r,
     const uint64_t n_bits,
     const uint64_t min_value,
     const secp256k1_ge* commitp,
     const secp256k1_ge* asset_genp,
+    const secp256k1_ge* t1p,
+    const secp256k1_ge* t2p,
     const secp256k1_bulletproofs_generators* gens,
     const unsigned char* extra_commit,
     const size_t extra_commit_len
 ) {
     secp256k1_sha256 sha256;
     secp256k1_scalar x, y, z;
-    secp256k1_scalar tau_x, mu;
+    secp256k1_scalar neg_tau_x, neg_mu;
     unsigned char scratch_bytes[65];
     unsigned char commit[32];
     int overflow;
@@ -426,12 +467,12 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
     }
 
     /* Unpack tau_x and mu */
-    secp256k1_scalar_set_b32(&tau_x, &proof[130], &overflow);
-    if (overflow || secp256k1_scalar_is_zero(&tau_x)) {
+    secp256k1_scalar_set_b32(&neg_tau_x, &proof[130], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&neg_tau_x)) {
         return 0;
     }
-    secp256k1_scalar_set_b32(&mu, &proof[162], &overflow);
-    if (overflow || secp256k1_scalar_is_zero(&mu)) {
+    secp256k1_scalar_set_b32(&neg_mu, &proof[162], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&neg_mu)) {
         return 0;
     }
 
@@ -463,8 +504,32 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
         return 0;
     }
 
-    /* TODO: Do the EC verification */
-    return 1;
+    /* There are two equations to verify: the one in eq (65) and the one in
+     * eq (66-67). To ease review we'll implement both of them separately
+     * and then combine them in a followup commit. First (65).
+     */
+    {
+        secp256k1_gej res_j;
+        secp256k1_bulletproofs_eq65_data eq65;
+        eq65.t1p = t1p;
+        eq65.t2p = t2p;
+        eq65.asset_genp = asset_genp;
+        eq65.commitp = commitp;
+        secp256k1_scalar_sqr(&eq65.z_sq, &z);
+        /**/
+        secp256k1_scalar_set_u64(&eq65.delta_y_z__minus_t__minus_mv, min_value);
+        secp256k1_scalar_mul(&eq65.delta_y_z__minus_t__minus_mv, &eq65.delta_y_z__minus_t__minus_mv, &eq65.z_sq);
+        secp256k1_scalar_add(&eq65.delta_y_z__minus_t__minus_mv, &eq65.delta_y_z__minus_t__minus_mv, l_dot_r);
+        secp256k1_scalar_negate(&eq65.delta_y_z__minus_t__minus_mv, &eq65.delta_y_z__minus_t__minus_mv);
+        secp256k1_bulletproofs_add_delta(&eq65.delta_y_z__minus_t__minus_mv, &y, &z, &eq65.z_sq, n_bits);
+        /**/
+        eq65.x = x;
+
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &res_j, &neg_tau_x, secp256k1_bulletproofs_eq65_cb, (void*) &eq65, 4)) {
+            return 0;
+        }
+        return secp256k1_gej_is_infinity(&res_j);
+    }
 }
 
 #endif

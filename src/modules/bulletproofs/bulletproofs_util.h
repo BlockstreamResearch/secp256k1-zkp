@@ -132,4 +132,31 @@ static void secp256k1_lr_generate(secp256k1_bulletproofs_bulletproofs_lrgen *gen
     secp256k1_scalar_add(&generator->z22n, &generator->z22n, &generator->z22n);
 }
 
+/* Computes delta(y, z) as defined in eq (39) of the BPs paper and adds it to `inout` */
+static void secp256k1_bulletproofs_add_delta(secp256k1_scalar* inout, const secp256k1_scalar* y, const secp256k1_scalar* z, const secp256k1_scalar* z_sq, size_t n) {
+    size_t i;
+    secp256k1_scalar term = *z_sq;
+
+    /* (z - z^2) */
+    secp256k1_scalar_negate(&term, &term);
+    secp256k1_scalar_add(&term, &term, z);
+    /* (z - z^2)<1^n, y^n> */
+    secp256k1_scalar_add(inout, inout, &term);
+    for (i = 1; i < n; i++) {  /* iterate n-1 times */
+        secp256k1_scalar_mul(&term, &term, y);
+        secp256k1_scalar_add(inout, inout, &term);
+    }
+    /* z^3 * <1^n, 2^n> */
+    if (n == 64) {
+        secp256k1_scalar_set_u64(&term, ~(uint64_t)0);
+    } else {
+        secp256k1_scalar_set_u64(&term, ((uint64_t)1 << n) - 1);
+    }
+    secp256k1_scalar_mul(&term, &term, z);
+    secp256k1_scalar_mul(&term, &term, z_sq);
+    secp256k1_scalar_negate(&term, &term);
+    /* Sum of the previous two expressions */
+    secp256k1_scalar_add(inout, inout, &term);
+}
+
 #endif

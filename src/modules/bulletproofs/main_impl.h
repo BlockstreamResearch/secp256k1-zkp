@@ -251,8 +251,10 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
     const unsigned char* extra_commit,
     size_t extra_commit_len
 ) {
+    unsigned char pk_buf[33];
     const size_t n_bits = (plen - 194) / 64;
     secp256k1_ge commitp, asset_genp;
+    secp256k1_ge t1p, t2p;
     secp256k1_scalar l_dot_r;
     size_t i;
 
@@ -272,6 +274,17 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&asset_genp, asset_gen);
 
+    pk_buf[0] = 2 | (proof[65] >> 1);
+    memcpy(&pk_buf[1], &proof[66], 32);
+    if (!secp256k1_eckey_pubkey_parse(&t1p, pk_buf, sizeof(pk_buf))) {
+        return 0;
+    }
+    pk_buf[0] = 2 | (proof[65] & 1);
+    memcpy(&pk_buf[1], &proof[98], 32);
+    if (!secp256k1_eckey_pubkey_parse(&t2p, pk_buf, sizeof(pk_buf))) {
+        return 0;
+    }
+
     secp256k1_scalar_clear(&l_dot_r);
     for (i = 0; i < n_bits; i++) {
         int overflow;
@@ -289,7 +302,7 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
     }
 
     return secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
-        &ctx->ecmult_ctx,
+        ctx,
         scratch,
         proof,
         &l_dot_r,
@@ -297,6 +310,8 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
         min_value,
         &commitp,
         &asset_genp,
+        &t1p,
+        &t2p,
         gens,
         extra_commit,
         extra_commit_len
