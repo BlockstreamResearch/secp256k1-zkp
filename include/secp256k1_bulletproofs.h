@@ -40,7 +40,7 @@ typedef struct secp256k1_bulletproofs_generators secp256k1_bulletproofs_generato
  *                   n: number of NUMS generators to produce. Should be 128 to allow for
  *                      64-bit rangeproofs
  */
-SECP256K1_API secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(
     const secp256k1_context* ctx,
     size_t n
 ) SECP256K1_ARG_NONNULL(1);
@@ -51,7 +51,7 @@ SECP256K1_API secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generato
  *  In:       data: data that came from `secp256k1_bulletproofs_generators_serialize`
  *        data_len: the length of the `data` buffer
  */
-SECP256K1_API secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(
     const secp256k1_context* ctx,
     const unsigned char* data,
     size_t data_len
@@ -66,7 +66,7 @@ SECP256K1_API secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generato
  *                    least 33 times the number of generators; will be set to 33 times
  *                    the number of generators on successful return (cannot be NULL)
  */
-SECP256K1_API int secp256k1_bulletproofs_generators_serialize(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_bulletproofs_generators_serialize(
     const secp256k1_context* ctx,
     secp256k1_bulletproofs_generators* gen,
     unsigned char* data,
@@ -101,7 +101,7 @@ SECP256K1_API size_t secp256k1_bulletproofs_rangeproof_uncompressed_proof_length
  *              buffer, call `secp256k1_bulletproofs_rangeproof_uncompressed_proof_length` or
  *              use `SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH`
  */
-SECP256K1_API int secp256k1_bulletproofs_rangeproof_uncompressed_prove(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_bulletproofs_rangeproof_uncompressed_prove(
     const secp256k1_context* ctx,
     const secp256k1_bulletproofs_generators* gens,
     const secp256k1_generator* asset_gen,
@@ -118,7 +118,7 @@ SECP256K1_API int secp256k1_bulletproofs_rangeproof_uncompressed_prove(
     size_t extra_commit_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(10) SECP256K1_ARG_NONNULL(11);
 
-SECP256K1_API int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
     const secp256k1_context* ctx,
     secp256k1_scratch_space *scratch,
     const secp256k1_bulletproofs_generators* gens,
