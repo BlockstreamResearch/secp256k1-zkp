@@ -254,6 +254,7 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
     unsigned char pk_buf[33];
     const size_t n_bits = (plen - 194) / 64;
     secp256k1_ge commitp, asset_genp;
+    secp256k1_ge ap, sp;
     secp256k1_ge t1p, t2p;
     secp256k1_scalar l_dot_r;
     size_t i;
@@ -273,6 +274,17 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
 
     secp256k1_pedersen_commitment_load(&commitp, commit);
     secp256k1_generator_load(&asset_genp, asset_gen);
+
+    pk_buf[0] = 2 | (proof[0] >> 1);
+    memcpy(&pk_buf[1], &proof[1], 32);
+    if (!secp256k1_eckey_pubkey_parse(&ap, pk_buf, sizeof(pk_buf))) {
+        return 0;
+    }
+    pk_buf[0] = 2 | (proof[0] & 1);
+    memcpy(&pk_buf[1], &proof[33], 32);
+    if (!secp256k1_eckey_pubkey_parse(&sp, pk_buf, sizeof(pk_buf))) {
+        return 0;
+    }
 
     pk_buf[0] = 2 | (proof[65] >> 1);
     memcpy(&pk_buf[1], &proof[66], 32);
@@ -310,6 +322,8 @@ int secp256k1_bulletproofs_rangeproof_uncompressed_verify(
         min_value,
         &commitp,
         &asset_genp,
+        &ap,
+        &sp,
         &t1p,
         &t2p,
         gens,

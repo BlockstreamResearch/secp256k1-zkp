@@ -432,6 +432,55 @@ static int secp256k1_bulletproofs_eq65_cb(secp256k1_scalar *sc, secp256k1_ge *pt
     return 1;
 }
 
+/** Equation (67) is the sum of these 2 scalar-point multiplications, minus mu*G, plus a
+ *  somewhat complicatied inner product computation.. */
+typedef struct {
+    const secp256k1_bulletproofs_generators* gens;
+    const unsigned char* proof;
+    const secp256k1_ge* ap;
+    const secp256k1_ge* sp;
+    secp256k1_scalar x;
+    secp256k1_scalar z;
+    secp256k1_scalar z_sq_2i;
+    secp256k1_scalar y_inv;
+    secp256k1_scalar y_neg_i;
+} secp256k1_bulletproofs_eq67_data;
+
+static int secp256k1_bulletproofs_eq67_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    secp256k1_bulletproofs_eq67_data* ctx = (secp256k1_bulletproofs_eq67_data*) data;
+    secp256k1_scalar lr_i;
+    int overflow;
+
+    switch(idx) {
+        case 0:  /* A */
+            *pt = *ctx->ap;
+            secp256k1_scalar_set_int(sc, 1);
+            return 1;
+        case 1:  /* xS */
+            *pt = *ctx->sp;
+            *sc = ctx->x;
+            return 1;
+    }
+
+    *pt = ctx->gens->gens[idx - 2];
+    secp256k1_scalar_set_b32(&lr_i, &ctx->proof[194 + 32 * (idx - 2)], &overflow);
+    VERIFY_CHECK(overflow == 0);  /* checked in main_impl.h */
+    /* (-z - l_i) G_i */
+    if (idx % 2 == 0) {
+        secp256k1_scalar_add(sc, &ctx->z, &lr_i);
+        secp256k1_scalar_negate(sc, sc);
+    /* (z + (2^i*z^2 - r)/y^i) H_i */
+    } else {
+        secp256k1_scalar_negate(sc, &lr_i);
+        secp256k1_scalar_add(sc, sc, &ctx->z_sq_2i);
+        secp256k1_scalar_mul(sc, sc, &ctx->y_neg_i);
+        secp256k1_scalar_add(sc, sc, &ctx->z);
+
+        secp256k1_scalar_mul(&ctx->y_neg_i, &ctx->y_neg_i, &ctx->y_inv);
+        secp256k1_scalar_add(&ctx->z_sq_2i, &ctx->z_sq_2i, &ctx->z_sq_2i);
+    }
+    return 1;
+}
 
 static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
     const secp256k1_context* ctx,
@@ -442,6 +491,8 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
     const uint64_t min_value,
     const secp256k1_ge* commitp,
     const secp256k1_ge* asset_genp,
+    const secp256k1_ge* ap,
+    const secp256k1_ge* sp,
     const secp256k1_ge* t1p,
     const secp256k1_ge* t2p,
     const secp256k1_bulletproofs_generators* gens,
@@ -528,8 +579,32 @@ static int secp256k1_bulletproofs_rangeproof_uncompressed_verify_impl(
         if (!secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &res_j, &neg_tau_x, secp256k1_bulletproofs_eq65_cb, (void*) &eq65, 4)) {
             return 0;
         }
-        return secp256k1_gej_is_infinity(&res_j);
+        if (!secp256k1_gej_is_infinity(&res_j)) {
+            return 0;
+        }
     }
+    /* Then (66-67) */
+    {
+        secp256k1_gej res_j;
+        secp256k1_bulletproofs_eq67_data eq67;
+        eq67.gens = gens;
+        eq67.proof = proof;
+        eq67.ap = ap;
+        eq67.sp = sp;
+        eq67.x = x;
+        eq67.z = z;
+        secp256k1_scalar_sqr(&eq67.z_sq_2i, &z);
+        secp256k1_scalar_inverse_var(&eq67.y_inv, &y);
+        secp256k1_scalar_set_int(&eq67.y_neg_i, 1);
+
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &res_j, &neg_mu, secp256k1_bulletproofs_eq67_cb, (void*) &eq67, 2 + 2 * n_bits)) {
+            return 0;
+        }
+        if (!secp256k1_gej_is_infinity(&res_j)) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 #endif
