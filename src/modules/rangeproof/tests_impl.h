@@ -229,6 +229,119 @@ static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_c
     }
 }
 
+static void test_ring_api(const secp256k1_context *none, const secp256k1_context *sign, const secp256k1_context *vrfy, const secp256k1_context *both, const int32_t *ecount) {
+    unsigned char sig[128 + 32];
+    size_t sig_len = sizeof(sig);
+    secp256k1_pubkey pubkeys[4];
+    const unsigned char message[32] = "a tout le monde; a tout mes amis";
+    const unsigned char nonce[32] = "..je vous aime..je dois partir..";
+    unsigned char sec_key[32];
+    unsigned char author_proof[32];
+    secp256k1_scratch *scratch;
+    size_t author_idx = 2;
+
+    secp256k1_testrand256(sec_key);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkeys[0], sec_key));
+    secp256k1_testrand256(sec_key);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkeys[1], sec_key));
+    secp256k1_testrand256(sec_key);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkeys[3], sec_key));
+    secp256k1_testrand256(sec_key);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkeys[2], sec_key));
+
+    CHECK(*ecount == 0);
+
+    CHECK(secp256k1_ring_signature_length(none, 0) == 32);
+    CHECK(secp256k1_ring_signature_length(none, 1) == 64);
+    CHECK(secp256k1_ring_signature_length(none, 1000) == 32032);
+    CHECK(*ecount == 0);
+
+    CHECK(secp256k1_ring_signature_scratch_space_size(none, 1) > 0);
+    CHECK(secp256k1_ring_signature_scratch_space_size(none, 100000) > 0);
+    CHECK(*ecount == 0);
+
+    scratch = secp256k1_scratch_space_create(ctx, secp256k1_ring_signature_scratch_space_size(none, 4));
+
+    CHECK(secp256k1_ring_sign(both, NULL, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 1);
+    CHECK(secp256k1_ring_sign(both, scratch, NULL, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 2);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, NULL, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 3);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, NULL, pubkeys, 4, sec_key, author_idx, nonce, message) == 1);
+    CHECK(*ecount == 3);  /* author_proof can be NULL */
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, NULL, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 4);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 4, NULL, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 5);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, NULL, message) == 1);
+    CHECK(*ecount == 5);  /* nonce can be NULL */
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, NULL) == 0);
+    CHECK(*ecount == 6);
+    CHECK(secp256k1_ring_sign(none, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 7);
+    CHECK(secp256k1_ring_sign(sign, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 8);
+    CHECK(secp256k1_ring_sign(vrfy, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 9);
+
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 0, sec_key, author_idx, nonce, message) == 0);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 3, sec_key, author_idx, nonce, message) == 1);
+    CHECK(sig_len == secp256k1_ring_signature_length(none, 3));
+    sig_len = secp256k1_ring_signature_length(none, 4);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 1);
+    CHECK(sig_len == secp256k1_ring_signature_length(none, 4));
+    CHECK(*ecount == 9);
+
+
+    CHECK(secp256k1_ring_verify(both, NULL, sig, sig_len, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 10);
+    CHECK(secp256k1_ring_verify(both, scratch, NULL, sig_len, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 11);
+    CHECK(secp256k1_ring_verify(both, scratch, sig, sig_len - 1, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 11);
+    CHECK(secp256k1_ring_verify(both, scratch, sig, sig_len, NULL, 4, message) == 0);
+    CHECK(*ecount == 12);
+    CHECK(secp256k1_ring_verify(both, scratch, sig, sig_len, pubkeys, 4, NULL) == 0);
+    CHECK(*ecount == 13);
+    CHECK(secp256k1_ring_verify(none, scratch, sig, sig_len, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 14);
+    CHECK(secp256k1_ring_verify(sign, scratch, sig, sig_len, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 15);
+
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 3, message) == 0);
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 0, message) == 0);
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 4, sec_key) == 0);
+
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 4, message) == 1);
+    CHECK(*ecount == 15);
+
+    CHECK(secp256k1_ring_deanonymize(none, NULL, sig, sig_len, author_proof, pubkeys, 4) == 0);
+    CHECK(*ecount == 16);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, NULL, sig_len, author_proof, pubkeys, 4) == 0);
+    CHECK(*ecount == 17);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len - 1, author_proof, pubkeys, 4) == 0);
+    CHECK(*ecount == 17);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, NULL, pubkeys, 4) == 0);
+    CHECK(*ecount == 18);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, NULL, 4) == 0);
+    CHECK(*ecount == 19);
+
+    author_idx = 0;
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, pubkeys, 4) == 1);
+    CHECK(author_idx == 2);
+    CHECK(*ecount == 19);
+
+    author_idx = 0;
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, pubkeys, 3) == 0);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, pubkeys, 0) == 0);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, sec_key, pubkeys, 4) == 0);
+    CHECK(*ecount == 19);
+    CHECK(author_idx != 2); /* result is not specified, but it shouldn't be correct! */
+
+    secp256k1_scratch_space_destroy(ctx, scratch);
+}
+
 static void test_api(void) {
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -251,6 +364,8 @@ static void test_api(void) {
         test_pedersen_api(none, sign, vrfy, &ecount);
         ecount = 0;
         test_rangeproof_api(none, sign, vrfy, both, &ecount);
+        ecount = 0;
+        test_ring_api(none, sign, vrfy, both, &ecount);
     }
 
     secp256k1_context_destroy(none);
