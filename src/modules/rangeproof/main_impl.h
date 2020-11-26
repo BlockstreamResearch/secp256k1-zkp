@@ -299,12 +299,23 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
 
 size_t secp256k1_ring_signature_length(const secp256k1_context* ctx, size_t n_keys) {
     (void) ctx;
+    if (SIZE_MAX / 32 < n_keys + 1)
+        return 0;
     return 32 * (n_keys + 1);
 }
 
 size_t secp256k1_ring_signature_scratch_space_size(const secp256k1_context* ctx, size_t n_keys) {
     (void) ctx;
-    return ROUND_TO_ALIGN(sizeof(secp256k1_gej) * n_keys) + ROUND_TO_ALIGN(sizeof(secp256k1_scalar) * n_keys);
+    if (SIZE_MAX / (sizeof(secp256k1_gej) + sizeof(secp256k1_scalar)) < n_keys) {
+        return 0;
+    } else {
+        size_t gej_len = ROUND_TO_ALIGN(sizeof(secp256k1_gej) * n_keys);
+        size_t sca_len = ROUND_TO_ALIGN(sizeof(secp256k1_scalar) * n_keys);
+        if (gej_len + sca_len < gej_len) {
+            return 0;
+        }
+        return gej_len + sca_len;
+    }
 }
 
 int secp256k1_ring_sign(const secp256k1_context* ctx, secp256k1_scratch_space* scratch, unsigned char* sig, size_t* sig_len, unsigned char* author_proof, const secp256k1_pubkey* pubkeys, size_t n_pubkeys, const unsigned char *sec_key, size_t sec_idx, const unsigned char *nonce, const unsigned char *message) {
@@ -329,9 +340,9 @@ int secp256k1_ring_sign(const secp256k1_context* ctx, secp256k1_scratch_space* s
     ARG_CHECK(sec_key != NULL);
     ARG_CHECK(message != NULL);
 
-    /* This is technically legal and should work with this implementation
-     * but seems more likely to cause confusion than to ever be useful */
-    if (n_pubkeys == 0) {
+    /* Check for overflow, or 0 pubkeys (which is technically ok but probably
+     * more confusing than meaningful) */
+    if (secp256k1_ring_signature_length(ctx, n_pubkeys) == 0 || secp256k1_ring_signature_scratch_space_size(ctx, n_pubkeys) == 0) {
         return 0;
     }
     if (*sig_len >= secp256k1_ring_signature_length(ctx, n_pubkeys)) {
@@ -339,7 +350,6 @@ int secp256k1_ring_sign(const secp256k1_context* ctx, secp256k1_scratch_space* s
     } else {
         return 0;
     }
-
 
     secp256k1_scalar_set_b32(&x, sec_key, &overflow);
     if (overflow || secp256k1_scalar_is_zero(&x)) {
@@ -436,6 +446,11 @@ int secp256k1_ring_verify(const secp256k1_context* ctx, secp256k1_scratch_space*
     ARG_CHECK(pubkeys != NULL);
     ARG_CHECK(message != NULL);
 
+    /* Check for overflow, or 0 pubkeys (which is technically ok but probably
+     * more confusing than meaningful) */
+    if (secp256k1_ring_signature_length(ctx, n_pubkeys) == 0 || secp256k1_ring_signature_scratch_space_size(ctx, n_pubkeys) == 0) {
+        return 0;
+    }
     if (sig_len != secp256k1_ring_signature_length(ctx, n_pubkeys)) {
         return 0;
     }
@@ -479,7 +494,7 @@ int secp256k1_ring_deanonymize(const secp256k1_context* ctx, size_t *author_idx,
     ARG_CHECK(author_proof != NULL);
     ARG_CHECK(pubkeys != NULL);
 
-    if (sig_len != secp256k1_ring_signature_length(ctx, n_pubkeys)) {
+    if (sig_len == 0 || sig_len != secp256k1_ring_signature_length(ctx, n_pubkeys)) {
         return 0;
     }
 

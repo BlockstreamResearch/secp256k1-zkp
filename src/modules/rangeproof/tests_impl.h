@@ -284,6 +284,9 @@ static void test_ring_api(const secp256k1_context *none, const secp256k1_context
     CHECK(*ecount == 8);
     CHECK(secp256k1_ring_sign(vrfy, scratch, sig, &sig_len, author_proof, pubkeys, 4, sec_key, author_idx, nonce, message) == 0);
     CHECK(*ecount == 9);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, SIZE_MAX, sec_key, author_idx, nonce, message) == 0);
+    CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, SIZE_MAX / 32, sec_key, author_idx, nonce, message) == 0);
+    CHECK(*ecount == 9);
 
     CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 0, sec_key, author_idx, nonce, message) == 0);
     CHECK(secp256k1_ring_sign(both, scratch, sig, &sig_len, author_proof, pubkeys, 3, sec_key, author_idx, nonce, message) == 1);
@@ -307,6 +310,10 @@ static void test_ring_api(const secp256k1_context *none, const secp256k1_context
     CHECK(secp256k1_ring_verify(none, scratch, sig, sig_len, pubkeys, 4, message) == 0);
     CHECK(*ecount == 14);
     CHECK(secp256k1_ring_verify(sign, scratch, sig, sig_len, pubkeys, 4, message) == 0);
+    CHECK(*ecount == 15);
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 5, message) == 0);
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, SIZE_MAX, message) == 0);
+    CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, SIZE_MAX / 32, message) == 0);
     CHECK(*ecount == 15);
 
     CHECK(secp256k1_ring_verify(vrfy, scratch, sig, sig_len, pubkeys, 3, message) == 0);
@@ -336,6 +343,9 @@ static void test_ring_api(const secp256k1_context *none, const secp256k1_context
     CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, pubkeys, 3) == 0);
     CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, author_proof, pubkeys, 0) == 0);
     CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, sec_key, pubkeys, 4) == 0);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, sec_key, pubkeys, 5) == 0);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, sec_key, pubkeys, SIZE_MAX / 32) == 0);
+    CHECK(secp256k1_ring_deanonymize(none, &author_idx, sig, sig_len, sec_key, pubkeys, SIZE_MAX) == 0);
     CHECK(*ecount == 19);
     CHECK(author_idx != 2); /* result is not specified, but it shouldn't be correct! */
 
