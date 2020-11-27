@@ -36,7 +36,7 @@ static void secp256k1_testrand256_test(unsigned char *b32);
 static void secp256k1_testrand_bytes_test(unsigned char *bytes, size_t len);
 
 /** Generate a pseudorandom 64-bit integer in the range min..max, inclusive. */
-static int64_t secp256k1_rands64(uint64_t min, uint64_t max);
+static int64_t secp256k1_testrandi64(uint64_t min, uint64_t max);
 
 /** Flip a single random bit in a byte array */
 static void secp256k1_testrand_flip(unsigned char *b, size_t len);
