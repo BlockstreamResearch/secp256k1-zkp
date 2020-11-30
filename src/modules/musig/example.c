@@ -45,7 +45,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     unsigned char nonce_commitment[N_SIGNERS][32];
     const unsigned char *nonce_commitment_ptr[N_SIGNERS];
     secp256k1_musig_session_signer_data signer_data[N_SIGNERS][N_SIGNERS];
-    secp256k1_pubkey nonce[N_SIGNERS];
+    unsigned char nonce[N_SIGNERS][32];
     int i, j;
     secp256k1_musig_partial_signature partial_sig[N_SIGNERS];
 
@@ -60,7 +60,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
             return 0;
         }
         /* Create random session ID. It is absolutely necessary that the session ID
-         * is unique for every call of secp256k1_musig_session_initialize. Otherwise
+         * is unique for every call of secp256k1_musig_session_init. Otherwise
          * it's trivial for an attacker to extract the secret key! */
         frand = fopen("/dev/urandom", "r");
         if(frand == NULL) {
@@ -72,7 +72,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
         }
         fclose(frand);
         /* Initialize session */
-        if (!secp256k1_musig_session_initialize(ctx, &musig_session[i], signer_data[i], nonce_commitment[i], session_id32, msg32, &combined_pk, &pre_session, N_SIGNERS, i, seckeys[i])) {
+        if (!secp256k1_musig_session_init(ctx, &musig_session[i], signer_data[i], nonce_commitment[i], session_id32, msg32, &combined_pk, &pre_session, N_SIGNERS, i, seckeys[i])) {
             return 0;
         }
         nonce_commitment_ptr[i] = &nonce_commitment[i][0];
@@ -80,14 +80,14 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     /* Communication round 1: Exchange nonce commitments */
     for (i = 0; i < N_SIGNERS; i++) {
         /* Set nonce commitments in the signer data and get the own public nonce */
-        if (!secp256k1_musig_session_get_public_nonce(ctx, &musig_session[i], signer_data[i], &nonce[i], nonce_commitment_ptr, N_SIGNERS, NULL)) {
+        if (!secp256k1_musig_session_get_public_nonce(ctx, &musig_session[i], signer_data[i], nonce[i], nonce_commitment_ptr, N_SIGNERS, NULL)) {
             return 0;
         }
     }
     /* Communication round 2: Exchange nonces */
     for (i = 0; i < N_SIGNERS; i++) {
         for (j = 0; j < N_SIGNERS; j++) {
-            if (!secp256k1_musig_set_nonce(ctx, &signer_data[i][j], &nonce[j])) {
+            if (!secp256k1_musig_set_nonce(ctx, &signer_data[i][j], nonce[j])) {
                 /* Signer j's nonce does not match the nonce commitment. In this case
                  * abort the protocol. If you make another attempt at finishing the
                  * protocol, create a new session (with a fresh session ID!). */
