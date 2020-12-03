@@ -498,7 +498,7 @@ static void test_rangeproof(void) {
         CHECK(maxv >= v);
     }
     memcpy(&commit2, &commit, sizeof(commit));
-    for (i = 0; i < (size_t) 2*count; i++) {
+    for (i = 0; i < (size_t) count; i++) {
         int exp;
         int min_bits;
         v = secp256k1_testrandi64(0, UINT64_MAX >> (secp256k1_testrand32()&63));
@@ -532,11 +532,11 @@ static void test_rangeproof(void) {
         CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
         memcpy(&commit2, &commit, sizeof(commit));
     }
-    for (j = 0; j < 5; j++) {
+    for (j = 0; j < 3; j++) {
         for (i = 0; i < 96; i++) {
             secp256k1_testrand256(&proof[i * 32]);
         }
-        for (k = 0; k < 128; k++) {
+        for (k = 0; k < 128; k += 3) {
             len = k;
             CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit2, proof, len, NULL, 0, secp256k1_generator_h));
         }
@@ -696,10 +696,10 @@ void run_rangeproof_tests(void) {
     test_api();
     test_rangeproof_fixed_vectors();
     test_pedersen_commitment_fixed_vector();
-    for (i = 0; i < 10*count; i++) {
+    for (i = 0; i < count / 2 + 1; i++) {
         test_pedersen();
     }
-    for (i = 0; i < 10*count; i++) {
+    for (i = 0; i < count / 2 + 1; i++) {
         test_borromean();
     }
     test_rangeproof();

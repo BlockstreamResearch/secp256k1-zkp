@@ -667,10 +667,7 @@ void test_fixed_vectors(void) {
 }
 
 void run_surjection_tests(void) {
-    int i;
-    for (i = 0; i < count; i++) {
-        test_surjectionproof_api();
-    }
+    test_surjectionproof_api();
     test_fixed_vectors();
 
     test_input_selection(0);
