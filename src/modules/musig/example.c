@@ -107,7 +107,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     for (i = 0; i < N_SIGNERS; i++) {
         for (j = 0; j < N_SIGNERS; j++) {
             /* To check whether signing was successful, it suffices to either verify
-             * the the combined signature with the combined public key using
+             * the combined signature with the combined public key using
              * secp256k1_schnorrsig_verify, or verify all partial signatures of all
              * signers individually. Verifying the combined signature is cheaper but
              * verifying the individual partial signatures has the advantage that it
