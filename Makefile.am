@@ -184,3 +184,8 @@ endif
 if ENABLE_MODULE_SCHNORRSIG
 include src/modules/schnorrsig/Makefile.am.include
 endif
+
+if ENABLE_MODULE_ECDSA_S2C
+include src/modules/ecdsa_s2c/Makefile.am.include
+endif
+
