@@ -137,4 +137,62 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
     return secp256k1_scalar_eq(&sigr, &x_scalar);
 }
 
+/*** anti-klepto ***/
+int secp256k1_ecdsa_anti_klepto_host_commit(const secp256k1_context* ctx, unsigned char* rand_commitment32, const unsigned char* rand32) {
+    secp256k1_sha256 sha;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(rand_commitment32 != NULL);
+    ARG_CHECK(rand32 != NULL);
+
+    secp256k1_s2c_ecdsa_data_sha256_tagged(&sha);
+    secp256k1_sha256_write(&sha, rand32, 32);
+    secp256k1_sha256_finalize(&sha, rand_commitment32);
+    return 1;
+}
+
+int secp256k1_ecdsa_anti_klepto_signer_commit(const secp256k1_context* ctx, secp256k1_ecdsa_s2c_opening* opening, const unsigned char* msg32, const unsigned char* seckey32, const unsigned char* rand_commitment32) {
+    unsigned char nonce32[32];
+    secp256k1_scalar k;
+    secp256k1_gej rj;
+    secp256k1_ge r;
+    unsigned int count = 0;
+    int is_nonce_valid = 0;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(opening != NULL);
+    ARG_CHECK(msg32 != NULL);
+    ARG_CHECK(seckey32 != NULL);
+    ARG_CHECK(rand_commitment32 != NULL);
+
+    memset(nonce32, 0, 32);
+    while (!is_nonce_valid) {
+        /* cast to void* removes const qualifier, but secp256k1_nonce_function_default does not modify it */
+        if (!secp256k1_nonce_function_default(nonce32, msg32, seckey32, NULL, (void*)rand_commitment32, count)) {
+            secp256k1_callback_call(&ctx->error_callback, "(cryptographically unreachable) generated bad nonce");
+        }
+        is_nonce_valid = secp256k1_scalar_set_b32_seckey(&k, nonce32);
+        /* The nonce is still secret here, but it being invalid is is less likely than 1:2^255. */
+        secp256k1_declassify(ctx, &is_nonce_valid, sizeof(is_nonce_valid));
+        count++;
+    }
+
+    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
+    secp256k1_ge_set_gej(&r, &rj);
+    secp256k1_ecdsa_s2c_opening_save(opening, &r);
+    memset(nonce32, 0, 32);
+    secp256k1_scalar_clear(&k);
+    return 1;
+}
+
+int secp256k1_anti_klepto_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* sig, const unsigned char* msg32, const unsigned char* seckey, const unsigned char* host_data32) {
+    return secp256k1_ecdsa_s2c_sign(ctx, sig, NULL, msg32, seckey, host_data32);
+}
+
+int secp256k1_anti_klepto_host_verify(const secp256k1_context* ctx, const secp256k1_ecdsa_signature *sig, const unsigned char *msg32, const secp256k1_pubkey *pubkey, const unsigned char *host_data32, const secp256k1_ecdsa_s2c_opening *opening) {
+    return secp256k1_ecdsa_s2c_verify_commit(ctx, sig, host_data32, opening) &&
+        secp256k1_ecdsa_verify(ctx, sig, msg32, pubkey);
+}
+
 #endif /* SECP256K1_ECDSA_S2C_MAIN_H */
