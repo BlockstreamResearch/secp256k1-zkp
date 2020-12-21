@@ -25,6 +25,10 @@
 #include "include/secp256k1_schnorrsig.h"
 #endif
 
+#ifdef ENABLE_MODULE_ECDSA_S2C
+#include "include/secp256k1_ecdsa_s2c.h"
+#endif
+
 int main(void) {
     secp256k1_context* ctx;
     secp256k1_ecdsa_signature signature;
@@ -150,6 +154,31 @@ int main(void) {
     ret = secp256k1_schnorrsig_sign(ctx, sig, msg, &keypair, NULL, NULL);
     VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
     CHECK(ret == 1);
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_S2C
+    {
+        unsigned char s2c_data[32] = {0};
+        unsigned char s2c_data_comm[32] = {0};
+        secp256k1_ecdsa_s2c_opening s2c_opening;
+
+        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
+        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        ret = secp256k1_ecdsa_s2c_sign(ctx, &signature, &s2c_opening, msg, key, s2c_data);
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        ret = secp256k1_ecdsa_anti_klepto_host_commit(ctx, s2c_data_comm, s2c_data);
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
+        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        ret = secp256k1_ecdsa_anti_klepto_signer_commit(ctx, &s2c_opening, msg, key, s2c_data);
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+    }
 #endif
 
     secp256k1_context_destroy(ctx);
