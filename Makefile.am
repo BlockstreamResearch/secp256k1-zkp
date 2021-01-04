@@ -16,6 +16,8 @@ noinst_HEADERS += src/group.h
 noinst_HEADERS += src/group_impl.h
 noinst_HEADERS += src/num_gmp.h
 noinst_HEADERS += src/num_gmp_impl.h
+noinst_HEADERS += src/eccommit.h
+noinst_HEADERS += src/eccommit_impl.h
 noinst_HEADERS += src/ecdsa.h
 noinst_HEADERS += src/ecdsa_impl.h
 noinst_HEADERS += src/eckey.h
@@ -182,3 +184,8 @@ endif
 if ENABLE_MODULE_SCHNORRSIG
 include src/modules/schnorrsig/Makefile.am.include
 endif
+
+if ENABLE_MODULE_ECDSA_S2C
+include src/modules/ecdsa_s2c/Makefile.am.include
+endif
+

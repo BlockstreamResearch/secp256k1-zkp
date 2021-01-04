@@ -13,6 +13,7 @@
 #include "field_impl.h"
 #include "scalar_impl.h"
 #include "group_impl.h"
+#include "eccommit_impl.h"
 #include "ecmult_impl.h"
 #include "ecmult_const_impl.h"
 #include "ecmult_gen_impl.h"
@@ -34,6 +35,18 @@
 # include "include/secp256k1_rangeproof.h"
 # include "modules/rangeproof/pedersen.h"
 # include "modules/rangeproof/rangeproof.h"
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_S2C
+# include "include/secp256k1_ecdsa_s2c.h"
+static void secp256k1_ecdsa_s2c_opening_save(secp256k1_ecdsa_s2c_opening* opening, secp256k1_ge* ge);
+#else
+typedef void secp256k1_ecdsa_s2c_opening;
+static void secp256k1_ecdsa_s2c_opening_save(secp256k1_ecdsa_s2c_opening* opening, secp256k1_ge* ge) {
+    (void) opening;
+    (void) ge;
+    VERIFY_CHECK(0);
+}
 #endif
 
 #define ARG_CHECK(cond) do { \
@@ -487,7 +500,7 @@ static int nonce_function_rfc6979(unsigned char *nonce32, const unsigned char *m
 const secp256k1_nonce_function secp256k1_nonce_function_rfc6979 = nonce_function_rfc6979;
 const secp256k1_nonce_function secp256k1_nonce_function_default = nonce_function_rfc6979;
 
-static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_scalar* r, secp256k1_scalar* s, int* recid, const unsigned char *msg32, const unsigned char *seckey, secp256k1_nonce_function noncefp, const void* noncedata) {
+static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_scalar* r, secp256k1_scalar* s, int* recid, secp256k1_sha256* s2c_sha, secp256k1_ecdsa_s2c_opening *s2c_opening, const unsigned char* s2c_data32, const unsigned char *msg32, const unsigned char *seckey, secp256k1_nonce_function noncefp, const void* noncedata) {
     secp256k1_scalar sec, non, msg;
     int ret = 0;
     int is_sec_valid;
@@ -502,6 +515,11 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
     if (noncefp == NULL) {
         noncefp = secp256k1_nonce_function_default;
     }
+    /* sign-to-contract commitments only work with the default nonce function,
+     * because we need to ensure that s2c_data is actually hashed into the nonce and
+     * not just ignored. Otherwise an attacker can exfiltrate the secret key by
+     * signing the same message thrice with different commitments. */
+    VERIFY_CHECK(s2c_data32 == NULL || noncefp == secp256k1_nonce_function_default);
 
     /* Fail if the secret key is invalid. */
     is_sec_valid = secp256k1_scalar_set_b32_seckey(&sec, seckey);
@@ -517,6 +535,30 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
         /* The nonce is still secret here, but it being invalid is is less likely than 1:2^255. */
         secp256k1_declassify(ctx, &is_nonce_valid, sizeof(is_nonce_valid));
         if (is_nonce_valid) {
+            if (s2c_data32 != NULL) {
+                secp256k1_gej nonce_pj;
+                secp256k1_ge nonce_p;
+
+                /* Compute original nonce commitment/pubkey */
+                secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &nonce_pj, &non);
+                secp256k1_ge_set_gej(&nonce_p, &nonce_pj);
+                if (s2c_opening != NULL) {
+                    secp256k1_ecdsa_s2c_opening_save(s2c_opening, &nonce_p);
+                }
+
+                /* Because the nonce is valid, the nonce point isn't the point
+                 * at infinity and we can declassify that information to be able to
+                 * serialize the point. */
+                secp256k1_declassify(ctx, &nonce_p.infinity, sizeof(nonce_p.infinity));
+
+                /* Tweak nonce with s2c commitment. */
+                ret = secp256k1_ec_commit_seckey(&non, &nonce_p, s2c_sha, s2c_data32, 32);
+                secp256k1_declassify(ctx, &ret, sizeof(ret)); /* may be secret that the tweak falied, but happens with negligible probability */
+                if (!ret) {
+                    break;
+                }
+            }
+
             ret = secp256k1_ecdsa_sig_sign(&ctx->ecmult_gen_ctx, r, s, &sec, &msg, &non, recid);
             /* The final signature is no longer a secret, nor is the fact that we were successful or not. */
             secp256k1_declassify(ctx, &ret, sizeof(ret));
@@ -552,7 +594,7 @@ int secp256k1_ecdsa_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature
     ARG_CHECK(signature != NULL);
     ARG_CHECK(seckey != NULL);
 
-    ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, NULL, msg32, seckey, noncefp, noncedata);
+    ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, NULL, NULL, NULL, NULL, msg32, seckey, noncefp, noncedata);
     secp256k1_ecdsa_signature_save(signature, &r, &s);
     return ret;
 }
@@ -783,6 +825,10 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
 
 #ifdef ENABLE_MODULE_SCHNORRSIG
 # include "modules/schnorrsig/main_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_S2C
+# include "modules/ecdsa_s2c/main_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_MUSIG
