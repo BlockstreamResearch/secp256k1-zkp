@@ -950,6 +950,47 @@ void musig_tweak_test(secp256k1_scratch_space *scratch) {
     musig_tweak_test_helper(&Q_xonly, sk[0], sk[1], &pre_session_Q);
 }
 
+void musig_test_vectors(void) {
+    secp256k1_xonly_pubkey combined_pk;
+    unsigned char combined_pk_ser[32];
+    secp256k1_xonly_pubkey pk[2];
+    const unsigned char pk_ser1[32] = {
+        0xF9, 0x30, 0x8A, 0x01, 0x92, 0x58, 0xC3, 0x10,
+        0x49, 0x34, 0x4F, 0x85, 0xF8, 0x9D, 0x52, 0x29,
+        0xB5, 0x31, 0xC8, 0x45, 0x83, 0x6F, 0x99, 0xB0,
+        0x86, 0x01, 0xF1, 0x13, 0xBC, 0xE0, 0x36, 0xF9
+    };
+    const unsigned char pk_ser2[32] = {
+        0xDF, 0xF1, 0xD7, 0x7F, 0x2A, 0x67, 0x1C, 0x5F,
+        0x36, 0x18, 0x37, 0x26, 0xDB, 0x23, 0x41, 0xBE,
+        0x58, 0xFE, 0xAE, 0x1D, 0xA2, 0xDE, 0xCE, 0xD8,
+        0x43, 0x24, 0x0F, 0x7B, 0x50, 0x2B, 0xA6, 0x59
+    };
+    const unsigned char combined_pk_expected[32] = {
+        0xD5, 0x60, 0x83, 0x72, 0xAE, 0x3C, 0xA2, 0x56,
+        0xEF, 0x51, 0xF8, 0x91, 0x9C, 0xFD, 0x0F, 0x22,
+        0xCD, 0x82, 0x93, 0x43, 0x95, 0x01, 0x06, 0x4E,
+        0xBE, 0xE4, 0xBB, 0x12, 0xC6, 0xE7, 0xDE, 0xE2,
+    };
+
+    CHECK(secp256k1_xonly_pubkey_parse(ctx, &pk[0], pk_ser1));
+    CHECK(secp256k1_xonly_pubkey_parse(ctx, &pk[1], pk_ser2));
+    CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, NULL, pk, 2) == 1);
+    CHECK(secp256k1_xonly_pubkey_serialize(ctx, combined_pk_ser, &combined_pk));
+    /* TODO: remove */
+    /* int i, j; */
+    /* printf("const unsigned char combined_pk_expected[32] = {\n"); */
+    /* for (i = 0; i < 4; i++) { */
+    /*     printf("    "); */
+    /*     for (j = 0; j < 8; j++) { */
+    /*         printf("0x%02X, ", combined_pk_ser[i*8+j]); */
+    /*     } */
+    /*     printf("\n"); */
+    /* } */
+    /* printf("};\n"); */
+    CHECK(secp256k1_memcmp_var(combined_pk_ser, combined_pk_expected, sizeof(combined_pk_ser)) == 0);
+}
+
 void run_musig_tests(void) {
     int i;
     secp256k1_scratch_space *scratch = secp256k1_scratch_space_create(ctx, 1024 * 1024);
@@ -965,6 +1006,7 @@ void run_musig_tests(void) {
         scriptless_atomic_swap(scratch);
         musig_tweak_test(scratch);
     }
+    musig_test_vectors();
     sha256_tag_test();
 
     secp256k1_scratch_space_destroy(ctx, scratch);
