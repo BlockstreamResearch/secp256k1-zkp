@@ -4,7 +4,7 @@
 #include "secp256k1.h"
 
 /** This module implements the sign-to-contract scheme for ECDSA signatures, as
- *  well as the "ECDSA Anti-Klepto Protocol" that is based on sign-to-contract
+ *  well as the "ECDSA Anti-Exfil Protocol" that is based on sign-to-contract
  *  and is specified further down. The sign-to-contract scheme allows creating a
  *  signature that also commits to some data. This works by offsetting the public
  *  nonce point of the signature R by hash(R, data)*G where G is the secp256k1
@@ -97,9 +97,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 
-/** ECDSA Anti-Klepto Protocol
+/** ECDSA Anti-Exfil Protocol
  *
- *  The ecdsa_anti_klepto_* functions can be used to prevent a signing device from
+ *  The ecdsa_anti_exfil_* functions can be used to prevent a signing device from
  *  exfiltrating the secret signing keys through biased signature nonces. The general
  *  idea is that a host provides additional randomness to the signing device client
  *  and the client commits to the randomness in the nonce using sign-to-contract.
@@ -113,9 +113,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *  keys, or the signing device to bias the nonce despite the host's contributions,
  *  the host and client must engage in a commit-reveal protocol as follows:
  *  1. The host draws randomness `rho` and computes a sha256 commitment to it using
- *     `secp256k1_ecdsa_anti_klepto_host_commit`. It sends this to the signing device.
+ *     `secp256k1_ecdsa_anti_exfil_host_commit`. It sends this to the signing device.
  *  2. The signing device computes a public nonce `R` using the host's commitment
- *     as auxiliary randomness, using `secp256k1_ecdsa_anti_klepto_signer_commit`.
+ *     as auxiliary randomness, using `secp256k1_ecdsa_anti_exfil_signer_commit`.
  *     The signing device sends the resulting `R` to the host as a s2c_opening.
  *
  *     If, at any point from this step onward, the hardware device fails, it is
@@ -135,10 +135,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *     EVER, they should change hardware vendors and perhaps sweep their coins.
  *
  *  3. The host replies with `rho` generated in step 1.
- *  4. The device signs with `secp256k1_anti_klepto_sign`, using `rho` as `host_data32`,
+ *  4. The device signs with `secp256k1_anti_exfil_sign`, using `rho` as `host_data32`,
  *     and sends the signature to the host.
  *  5. The host verifies that the signature's public nonce matches the opening from
- *     step 2 and its original randomness `rho`, using `secp256k1_anti_klepto_host_verify`.
+ *     step 2 and its original randomness `rho`, using `secp256k1_anti_exfil_host_verify`.
  *
  *  Rationale:
  *      - The reason for having a host commitment is to allow the signing device to
@@ -154,7 +154,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *        maintain any state about the progress of the protocol.
  */
 
-/** Create the initial host commitment to `rho`. Part of the ECDSA Anti-Klepto Protocol.
+/** Create the initial host commitment to `rho`. Part of the ECDSA Anti-Exfil Protocol.
  *
  *  Returns 1 on success, 0 on failure.
  *  Args:              ctx: pointer to a context object (cannot be NULL)
@@ -164,13 +164,13 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *                          be revealed to the client until after the host has received the client
  *                          commitment.
  */
-SECP256K1_API int secp256k1_ecdsa_anti_klepto_host_commit(
+SECP256K1_API int secp256k1_ecdsa_anti_exfil_host_commit(
     const secp256k1_context* ctx,
     unsigned char* rand_commitment32,
     const unsigned char* rand32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Compute signer's original nonce. Part of the ECDSA Anti-Klepto Protocol.
+/** Compute signer's original nonce. Part of the ECDSA Anti-Exfil Protocol.
  *
  *  Returns 1 on success, 0 on failure.
  *  Args:           ctx: pointer to a context object, initialized for signing (cannot be NULL)
@@ -180,7 +180,7 @@ SECP256K1_API int secp256k1_ecdsa_anti_klepto_host_commit(
  *             seckey32: the 32-byte secret key used for signing (cannot be NULL)
  *    rand_commitment32: the 32-byte randomness commitment from the host (cannot be NULL)
  */
-SECP256K1_API int secp256k1_ecdsa_anti_klepto_signer_commit(
+SECP256K1_API int secp256k1_ecdsa_anti_exfil_signer_commit(
     const secp256k1_context* ctx,
     secp256k1_ecdsa_s2c_opening* s2c_opening,
     const unsigned char* msg32,
@@ -189,7 +189,7 @@ SECP256K1_API int secp256k1_ecdsa_anti_klepto_signer_commit(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Same as secp256k1_ecdsa_sign, but commits to host randomness in the nonce. Part of the
- *  ECDSA Anti-Klepto Protocol.
+ *  ECDSA Anti-Exfil Protocol.
  *
  *  Returns: 1: signature created
  *           0: the nonce generation function failed, or the private key was invalid.
@@ -199,7 +199,7 @@ SECP256K1_API int secp256k1_ecdsa_anti_klepto_signer_commit(
  *        seckey: pointer to a 32-byte secret key (cannot be NULL)
  *   host_data32: pointer to 32-byte host-provided randomness (cannot be NULL)
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_klepto_sign(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_exfil_sign(
     const secp256k1_context* ctx,
     secp256k1_ecdsa_signature* sig,
     const unsigned char* msg32,
@@ -207,7 +207,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_klepto_sign(
     const unsigned char* host_data32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
-/** Verify a signature was correctly constructed using the ECDSA Anti-Klepto Protocol.
+/** Verify a signature was correctly constructed using the ECDSA Anti-Exfil Protocol.
  *
  *  Returns: 1: the signature is valid and contains a commitment to host_data32
  *           0: incorrect opening
@@ -218,7 +218,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_klepto_sign(
  *   host_data32: the 32-byte data provided by the host (cannot be NULL)
  *       opening: the s2c opening provided by the signer (cannot be NULL)
  */
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_klepto_host_verify(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_exfil_host_verify(
     const secp256k1_context* ctx,
     const secp256k1_ecdsa_signature *sig,
     const unsigned char *msg32,
