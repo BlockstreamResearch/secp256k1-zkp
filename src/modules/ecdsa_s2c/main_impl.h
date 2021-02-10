@@ -82,7 +82,7 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
     /* Provide `s2c_data32` to the nonce function as additional data to
      * derive the nonce. It is first hashed because it should be possible
      * to derive nonces even if only a SHA256 commitment to the data is
-     * known.  This is important in the ECDSA anti-klepto protocol. */
+     * known.  This is important in the ECDSA anti-exfil protocol. */
     secp256k1_s2c_ecdsa_data_sha256_tagged(&s2c_sha);
     secp256k1_sha256_write(&s2c_sha, s2c_data32, 32);
     secp256k1_sha256_finalize(&s2c_sha, ndata);
@@ -130,15 +130,15 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
     /* Do not check overflow; overflowing a scalar does not affect whether
      * or not the R value is a cryptographic commitment, only whether it
      * is a valid R value for an ECDSA signature. If users care about that
-     * they should use `ecdsa_verify` or `anti_klepto_host_verify`. In other
+     * they should use `ecdsa_verify` or `anti_exfil_host_verify`. In other
      * words, this check would be (at best) unnecessary, and (at worst)
      * insufficient. */
     secp256k1_scalar_set_b32(&x_scalar, x_bytes, NULL);
     return secp256k1_scalar_eq(&sigr, &x_scalar);
 }
 
-/*** anti-klepto ***/
-int secp256k1_ecdsa_anti_klepto_host_commit(const secp256k1_context* ctx, unsigned char* rand_commitment32, const unsigned char* rand32) {
+/*** anti-exfil ***/
+int secp256k1_ecdsa_anti_exfil_host_commit(const secp256k1_context* ctx, unsigned char* rand_commitment32, const unsigned char* rand32) {
     secp256k1_sha256 sha;
 
     VERIFY_CHECK(ctx != NULL);
@@ -151,7 +151,7 @@ int secp256k1_ecdsa_anti_klepto_host_commit(const secp256k1_context* ctx, unsign
     return 1;
 }
 
-int secp256k1_ecdsa_anti_klepto_signer_commit(const secp256k1_context* ctx, secp256k1_ecdsa_s2c_opening* opening, const unsigned char* msg32, const unsigned char* seckey32, const unsigned char* rand_commitment32) {
+int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp256k1_ecdsa_s2c_opening* opening, const unsigned char* msg32, const unsigned char* seckey32, const unsigned char* rand_commitment32) {
     unsigned char nonce32[32];
     secp256k1_scalar k;
     secp256k1_gej rj;
@@ -186,11 +186,11 @@ int secp256k1_ecdsa_anti_klepto_signer_commit(const secp256k1_context* ctx, secp
     return 1;
 }
 
-int secp256k1_anti_klepto_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* sig, const unsigned char* msg32, const unsigned char* seckey, const unsigned char* host_data32) {
+int secp256k1_anti_exfil_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* sig, const unsigned char* msg32, const unsigned char* seckey, const unsigned char* host_data32) {
     return secp256k1_ecdsa_s2c_sign(ctx, sig, NULL, msg32, seckey, host_data32);
 }
 
-int secp256k1_anti_klepto_host_verify(const secp256k1_context* ctx, const secp256k1_ecdsa_signature *sig, const unsigned char *msg32, const secp256k1_pubkey *pubkey, const unsigned char *host_data32, const secp256k1_ecdsa_s2c_opening *opening) {
+int secp256k1_anti_exfil_host_verify(const secp256k1_context* ctx, const secp256k1_ecdsa_signature *sig, const unsigned char *msg32, const secp256k1_pubkey *pubkey, const unsigned char *host_data32, const secp256k1_ecdsa_s2c_opening *opening) {
     return secp256k1_ecdsa_s2c_verify_commit(ctx, sig, host_data32, opening) &&
         secp256k1_ecdsa_verify(ctx, sig, msg32, pubkey);
 }

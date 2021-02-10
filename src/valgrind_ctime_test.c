@@ -169,13 +169,13 @@ int main(void) {
         CHECK(ret == 1);
 
         VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
-        ret = secp256k1_ecdsa_anti_klepto_host_commit(ctx, s2c_data_comm, s2c_data);
+        ret = secp256k1_ecdsa_anti_exfil_host_commit(ctx, s2c_data_comm, s2c_data);
         VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
         CHECK(ret == 1);
 
         VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
         VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
-        ret = secp256k1_ecdsa_anti_klepto_signer_commit(ctx, &s2c_opening, msg, key, s2c_data);
+        ret = secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, key, s2c_data);
         VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
         CHECK(ret == 1);
     }
