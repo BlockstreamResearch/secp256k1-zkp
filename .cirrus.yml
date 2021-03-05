@@ -17,6 +17,7 @@ env:
   RANGEPROOF: no
   WHITELIST: no
   MUSIG: no
+  ECDSAADAPTOR: no
   EXPERIMENTAL: no
   CTIMETEST: yes
   BENCH: yes
@@ -59,13 +60,13 @@ task:
     memory: 1G
   matrix: &ENV_MATRIX
     - env: {WIDEMUL:  int64,  RECOVERY: yes}
-    - env: {WIDEMUL:  int64,                 ECDH: yes, EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes,  RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes}
+    - env: {WIDEMUL:  int64,                 ECDH: yes, EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes,  RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes}
     - env: {WIDEMUL: int128}
     - env: {WIDEMUL: int128,  RECOVERY: yes,            EXPERIMENTAL: yes, SCHNORRSIG: yes}
-    - env: {WIDEMUL: int128,                 ECDH: yes, EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes}
+    - env: {WIDEMUL: int128,                 ECDH: yes, EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes}
     - env: {WIDEMUL: int128,  ASM: x86_64}
     - env: {BIGNUM: no}
-    - env: {BIGNUM: no,       RECOVERY: yes,            EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes}
+    - env: {BIGNUM: no,       RECOVERY: yes,            EXPERIMENTAL: yes, SCHNORRSIG: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes}
     - env: {BIGNUM: no,       STATICPRECOMPUTATION: no}
     - env: {BUILD: distcheck, WITH_VALGRIND: no, CTIMETEST: no, BENCH: no}
     - env: {CPPFLAGS: -DDETERMINISTIC}
@@ -85,6 +86,7 @@ task:
         WHITELIST: yes
         GENERATOR: yes
         MUSIG: yes
+        ECDSAADAPTOR: yes
         CTIMETEST: no
     - env: { ECMULTGENPRECISION: 2 }
     - env: { ECMULTGENPRECISION: 8 }
@@ -101,6 +103,7 @@ task:
         WHITELIST: yes
         GENERATOR: yes
         MUSIG: yes
+        ECDSAADAPTOR: yes
         EXTRAFLAGS: "--disable-openssl-tests"
         BUILD:
   matrix:
@@ -130,6 +133,7 @@ task:
     WHITELIST: yes
     GENERATOR: yes
     MUSIG: yes
+    ECDSAADAPTOR: yes
   matrix:
     - env:
         CC: i686-linux-gnu-gcc
@@ -227,6 +231,7 @@ task:
     WHITELIST: yes
     GENERATOR: yes
     MUSIG: yes
+    ECDSAADAPTOR: yes
     CTIMETEST: no
   << : *MERGE_BASE
   test_script:

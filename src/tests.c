@@ -5652,6 +5652,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/ecdsa_s2c/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+# include "modules/ecdsa_adaptor/tests_impl.h"
+#endif
+
 void run_secp256k1_memczero_test(void) {
     unsigned char buf1[6] = {1, 2, 3, 4, 5, 6};
     unsigned char buf2[sizeof(buf1)];
@@ -5964,6 +5968,10 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_MODULE_ECDSA_S2C
     /* ECDSA sign to contract */
     run_ecdsa_s2c_tests();
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+    run_ecdsa_adaptor_tests();
 #endif
 
     /* util tests */
