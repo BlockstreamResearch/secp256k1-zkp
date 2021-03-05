@@ -17,6 +17,7 @@ Features:
 * Suitable for embedded systems.
 * Optional module for public key recovery.
 * Optional module for ECDH key exchange.
+* Optional module for ECDSA adaptor signatures (experimental).
 
 Experimental features have not received enough scrutiny to satisfy the standard of quality of this library but are made available for testing and review by the community. The APIs of these features should not be considered stable.
 
