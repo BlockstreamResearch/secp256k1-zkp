@@ -8,6 +8,7 @@
 #define SECP256K1_MODULE_ECDSA_ADAPTOR_MAIN_H
 
 #include "include/secp256k1_ecdsa_adaptor.h"
+#include "modules/ecdsa_adaptor/dleq_impl.h"
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("ECDSAadaptor/non")||SHA256("ECDSAadaptor/non"). */
@@ -69,6 +70,9 @@ static int nonce_function_ecdsa_adaptor(unsigned char *nonce32, const unsigned c
     if (algolen == sizeof(ecdsa_adaptor_algo)
             && secp256k1_memcmp_var(algo, ecdsa_adaptor_algo, algolen) == 0) {
         secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged(&sha);
+    } else if (algolen == sizeof(dleq_algo)
+            && secp256k1_memcmp_var(algo, dleq_algo, algolen) == 0) {
+        secp256k1_nonce_function_dleq_sha256_tagged(&sha);
     } else {
         secp256k1_sha256_initialize_tagged(&sha, algo, algolen);
     }
