@@ -1,1 +1,2 @@
 include_HEADERS += include/secp256k1_ecdsa_adaptor.h
+noinst_HEADERS += src/modules/ecdsa_adaptor/main_impl.h
