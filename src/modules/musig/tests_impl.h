@@ -237,8 +237,10 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
      * rejects n_signers that high. */
     if (SIZE_MAX > UINT32_MAX) {
         CHECK(secp256k1_musig_session_init(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, ((size_t) UINT32_MAX) + 2, 0, sk[0]) == 0);
+        CHECK(ecount == 11);
+    } else {
+        ecount = 11;
     }
-    CHECK(ecount == 11);
     CHECK(secp256k1_musig_session_init(sign, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, 0, NULL) == 0);
     CHECK(ecount == 12);
     /* secret key overflows */
@@ -267,8 +269,10 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(ecount == 6);
     if (SIZE_MAX > UINT32_MAX) {
         CHECK(secp256k1_musig_session_init_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, ncs, ((size_t) UINT32_MAX) + 2) == 0);
+        CHECK(ecount == 7);
+    } else {
+        ecount = 7;
     }
-    CHECK(ecount == 7);
     CHECK(secp256k1_musig_session_init_verifier(none, &verifier_session, verifier_signer_data, msg, &combined_pk, &pre_session, ncs, 2) == 1);
 
     /** Signing step 0 -- exchange nonce commitments */
