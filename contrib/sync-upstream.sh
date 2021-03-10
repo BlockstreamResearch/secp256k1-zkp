@@ -75,14 +75,16 @@ case $1 in
         help
 esac
 
-TITLE="Upstream PRs "
+TITLE="Upstream PRs"
 BODY=""
 for COMMIT in $COMMITS
 do
     PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\).*'/'\1'/)
-    TITLE="$TITLE #$PRNUM"
-    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\)'/'[upstream PR #\1]'/)")
+    TITLE="$TITLE $PRNUM,"
+    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\)'/'[bitcoin-core\/secp256k1#\1]'/)")
 done
+# Remove trailing ","
+TITLE=${TITLE%?}
 
 BODY=$(printf "%s\n\n%s" "$BODY" "This PR was automatically created with \\\`$0 $*\\\`.")
 
