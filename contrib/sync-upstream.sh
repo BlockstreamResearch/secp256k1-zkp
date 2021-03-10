@@ -4,7 +4,7 @@ set -eou pipefail
 
 help() {
     echo "$0 range [end]"
-    echo "    merges every merge commit missing merge commit."
+    echo "    merges every merge commit present in upstream and missing locally."
     echo "    If the optional [end] commit is provided, only merges up to [end]."
     echo
     echo "$0 select <commit> ... <commit>"
@@ -42,7 +42,7 @@ setup() {
 
 range() {
     RANGESTART_COMMIT=$(git merge-base $REMOTE_BRANCH master)
-    RANGEEND_COMMIT=$REMOTE_BRANCH
+    RANGEEND_COMMIT=$(git rev-parse $REMOTE_BRANCH)
     if [ "$#" = 1 ]; then
         RANGEEND_COMMIT=$1
     fi
@@ -62,11 +62,13 @@ case $1 in
         shift
         setup
         range "$@"
+        REPRODUCE_COMMAND="$0 range $RANGEEND_COMMIT"
         ;;
     select)
         shift
         setup
         COMMITS=$*
+        REPRODUCE_COMMAND="$0 $@"
         ;;
     help)
         help
@@ -75,16 +77,18 @@ case $1 in
         help
 esac
 
-TITLE="Upstream PRs "
+TITLE="Upstream PRs"
 BODY=""
 for COMMIT in $COMMITS
 do
     PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\).*'/'\1'/)
-    TITLE="$TITLE #$PRNUM"
-    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\)'/'[upstream PR #\1]'/)")
+    TITLE="$TITLE $PRNUM,"
+    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\)'/'[bitcoin-core\/secp256k1#\1]'/)")
 done
+# Remove trailing ","
+TITLE=${TITLE%?}
 
-BODY=$(printf "%s\n\n%s" "$BODY" "This PR was automatically created with \\\`$0 $*\\\`.")
+BODY=$(printf "%s\n\n%s" "$BODY" "This PR can be recreated  with \`$REPRODUCE_COMMAND\`.")
 
 echo "-----------------------------------"
 echo "$TITLE"
