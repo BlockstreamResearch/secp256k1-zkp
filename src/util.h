@@ -1,8 +1,8 @@
-/**********************************************************************
- * Copyright (c) 2013-2015 Pieter Wuille, Gregory Maxwell             *
- * Distributed under the MIT software license, see the accompanying   *
- * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
- **********************************************************************/
+/***********************************************************************
+ * Copyright (c) 2013-2015 Pieter Wuille, Gregory Maxwell              *
+ * Distributed under the MIT software license, see the accompanying    *
+ * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
+ ***********************************************************************/
 
 #ifndef SECP256K1_UTIL_H
 #define SECP256K1_UTIL_H
@@ -113,7 +113,7 @@ static SECP256K1_INLINE void *checked_realloc(const secp256k1_callback* cb, void
 #define ALIGNMENT 16
 #endif
 
-#define ROUND_TO_ALIGN(size) (((size + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT)
+#define ROUND_TO_ALIGN(size) ((((size) + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT)
 
 /* Assume there is a contiguous memory object with bounds [base, base + max_size)
  * of which the memory range [base, *prealloc_ptr) is already allocated for usage,
@@ -141,7 +141,7 @@ static SECP256K1_INLINE void *manual_alloc(void** prealloc_ptr, size_t alloc_siz
     VERIFY_CHECK(((unsigned char*)*prealloc_ptr - (unsigned char*)base) % ALIGNMENT == 0);
     VERIFY_CHECK((unsigned char*)*prealloc_ptr - (unsigned char*)base + aligned_alloc_size <= max_size);
     ret = *prealloc_ptr;
-    *((unsigned char**)prealloc_ptr) += aligned_alloc_size;
+    *prealloc_ptr = (unsigned char*)*prealloc_ptr + aligned_alloc_size;
     return ret;
 }
 
