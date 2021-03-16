@@ -25,6 +25,8 @@ extern "C" {
  *        magic: Set during initialization in `pubkey_combine` to allow
  *               detecting an uninitialized object.
  *      pk_hash: The 32-byte hash of the original public keys
+ *    second_pk: Serialized x-coordinate of the second public key in the list.
+ *               Filled with zeros if there is none.
  *    pk_parity: Whether the MuSig-aggregated point was negated when
  *               converting it to the combined xonly pubkey.
  *     is_tweaked: Whether the combined pubkey was tweaked
@@ -35,6 +37,7 @@ extern "C" {
 typedef struct {
     uint64_t magic;
     unsigned char pk_hash[32];
+    unsigned char second_pk[32];
     int pk_parity;
     int is_tweaked;
     unsigned char tweak[32];

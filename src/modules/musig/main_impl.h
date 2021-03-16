@@ -45,23 +45,37 @@ static void secp256k1_musig_sha256_init_tagged(secp256k1_sha256 *sha) {
     sha->bytes = 64;
 }
 
-/* Compute r = SHA256(ell, x). Assumes field element x is normalized. */
-static void secp256k1_musig_coefficient(secp256k1_scalar *r, const unsigned char *ell, secp256k1_fe *x) {
+/* Compute MuSig coefficient which is constant 1 for the second pubkey and
+ * SHA256(ell, x) otherwise. second_pk_x can be NULL in case there is no
+ * second_pk. Assumes both field elements x and second_pk_x are normalized. */
+static void secp256k1_musig_coefficient_internal(secp256k1_scalar *r, const unsigned char *ell, secp256k1_fe *x, const secp256k1_fe *second_pk_x) {
     secp256k1_sha256 sha;
     unsigned char buf[32];
 
-    secp256k1_musig_sha256_init_tagged(&sha);
-    secp256k1_sha256_write(&sha, ell, 32);
-    secp256k1_fe_get_b32(buf, x);
-    secp256k1_sha256_write(&sha, buf, 32);
-    secp256k1_sha256_finalize(&sha, buf);
-    secp256k1_scalar_set_b32(r, buf, NULL);
+    if (secp256k1_fe_cmp_var(x, second_pk_x) == 0) {
+        secp256k1_scalar_set_int(r, 1);
+    } else {
+        secp256k1_musig_sha256_init_tagged(&sha);
+        secp256k1_sha256_write(&sha, ell, 32);
+        secp256k1_fe_get_b32(buf, x);
+        secp256k1_sha256_write(&sha, buf, 32);
+        secp256k1_sha256_finalize(&sha, buf);
+        secp256k1_scalar_set_b32(r, buf, NULL);
+    }
+}
+
+/* Assumes both field elements x and second_pk_x are normalized. */
+static void secp256k1_musig_coefficient(secp256k1_scalar *r, const secp256k1_musig_pre_session *pre_session, secp256k1_fe *x) {
+    secp256k1_fe second_pk_x;
+    secp256k1_fe_set_b32(&second_pk_x, pre_session->second_pk);
+    secp256k1_musig_coefficient_internal(r, pre_session->pk_hash, x, &second_pk_x);
 }
 
 typedef struct {
     const secp256k1_context *ctx;
     unsigned char ell[32];
     const secp256k1_xonly_pubkey *pks;
+    secp256k1_fe second_pk_x;
 } secp256k1_musig_pubkey_combine_ecmult_data;
 
 /* Callback for batch EC multiplication to compute ell_0*P0 + ell_1*P1 + ...  */
@@ -70,7 +84,7 @@ static int secp256k1_musig_pubkey_combine_callback(secp256k1_scalar *sc, secp256
     if (!secp256k1_xonly_pubkey_load(ctx->ctx, pt, &ctx->pks[idx])) {
         return 0;
     }
-    secp256k1_musig_coefficient(sc, ctx->ell, &pt->x);
+    secp256k1_musig_coefficient_internal(sc, ctx->ell, &pt->x, &ctx->second_pk_x);
     return 1;
 }
 
@@ -89,6 +103,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
     secp256k1_gej pkj;
     secp256k1_ge pkp;
     int pk_parity;
+    size_t i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(combined_pk != NULL);
@@ -98,6 +113,19 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
 
     ecmult_data.ctx = ctx;
     ecmult_data.pks = pubkeys;
+    /* No point on the curve has an X coordinate equal to 0 */
+    secp256k1_fe_set_int(&ecmult_data.second_pk_x, 0);
+    for (i = 1; i < n_pubkeys; i++) {
+        secp256k1_ge pt;
+        if (!secp256k1_xonly_pubkey_load(ctx, &pt, &pubkeys[i])) {
+            return 0;
+        }
+        if (secp256k1_memcmp_var(&pubkeys[0], &pubkeys[i], sizeof(pubkeys[0])) != 0) {
+            ecmult_data.second_pk_x = pt.x;
+            break;
+        }
+    }
+
     if (!secp256k1_musig_compute_ell(ctx, ecmult_data.ell, pubkeys, n_pubkeys)) {
         return 0;
     }
@@ -114,6 +142,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         memcpy(pre_session->pk_hash, ecmult_data.ell, 32);
         pre_session->pk_parity = pk_parity;
         pre_session->is_tweaked = 0;
+        secp256k1_fe_get_b32(pre_session->second_pk, &ecmult_data.second_pk_x);
     }
     return 1;
 }
@@ -195,7 +224,7 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pj, &secret);
     secp256k1_ge_set_gej(&p, &pj);
     secp256k1_fe_normalize_var(&p.x);
-    secp256k1_musig_coefficient(&mu, session->pre_session.pk_hash, &p.x);
+    secp256k1_musig_coefficient(&mu, &session->pre_session, &p.x);
     /* Compute the signer's public key point and determine if the secret is
      * negated before signing. That happens if if the signer's pubkey has an odd
      * Y coordinate XOR the MuSig-combined pubkey has an odd Y coordinate XOR
@@ -589,7 +618,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     /* Multiplying the messagehash by the musig coefficient is equivalent
      * to multiplying the signer's public key by the coefficient, except
      * much easier to do. */
-    secp256k1_musig_coefficient(&mu, session->pre_session.pk_hash, &pkp.x);
+    secp256k1_musig_coefficient(&mu, &session->pre_session, &pkp.x);
     secp256k1_scalar_mul(&e, &e, &mu);
 
     if (!secp256k1_xonly_pubkey_load(ctx, &rp, &signer->nonce)) {
