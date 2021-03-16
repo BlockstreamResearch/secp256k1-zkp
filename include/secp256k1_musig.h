@@ -94,7 +94,7 @@ typedef struct {
  * The workflow for this structure is as follows:
  *
  * 1. This structure is initialized with `musig_session_init` or
- *    `musig_session_init_verifier`, which set the `index` field, and zero out
+ *    `musig_session_init_verifier`, which initializes
  *    all other fields. The public session is initialized with the signers'
  *    nonce_commitments.
  *
@@ -111,14 +111,12 @@ typedef struct {
  *
  * Fields:
  *   present: indicates whether the signer's nonce is set
- *     index: index of the signer in the MuSig key aggregation
  *     nonce: public nonce, must be a valid curvepoint if the signer is `present`
  * nonce_commitment: commitment to the nonce, or all-bits zero if a commitment
  *                   has not yet been set
  */
 typedef struct {
     int present;
-    uint32_t index;
     secp256k1_xonly_pubkey nonce;
     unsigned char nonce_commitment[32];
 } secp256k1_musig_session_signer_data;
@@ -227,8 +225,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_tweak_add(
  *                     `musig_pubkey_tweak_add` (cannot be NULL).
  *          n_signers: length of signers array. Number of signers participating in
  *                     the MuSig. Must be greater than 0 and at most 2^32 - 1.
- *           my_index: index of this signer in the signers array. Must be less
- *                     than `n_signers`.
  *             seckey: the signer's 32-byte secret key (cannot be NULL)
  */
 SECP256K1_API int secp256k1_musig_session_init(
@@ -241,7 +237,6 @@ SECP256K1_API int secp256k1_musig_session_init(
     const secp256k1_xonly_pubkey *combined_pk,
     const secp256k1_musig_pre_session *pre_session,
     size_t n_signers,
-    size_t my_index,
     const unsigned char *seckey
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(11);
 
