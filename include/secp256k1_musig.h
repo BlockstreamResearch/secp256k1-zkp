@@ -137,7 +137,13 @@ typedef struct {
 } secp256k1_musig_partial_signature;
 
 /** Computes a combined public key and the hash of the given public keys.
+ *
  *  Different orders of `pubkeys` result in different `combined_pk`s.
+ *
+ *  The pubkeys can be sorted before combining with `secp256k1_xonly_sort` which
+ *  ensures the same resulting `combined_pk` for the same multiset of pubkeys.
+ *  This is useful to do before pubkey_combine, such that the order of pubkeys
+ *  does not affect the combined public key.
  *
  *  Returns: 1 if the public keys were successfully combined, 0 otherwise
  *  Args:        ctx: pointer to a context object initialized for verification
