@@ -571,6 +571,46 @@ void test_keypair_add(void) {
     secp256k1_context_destroy(verify);
 }
 
+static void test_hsort_is_sorted(int *ints, size_t n) {
+    size_t i;
+    for (i = 1; i < n; i++) {
+        CHECK(ints[i-1] <= ints[i]);
+    }
+}
+
+static int test_hsort_cmp(const void *i1, const void *i2, void *counter) {
+  *(size_t*)counter += 1;
+  return *(int*)i1 - *(int*)i2;
+}
+
+#define NUM 64
+void test_hsort(void) {
+    int ints[NUM] = { 0 };
+    size_t counter = 0;
+    int i, j;
+
+    secp256k1_hsort(ints, 0, sizeof(ints[0]), test_hsort_cmp, &counter);
+    CHECK(counter == 0);
+    secp256k1_hsort(ints, 1, sizeof(ints[0]), test_hsort_cmp, &counter);
+    CHECK(counter == 0);
+    secp256k1_hsort(ints, NUM, sizeof(ints[0]), test_hsort_cmp, &counter);
+    CHECK(counter > 0);
+    test_hsort_is_sorted(ints, NUM);
+
+    /* Test hsort with length n array and random elements in
+     * [-interval/2, interval/2] */
+    for (i = 0; i < count; i++) {
+        int n = secp256k1_testrand_int(NUM);
+        int interval = secp256k1_testrand_int(64);
+        for (j = 0; j < n; j++) {
+            ints[j] = secp256k1_testrand_int(interval) - interval/2;
+        }
+        secp256k1_hsort(ints, n, sizeof(ints[0]), test_hsort_cmp, &counter);
+        test_hsort_is_sorted(ints, n);
+    }
+}
+#undef NUM
+
 void run_extrakeys_tests(void) {
     /* xonly key test cases */
     test_xonly_pubkey();
@@ -582,6 +622,8 @@ void run_extrakeys_tests(void) {
     /* keypair tests */
     test_keypair();
     test_keypair_add();
+
+    test_hsort();
 }
 
 #endif
