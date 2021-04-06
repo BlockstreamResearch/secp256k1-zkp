@@ -31,6 +31,10 @@
 #include "include/secp256k1_ecdsa_s2c.h"
 #endif
 
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+#include "include/secp256k1_ecdsa_adaptor.h"
+#endif
+
 void run_tests(secp256k1_context *ctx, unsigned char *key);
 
 int main(void) {
@@ -197,6 +201,44 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, key, s2c_data);
         VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
         CHECK(ret == 1);
+    }
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+    {
+        unsigned char adaptor_sig[162];
+        unsigned char deckey[32];
+        unsigned char expected_deckey[32];
+        secp256k1_pubkey enckey;
+
+        for (i = 0; i < 32; i++) {
+            deckey[i] = i + 2;
+        }
+
+        ret = secp256k1_ec_pubkey_create(ctx, &enckey, deckey);
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
+        ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, NULL, NULL);
+        VALGRIND_MAKE_MEM_DEFINED(adaptor_sig, sizeof(adaptor_sig));
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(deckey, 32);
+        ret = secp256k1_ecdsa_adaptor_decrypt(ctx, &signature, deckey, adaptor_sig);
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_UNDEFINED(&signature, 32);
+        ret = secp256k1_ecdsa_adaptor_recover(ctx, expected_deckey, &signature, adaptor_sig, &enckey);
+        VALGRIND_MAKE_MEM_DEFINED(expected_deckey, sizeof(expected_deckey));
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        VALGRIND_MAKE_MEM_DEFINED(deckey, sizeof(deckey));
+        ret = secp256k1_memcmp_var(deckey, expected_deckey, sizeof(expected_deckey));
+        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        CHECK(ret == 0);
     }
 #endif
 }

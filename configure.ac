@@ -180,6 +180,11 @@ AC_ARG_ENABLE(module_ecdsa_s2c,
     [enable_module_ecdsa_s2c=$enableval],
     [enable_module_ecdsa_s2c=no])
 
+AC_ARG_ENABLE(module_ecdsa-adaptor,
+    AS_HELP_STRING([--enable-module-ecdsa-adaptor],[enable ECDSA adaptor module [default=no]]),
+    [enable_module_ecdsa_adaptor=$enableval],
+    [enable_module_ecdsa_adaptor=no])
+
 AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]),
     [use_external_default_callbacks=$enableval],
@@ -580,6 +585,10 @@ if test x"$use_reduced_surjection_proof_size" = x"yes"; then
   AC_DEFINE(USE_REDUCED_SURJECTION_PROOF_SIZE, 1, [Define this symbol to reduce SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS to 16, disabling parsing and verification])
 fi
 
+if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_ECDSA_ADAPTOR, 1, [Define this symbol to enable the ECDSA adaptor module])
+fi
+
 ###
 ### Check for --enable-experimental if necessary
 ###
@@ -596,6 +605,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building extrakeys module: $enable_module_extrakeys])
   AC_MSG_NOTICE([Building schnorrsig module: $enable_module_schnorrsig])
   AC_MSG_NOTICE([Building ECDSA sign-to-contract module: $enable_module_ecdsa_s2c])
+  AC_MSG_NOTICE([Building ECDSA adaptor signatures module: $enable_module_ecdsa_adaptor])
   AC_MSG_NOTICE([******])
 
 
@@ -631,6 +641,9 @@ else
   fi
   if test x"$enable_module_ecdsa_s2c" = x"yes"; then
     AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+    AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
   fi
   if test x"$set_asm" = x"arm"; then
     AC_MSG_ERROR([ARM assembly optimization is experimental. Use --enable-experimental to allow.])
@@ -673,6 +686,7 @@ AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"
 AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
@@ -698,6 +712,7 @@ echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
+echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo
 echo "  asm                     = $set_asm"
 echo "  bignum                  = $set_bignum"
