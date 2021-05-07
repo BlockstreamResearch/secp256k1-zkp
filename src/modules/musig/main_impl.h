@@ -13,14 +13,14 @@
 #include "hash.h"
 
 /* Computes ell = SHA256(pk[0], ..., pk[np-1]) */
-static int secp256k1_musig_compute_ell(const secp256k1_context *ctx, unsigned char *ell, const secp256k1_xonly_pubkey *pk, size_t np) {
+static int secp256k1_musig_compute_ell(const secp256k1_context *ctx, unsigned char *ell, const secp256k1_xonly_pubkey * const* pk, size_t np) {
     secp256k1_sha256 sha;
     size_t i;
 
     secp256k1_sha256_initialize(&sha);
     for (i = 0; i < np; i++) {
         unsigned char ser[32];
-        if (!secp256k1_xonly_pubkey_serialize(ctx, ser, &pk[i])) {
+        if (!secp256k1_xonly_pubkey_serialize(ctx, ser, pk[i])) {
             return 0;
         }
         secp256k1_sha256_write(&sha, ser, 32);
@@ -74,14 +74,14 @@ static void secp256k1_musig_keyaggcoef(secp256k1_scalar *r, const secp256k1_musi
 typedef struct {
     const secp256k1_context *ctx;
     unsigned char ell[32];
-    const secp256k1_xonly_pubkey *pks;
+    const secp256k1_xonly_pubkey * const* pks;
     secp256k1_fe second_pk_x;
 } secp256k1_musig_pubkey_combine_ecmult_data;
 
 /* Callback for batch EC multiplication to compute ell_0*P0 + ell_1*P1 + ...  */
 static int secp256k1_musig_pubkey_combine_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_musig_pubkey_combine_ecmult_data *ctx = (secp256k1_musig_pubkey_combine_ecmult_data *) data;
-    if (!secp256k1_xonly_pubkey_load(ctx->ctx, pt, &ctx->pks[idx])) {
+    if (!secp256k1_xonly_pubkey_load(ctx->ctx, pt, ctx->pks[idx])) {
         return 0;
     }
     secp256k1_musig_keyaggcoef_internal(sc, ctx->ell, &pt->x, &ctx->second_pk_x);
@@ -98,7 +98,7 @@ static void secp256k1_musig_signers_init(secp256k1_musig_session_signer_data *si
 
 static const uint64_t pre_session_magic = 0xf4adbbdf7c7dd304UL;
 
-int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scratch_space *scratch, secp256k1_xonly_pubkey *combined_pk, secp256k1_musig_pre_session *pre_session, const secp256k1_xonly_pubkey *pubkeys, size_t n_pubkeys) {
+int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scratch_space *scratch, secp256k1_xonly_pubkey *combined_pk, secp256k1_musig_pre_session *pre_session, const secp256k1_xonly_pubkey * const* pubkeys, size_t n_pubkeys) {
     secp256k1_musig_pubkey_combine_ecmult_data ecmult_data;
     secp256k1_gej pkj;
     secp256k1_ge pkp;
@@ -117,10 +117,10 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
     secp256k1_fe_set_int(&ecmult_data.second_pk_x, 0);
     for (i = 1; i < n_pubkeys; i++) {
         secp256k1_ge pt;
-        if (!secp256k1_xonly_pubkey_load(ctx, &pt, &pubkeys[i])) {
+        if (!secp256k1_xonly_pubkey_load(ctx, &pt, pubkeys[i])) {
             return 0;
         }
-        if (secp256k1_memcmp_var(&pubkeys[0], &pubkeys[i], sizeof(pubkeys[0])) != 0) {
+        if (secp256k1_memcmp_var(pubkeys[0], pubkeys[i], sizeof(*pubkeys[0])) != 0) {
             ecmult_data.second_pk_x = pt.x;
             break;
         }

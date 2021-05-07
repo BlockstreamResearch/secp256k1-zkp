@@ -40,7 +40,7 @@ int create_keypair(const secp256k1_context* ctx, unsigned char *seckey, secp256k
 }
 
 /* Sign a message hash with the given key pairs and store the result in sig */
-int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp256k1_xonly_pubkey* pubkeys, const unsigned char* msg32, unsigned char *sig64) {
+int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp256k1_xonly_pubkey** pubkeys, const unsigned char* msg32, unsigned char *sig64) {
     secp256k1_musig_session musig_session[N_SIGNERS];
     unsigned char nonce_commitment[N_SIGNERS][32];
     const unsigned char *nonce_commitment_ptr[N_SIGNERS];
@@ -117,7 +117,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
              * fine to first verify the combined sig, and only verify the individual
              * sigs if it does not work.
              */
-            if (!secp256k1_musig_partial_sig_verify(ctx, &musig_session[i], &signer_data[i][j], &partial_sig[j], &pubkeys[j])) {
+            if (!secp256k1_musig_partial_sig_verify(ctx, &musig_session[i], &signer_data[i][j], &partial_sig[j], pubkeys[j])) {
                 return 0;
             }
         }
@@ -130,6 +130,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     int i;
     unsigned char seckeys[N_SIGNERS][32];
     secp256k1_xonly_pubkey pubkeys[N_SIGNERS];
+    const secp256k1_xonly_pubkey *pubkeys_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey combined_pk;
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
@@ -142,16 +143,17 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
             printf("FAILED\n");
             return 1;
         }
+        pubkeys_ptr[i] = &pubkeys[i];
     }
     printf("ok\n");
     printf("Combining public keys...");
-    if (!secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, NULL, pubkeys, N_SIGNERS)) {
+    if (!secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, NULL, pubkeys_ptr, N_SIGNERS)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
     printf("Signing message.........");
-    if (!sign(ctx, seckeys, pubkeys, msg, sig)) {
+    if (!sign(ctx, seckeys, pubkeys_ptr, msg, sig)) {
         printf("FAILED\n");
         return 1;
     }

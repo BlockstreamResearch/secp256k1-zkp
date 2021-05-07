@@ -30,6 +30,7 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     secp256k1_musig_pre_session pre_session;
     unsigned char session_id[2][32];
     secp256k1_xonly_pubkey pk[2];
+    const secp256k1_xonly_pubkey *pk_ptr[2];
     const unsigned char *ncs[2];
     unsigned char public_nonce[3][32];
     secp256k1_musig_partial_signature partial_sig[2];
@@ -41,10 +42,12 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     secp256k1_testrand256(sk[1]);
     secp256k1_testrand256(msg);
 
+    pk_ptr[0] = &pk[0];
+    pk_ptr[1] = &pk[1];
     CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
 
-    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk, &pre_session, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_session_init(ctx, &session[1], signer1, nonce_commitment[1], session_id[1], msg, &combined_pk, &pre_session, 2, sk[1]) == 1);
     CHECK(secp256k1_musig_session_init(ctx, &session[0], signer0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, sk[0]) == 1);
 
@@ -98,6 +101,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_musig_pre_session pre_session;
     secp256k1_musig_pre_session pre_session_uninitialized;
     secp256k1_xonly_pubkey pk[2];
+    const secp256k1_xonly_pubkey *pk_ptr[2];
     unsigned char tweak[32];
 
     unsigned char sec_adaptor[32];
@@ -132,6 +136,8 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_testrand256(sec_adaptor);
     secp256k1_testrand256(tweak);
 
+    pk_ptr[0] = &pk[0];
+    pk_ptr[1] = &pk[1];
     CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
     CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor) == 1);
@@ -141,34 +147,34 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
 
     /* Key combination */
     ecount = 0;
-    CHECK(secp256k1_musig_pubkey_combine(none, scratch, &combined_pk, &pre_session, pk, 2) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(none, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_musig_pubkey_combine(sign, scratch, &combined_pk, &pre_session, pk, 2) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(sign, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(ecount == 2);
     /* pubkey_combine does not require a scratch space */
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, NULL, &combined_pk, &pre_session, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, NULL, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(ecount == 2);
     /* A small scratch space works too, but will result in using an ineffecient algorithm */
     scratch_small = secp256k1_scratch_space_create(ctx, 1);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch_small, &combined_pk, &pre_session, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch_small, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     secp256k1_scratch_space_destroy(ctx, scratch_small);
     CHECK(ecount == 2);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, NULL, &pre_session, pk, 2) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, NULL, &pre_session, pk_ptr, 2) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, NULL, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, NULL, pk_ptr, 2) == 1);
     CHECK(ecount == 3);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 2) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk, 0) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 0) == 0);
     CHECK(ecount == 5);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 0) == 0);
     CHECK(ecount == 6);
 
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk, 2) == 1);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk, 2) == 1);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
 
     /** Tweaking */
     ecount = 0;
@@ -517,6 +523,7 @@ void musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp25
     secp256k1_musig_session_signer_data signers_tmp[2];
     unsigned char sk_dummy[32];
     secp256k1_xonly_pubkey pks_tmp[2];
+    const secp256k1_xonly_pubkey *pks_tmp_ptr[2];
     secp256k1_xonly_pubkey combined_pk_tmp;
     secp256k1_musig_pre_session pre_session_tmp;
     unsigned char nonce[32];
@@ -525,7 +532,9 @@ void musig_state_machine_diff_signer_msghash_test(unsigned char *msghash, secp25
     secp256k1_testrand256(sk_dummy);
     pks_tmp[0] = pks[0];
     CHECK(secp256k1_xonly_pubkey_create(&pks_tmp[1], sk_dummy) == 1);
-    CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk_tmp, &pre_session_tmp, pks_tmp, 2) == 1);
+    pks_tmp_ptr[0] = &pks_tmp[0];
+    pks_tmp_ptr[1] = &pks_tmp[1];
+    CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk_tmp, &pre_session_tmp, pks_tmp_ptr, 2) == 1);
     CHECK(secp256k1_musig_session_init(ctx, &session_tmp, signers_tmp, nonce_commitment, session_id, msg, &combined_pk_tmp, &pre_session_tmp, 2, sk_dummy) == 1);
 
     CHECK(secp256k1_musig_session_init(ctx, &session, signers, nonce_commitment, session_id, msg, combined_pk, pre_session, 2, sk) == 1);
@@ -625,6 +634,7 @@ void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
     unsigned char msg[32];
     unsigned char sk[2][32];
     secp256k1_xonly_pubkey pk[2];
+    const secp256k1_xonly_pubkey *pk_ptr[2];
     secp256k1_xonly_pubkey combined_pk;
     secp256k1_musig_pre_session pre_session;
     unsigned char nonce[2][32];
@@ -647,9 +657,11 @@ void musig_state_machine_tests(secp256k1_scratch_space *scratch) {
         secp256k1_testrand256(sk[0]);
         secp256k1_testrand256(sk[1]);
         secp256k1_testrand256(msg);
+        pk_ptr[0] = &pk[0];
+        pk_ptr[1] = &pk[1];
         CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
         CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
-        CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk, &pre_session, pk, 2) == 1);
+        CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
         CHECK(secp256k1_musig_session_init(ctx, &session[0], signers0, nonce_commitment[0], session_id[0], msg, &combined_pk, &pre_session, 2, sk[0]) == 1);
         CHECK(secp256k1_musig_session_init(ctx, &session[1], signers1, nonce_commitment[1], session_id[1], msg, &combined_pk, &pre_session, 2, sk[1]) == 1);
         /* Can't combine nonces unless we're through round 1 already */
@@ -736,7 +748,9 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     unsigned char seckey_a[2][32];
     unsigned char seckey_b[2][32];
     secp256k1_xonly_pubkey pk_a[2];
+    const secp256k1_xonly_pubkey *pk_a_ptr[2];
     secp256k1_xonly_pubkey pk_b[2];
+    const secp256k1_xonly_pubkey *pk_b_ptr[2];
     secp256k1_musig_pre_session pre_session_a;
     secp256k1_musig_pre_session pre_session_b;
     secp256k1_xonly_pubkey combined_pk_a;
@@ -765,14 +779,18 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     secp256k1_testrand256(seckey_b[1]);
     secp256k1_testrand256(sec_adaptor);
 
+    pk_a_ptr[0] = &pk_a[0];
+    pk_a_ptr[1] = &pk_a[1];
+    pk_b_ptr[0] = &pk_b[0];
+    pk_b_ptr[1] = &pk_b[1];
     CHECK(secp256k1_xonly_pubkey_create(&pk_a[0], seckey_a[0]));
     CHECK(secp256k1_xonly_pubkey_create(&pk_a[1], seckey_a[1]));
     CHECK(secp256k1_xonly_pubkey_create(&pk_b[0], seckey_b[0]));
     CHECK(secp256k1_xonly_pubkey_create(&pk_b[1], seckey_b[1]));
     CHECK(secp256k1_ec_pubkey_create(ctx, &pub_adaptor, sec_adaptor));
 
-    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk_a, &pre_session_a, pk_a, 2));
-    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk_b, &pre_session_b, pk_b, 2));
+    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk_a, &pre_session_a, pk_a_ptr, 2));
+    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &combined_pk_b, &pre_session_b, pk_b_ptr, 2));
 
     CHECK(secp256k1_musig_session_init(ctx, &musig_session_a[0], data_a, noncommit_a[0], seed, msg32_a, &combined_pk_a, &pre_session_a, 2, seckey_a[0]));
     CHECK(secp256k1_musig_session_init(ctx, &musig_session_a[1], data_a, noncommit_a[1], seed, msg32_a, &combined_pk_a, &pre_session_a, 2, seckey_a[1]));
@@ -909,6 +927,7 @@ void musig_tweak_test_helper(const secp256k1_xonly_pubkey* combined_pubkey, cons
 void musig_tweak_test(secp256k1_scratch_space *scratch) {
     unsigned char sk[2][32];
     secp256k1_xonly_pubkey pk[2];
+    const secp256k1_xonly_pubkey *pk_ptr[2];
     secp256k1_musig_pre_session pre_session_P;
     secp256k1_musig_pre_session pre_session_Q;
     secp256k1_xonly_pubkey P;
@@ -927,9 +946,11 @@ void musig_tweak_test(secp256k1_scratch_space *scratch) {
     secp256k1_testrand256(sk[1]);
     secp256k1_testrand256(contract);
 
+    pk_ptr[0] = &pk[0];
+    pk_ptr[1] = &pk[1];
     CHECK(secp256k1_xonly_pubkey_create(&pk[0], sk[0]) == 1);
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
-    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &P, &pre_session_P, pk, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(ctx, scratch, &P, &pre_session_P, pk_ptr, 2) == 1);
 
     CHECK(secp256k1_xonly_pubkey_serialize(ctx, P_serialized, &P) == 1);
     secp256k1_sha256_initialize(&sha);
@@ -951,7 +972,8 @@ void musig_tweak_test(secp256k1_scratch_space *scratch) {
 }
 
 void musig_test_vectors_helper(unsigned char pk_ser[][32], int n_pks, const unsigned char *combined_pk_expected, int has_second_pk, int second_pk_idx) {
-    secp256k1_xonly_pubkey *pk = malloc(n_pks * sizeof(secp256k1_xonly_pubkey));
+    secp256k1_xonly_pubkey *pk = malloc(n_pks * sizeof(*pk));
+    const secp256k1_xonly_pubkey **pk_ptr = malloc(n_pks * sizeof(*pk_ptr));
     secp256k1_xonly_pubkey combined_pk;
     unsigned char combined_pk_ser[32];
     secp256k1_musig_pre_session pre_session;
@@ -960,9 +982,10 @@ void musig_test_vectors_helper(unsigned char pk_ser[][32], int n_pks, const unsi
 
     for (i = 0; i < n_pks; i++) {
         CHECK(secp256k1_xonly_pubkey_parse(ctx, &pk[i], pk_ser[i]));
+        pk_ptr[i] = &pk[i];
     }
 
-    CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, &pre_session, pk, n_pks) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(ctx, NULL, &combined_pk, &pre_session, pk_ptr, n_pks) == 1);
     CHECK(secp256k1_fe_set_b32(&second_pk_x, pre_session.second_pk));
     CHECK(secp256k1_fe_is_zero(&second_pk_x) == !has_second_pk);
     if (!secp256k1_fe_is_zero(&second_pk_x)) {
@@ -982,6 +1005,7 @@ void musig_test_vectors_helper(unsigned char pk_ser[][32], int n_pks, const unsi
     /* printf("};\n"); */
     CHECK(secp256k1_memcmp_var(combined_pk_ser, combined_pk_expected, sizeof(combined_pk_ser)) == 0);
     free(pk);
+    free(pk_ptr);
 }
 
 void musig_test_vectors(void) {
