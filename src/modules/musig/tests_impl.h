@@ -102,11 +102,15 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_musig_pre_session pre_session_uninitialized;
     secp256k1_xonly_pubkey pk[2];
     const secp256k1_xonly_pubkey *pk_ptr[2];
+    secp256k1_xonly_pubkey invalid_pk;
+    const secp256k1_xonly_pubkey *invalid_pk_ptr2[2];
+    const secp256k1_xonly_pubkey *invalid_pk_ptr3[3];
     unsigned char tweak[32];
 
     unsigned char sec_adaptor[32];
     unsigned char sec_adaptor1[32];
     secp256k1_pubkey adaptor;
+    int i;
 
     /** setup **/
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
@@ -127,6 +131,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
      * structs. */
     memset(&pre_session_uninitialized, 0, sizeof(pre_session_uninitialized));
     memset(&session_uninitialized, 0, sizeof(session_uninitialized));
+    memset(&invalid_pk, 0, sizeof(invalid_pk));
 
     secp256k1_testrand256(session_id[0]);
     secp256k1_testrand256(session_id[1]);
@@ -142,6 +147,13 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_xonly_pubkey_create(&pk[1], sk[1]) == 1);
     CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor) == 1);
 
+    for (i = 0; i < 2; i++) {
+        invalid_pk_ptr2[i] = &invalid_pk;
+        invalid_pk_ptr3[i] = &pk[i];
+    }
+    /* invalid_pk_ptr3 has two valid, one invalid pk, which is important to test
+     * musig_pubkeys_combine */
+    invalid_pk_ptr3[2] = &invalid_pk;
 
     /** main test body **/
 
@@ -167,10 +179,14 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(ecount == 3);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 2) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 0) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, invalid_pk_ptr2, 2) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 0) == 0);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, invalid_pk_ptr3, 3) == 0);
     CHECK(ecount == 6);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 0) == 0);
+    CHECK(ecount == 7);
+    CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 0) == 0);
+    CHECK(ecount == 8);
 
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);

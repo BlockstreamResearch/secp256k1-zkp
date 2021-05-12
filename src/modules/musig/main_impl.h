@@ -81,9 +81,11 @@ typedef struct {
 /* Callback for batch EC multiplication to compute ell_0*P0 + ell_1*P1 + ...  */
 static int secp256k1_musig_pubkey_combine_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_musig_pubkey_combine_ecmult_data *ctx = (secp256k1_musig_pubkey_combine_ecmult_data *) data;
-    if (!secp256k1_xonly_pubkey_load(ctx->ctx, pt, ctx->pks[idx])) {
-        return 0;
-    }
+    int ret;
+    ret = secp256k1_xonly_pubkey_load(ctx->ctx, pt, ctx->pks[idx]);
+    /* pubkey_load can't fail because the same pks have already been loaded (and
+     * we test this) */
+    VERIFY_CHECK(ret);
     secp256k1_musig_keyaggcoef_internal(sc, ctx->ell, &pt->x, &ctx->second_pk_x);
     return 1;
 }
@@ -130,6 +132,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         return 0;
     }
     if (!secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &pkj, NULL, secp256k1_musig_pubkey_combine_callback, (void *) &ecmult_data, n_pubkeys)) {
+        /* The current implementation of ecmult_multi_var makes this code unreachable with tests. */
         return 0;
     }
     secp256k1_ge_set_gej(&pkp, &pkj);
