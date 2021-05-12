@@ -152,6 +152,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
 
 int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_musig_pre_session *pre_session, secp256k1_pubkey *output_pubkey, const secp256k1_xonly_pubkey *internal_pubkey, const unsigned char *tweak32) {
     secp256k1_ge pk;
+    int ret;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(pre_session != NULL);
@@ -168,9 +169,10 @@ int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_mus
     memcpy(pre_session->tweak, tweak32, 32);
     pre_session->is_tweaked = 1;
 
-    if (!secp256k1_pubkey_load(ctx, &pk, output_pubkey)) {
-        return 0;
-    }
+    ret = secp256k1_pubkey_load(ctx, &pk, output_pubkey);
+    /* Successful xonly_pubkey_tweak_add always returns valid output_pubkey */
+    VERIFY_CHECK(ret);
+
     pre_session->pk_parity = secp256k1_extrakeys_ge_even_y(&pk);
     return 1;
 }
