@@ -136,7 +136,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
         return 0;
     }
     secp256k1_ge_set_gej(&pkp, &pkj);
-    secp256k1_fe_normalize(&pkp.y);
+    secp256k1_fe_normalize_var(&pkp.y);
     pk_parity = secp256k1_extrakeys_ge_even_y(&pkp);
     secp256k1_xonly_pubkey_save(combined_pk, &pkp);
 
