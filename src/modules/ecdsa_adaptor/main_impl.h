@@ -341,6 +341,17 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
      * branch point. */
     secp256k1_declassify(ctx, &enckey_expected_ge, sizeof(enckey_expected_ge));
     if (!secp256k1_eckey_pubkey_serialize(&enckey_expected_ge, enckey_expected33, &size, SECP256K1_EC_COMPRESSED)) {
+        /* Unreachable from tests (and other VERIFY builds) and therefore this
+         * branch should be ignored in test coverage analysis.
+         *
+         * Proof:
+         *     eckey_pubkey_serialize fails <=> deckey = 0
+         *     deckey = 0 <=> s^-1 = 0 or sp = 0
+         *     case 1: s^-1 = 0 impossible by the definition of multiplicative
+         *             inverse and because the scalar_inverse implementation
+         *             VERIFY_CHECKs that the inputs are valid scalars.
+         *     case 2: sp = 0 impossible because ecdsa_adaptor_sig_deserialize would have already failed
+         */
         return 0;
     }
     if (!secp256k1_ec_pubkey_serialize(ctx, enckey33, &size, enckey, SECP256K1_EC_COMPRESSED)) {

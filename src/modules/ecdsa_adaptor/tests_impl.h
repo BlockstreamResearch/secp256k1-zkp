@@ -1102,15 +1102,8 @@ void adaptor_tests(void) {
     }
     {
         /* Test key recover */
-        secp256k1_ecdsa_signature sig_tmp;
         unsigned char decryption_key_tmp[32];
         unsigned char adaptor_sig_tmp[162];
-        const unsigned char order_le[32] = {
-            0x41, 0x41, 0x36, 0xd0, 0x8c, 0x5e, 0xd2, 0xbf,
-            0x3b, 0xa0, 0x48, 0xaf, 0xe6, 0xdc, 0xae, 0xba,
-            0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-        };
 
         CHECK(secp256k1_ecdsa_adaptor_recover(ctx, decryption_key_tmp, &sig, adaptor_sig, &enckey) == 1);
         CHECK(secp256k1_memcmp_var(deckey, decryption_key_tmp, sizeof(deckey)) == 0);
@@ -1119,11 +1112,6 @@ void adaptor_tests(void) {
         memcpy(adaptor_sig_tmp, adaptor_sig, sizeof(adaptor_sig_tmp));
         memset(&adaptor_sig_tmp[66], 0xFF, 32);
         CHECK(secp256k1_ecdsa_adaptor_recover(ctx, decryption_key_tmp, &sig, adaptor_sig_tmp, &enckey) == 0);
-
-        /* Test failed enckey_expected serialization */
-        memcpy(sig_tmp.data, sig.data, 32);
-        memcpy(&sig_tmp.data[32], order_le, 32);
-        CHECK(secp256k1_ecdsa_adaptor_recover(ctx, decryption_key_tmp, &sig_tmp, adaptor_sig, &enckey) == 0);
     }
 }
 
