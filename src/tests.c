@@ -3510,35 +3510,64 @@ void run_ec_commit(void) {
 void test_group_decompress(const secp256k1_fe* x) {
     /* The input itself, normalized. */
     secp256k1_fe fex = *x;
-    /* Results of set_xo_var(..., 0), set_xo_var(..., 1). */
-    secp256k1_ge ge_even, ge_odd;
+    secp256k1_fe fez;
+    /* Results of set_xquad_var, set_xo_var(..., 0), set_xo_var(..., 1). */
+    secp256k1_ge ge_quad, ge_even, ge_odd;
+    secp256k1_gej gej_quad;
     /* Return values of the above calls. */
-    int res_even, res_odd;
+    int res_quad, res_even, res_odd;
 
     secp256k1_fe_normalize_var(&fex);
 
+    res_quad = secp256k1_ge_set_xquad(&ge_quad, &fex);
     res_even = secp256k1_ge_set_xo_var(&ge_even, &fex, 0);
     res_odd = secp256k1_ge_set_xo_var(&ge_odd, &fex, 1);
 
-    CHECK(res_even == res_odd);
+    CHECK(res_quad == res_even);
+    CHECK(res_quad == res_odd);
 
-    if (res_even) {
+    if (res_quad) {
+        secp256k1_fe_normalize_var(&ge_quad.x);
         secp256k1_fe_normalize_var(&ge_odd.x);
         secp256k1_fe_normalize_var(&ge_even.x);
+        secp256k1_fe_normalize_var(&ge_quad.y);
         secp256k1_fe_normalize_var(&ge_odd.y);
         secp256k1_fe_normalize_var(&ge_even.y);
 
         /* No infinity allowed. */
+        CHECK(!ge_quad.infinity);
         CHECK(!ge_even.infinity);
         CHECK(!ge_odd.infinity);
 
         /* Check that the x coordinates check out. */
+        CHECK(secp256k1_fe_equal_var(&ge_quad.x, x));
         CHECK(secp256k1_fe_equal_var(&ge_even.x, x));
         CHECK(secp256k1_fe_equal_var(&ge_odd.x, x));
+
+        /* Check that the Y coordinate result in ge_quad is a square. */
+        CHECK(secp256k1_fe_is_quad_var(&ge_quad.y));
 
         /* Check odd/even Y in ge_odd, ge_even. */
         CHECK(secp256k1_fe_is_odd(&ge_odd.y));
         CHECK(!secp256k1_fe_is_odd(&ge_even.y));
+
+        /* Check secp256k1_gej_has_quad_y_var. */
+        secp256k1_gej_set_ge(&gej_quad, &ge_quad);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
+        do {
+            random_fe_test(&fez);
+        } while (secp256k1_fe_is_zero(&fez));
+        secp256k1_gej_rescale(&gej_quad, &fez);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
+        secp256k1_gej_neg(&gej_quad, &gej_quad);
+        CHECK(!secp256k1_gej_has_quad_y_var(&gej_quad));
+        do {
+            random_fe_test(&fez);
+        } while (secp256k1_fe_is_zero(&fez));
+        secp256k1_gej_rescale(&gej_quad, &fez);
+        CHECK(!secp256k1_gej_has_quad_y_var(&gej_quad));
+        secp256k1_gej_neg(&gej_quad, &gej_quad);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
     }
 }
 

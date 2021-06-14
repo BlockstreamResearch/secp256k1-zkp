@@ -135,6 +135,11 @@ static int secp256k1_fe_sqrt(secp256k1_fe *r, const secp256k1_fe *a) {
     return secp256k1_fe_equal(&t1, a);
 }
 
+static int secp256k1_fe_is_quad_var(const secp256k1_fe *a) {
+    secp256k1_fe r;
+    return secp256k1_fe_sqrt(&r, a);
+}
+
 static const secp256k1_fe secp256k1_fe_one = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 1);
 
 #endif /* SECP256K1_FIELD_IMPL_H */
