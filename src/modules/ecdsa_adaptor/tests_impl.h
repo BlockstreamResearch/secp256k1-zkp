@@ -1032,7 +1032,15 @@ void adaptor_tests(void) {
     CHECK(secp256k1_ecdsa_adaptor_verify(ctx, adaptor_sig, &enckey, msg, &enckey) == 0);
     CHECK(secp256k1_ecdsa_adaptor_verify(ctx, adaptor_sig, &pubkey, msg, &pubkey) == 0);
     {
-        unsigned char adaptor_sig_tmp[65];
+        /* Test failed adaptor sig deserialization */
+        unsigned char adaptor_sig_tmp[162];
+        memset(&adaptor_sig_tmp, 0xFF, 162);
+        CHECK(secp256k1_ecdsa_adaptor_verify(ctx, adaptor_sig_tmp, &pubkey, msg, &enckey) == 0);
+    }
+    {
+        /* Test that any flipped bit in the adaptor signature will make
+         * verification fail */
+        unsigned char adaptor_sig_tmp[162];
         memcpy(adaptor_sig_tmp, adaptor_sig, sizeof(adaptor_sig_tmp));
         rand_flip_bit(&adaptor_sig_tmp[1], sizeof(adaptor_sig_tmp) - 1);
         CHECK(secp256k1_ecdsa_adaptor_verify(ctx, adaptor_sig_tmp, &pubkey, msg, &enckey) == 0);
