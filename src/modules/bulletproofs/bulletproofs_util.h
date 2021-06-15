@@ -20,6 +20,22 @@ static void secp256k1_bulletproofs_serialize_points(unsigned char *output, const
     secp256k1_fe_get_b32(&output[33], &rpt->x);
 }
 
+/* Initializes SHA256 with fixed midstate. This midstate was computed by applying
+ * SHA256 to SHA256("Bulletproofs/commitment")||SHA256("Bulletproofs/commitment"). */
+static void secp256k1_bulletproofs_sha256_tagged_commitment(secp256k1_sha256 *sha) {
+    secp256k1_sha256_initialize(sha);
+    sha->s[0] = 0x50b6a879ul;
+    sha->s[1] = 0x0d9a7470ul;
+    sha->s[2] = 0xb4400e54ul;
+    sha->s[3] = 0x32d29ac7ul;
+    sha->s[4] = 0xde938408ul;
+    sha->s[5] = 0x923fc797ul;
+    sha->s[6] = 0x29f973a6ul;
+    sha->s[7] = 0xa25e1a1cul;
+
+    sha->bytes = 64;
+}
+
 /* little-endian encodes a uint64 */
 static void secp256k1_bulletproofs_le64(unsigned char *output, const uint64_t n) {
     output[0] = n;
@@ -43,8 +59,7 @@ static void secp256k1_bulletproofs_commit_initial_data(
 ) {
     unsigned char scratch[65];
     secp256k1_sha256 sha256;
-    secp256k1_sha256_initialize(&sha256);
-    /* FIXME use tagged hash here */
+    secp256k1_bulletproofs_sha256_tagged_commitment(&sha256);
     secp256k1_bulletproofs_le64(scratch, n_bits);
     secp256k1_sha256_write(&sha256, scratch, 8);
     secp256k1_bulletproofs_le64(scratch, min_value);
