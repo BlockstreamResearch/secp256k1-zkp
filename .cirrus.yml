@@ -288,10 +288,11 @@ task:
 
 # Sanitizers
 task:
+  timeout_in: 120m
   container:
     dockerfile: ci/linux-debian.Dockerfile
     cpu: 1
-    memory: 1G
+    memory: 2G
   env:
     ECDH: yes
     RECOVERY: yes
@@ -310,7 +311,7 @@ task:
       env:
         # The `--error-exitcode` is required to make the test fail if valgrind found errors, otherwise it'll return 0 (https://www.valgrind.org/docs/manual/manual-core.html)
         WRAPPER_CMD: "valgrind --error-exitcode=42"
-        TEST_ITERS: 16
+        TEST_ITERS: 8
     - name: "UBSan, ASan, LSan"
       env:
         CFLAGS: "-fsanitize=undefined,address"
