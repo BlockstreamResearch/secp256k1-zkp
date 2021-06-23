@@ -236,4 +236,163 @@ int secp256k1_schnorrsig_verify(const secp256k1_context* ctx, const unsigned cha
            secp256k1_fe_equal_var(&rx, &r.x);
 }
 
+static int compute_midhash(const secp256k1_context* ctx, unsigned char *midhash, unsigned char **sig64, unsigned char *aggsig, unsigned char **msg32, secp256k1_xonly_pubkey *pubkey, size_t n_sigs) {
+    secp256k1_sha256 hash;
+    uint32_t i;
+
+    VERIFY_CHECK((aggsig != NULL) != (sig64 != NULL));
+
+    /* TODO: use actual tagged hash */
+    secp256k1_sha256_initialize(&hash);
+    /* z_i = int(hash_{HalfAggregation}(r_1 || pk_1 || m_1 || ... || r_n || pk_n || m_n || i)) mod n */
+    for (i = 0; i < n_sigs; i++) {
+        unsigned char pk_ser[32];
+
+        /* r_i = sig_i[0:32] */
+        if (sig64 != NULL) {
+            secp256k1_sha256_write(&hash, sig64[i], 32);
+        } else {
+            /* aggsig != NULL */
+            secp256k1_sha256_write(&hash, &aggsig[i*32], 32);
+        }
+        if (!secp256k1_xonly_pubkey_serialize(ctx, pk_ser, &pubkey[i])) {
+            return 0;
+        }
+        secp256k1_sha256_write(&hash, pk_ser, sizeof(pk_ser));
+        secp256k1_sha256_write(&hash, msg32[i], 32);
+    }
+    /* TODO: copy midstate instead of computing intermediate "midhash" */
+    secp256k1_sha256_finalize(&hash, midhash);
+    return 1;
+}
+
+int secp256k1_schnorrsig_aggregate(const secp256k1_context* ctx, unsigned char* aggsig, size_t* aggsig_size, unsigned char **sig64, unsigned char **msg32, secp256k1_xonly_pubkey *pubkey, uint32_t n_sigs) {
+    uint32_t i;
+    secp256k1_sha256 hash;
+    unsigned char midhash[32];
+    secp256k1_scalar s;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(aggsig != NULL);
+    ARG_CHECK(aggsig_size != NULL);
+    ARG_CHECK(sig64 != NULL);
+    ARG_CHECK(msg32 != NULL);
+    ARG_CHECK(pubkey != NULL);
+
+    if (*aggsig_size < 32*(1 + n_sigs)) {
+        return 0;
+    }
+
+    if (!compute_midhash(ctx, midhash, sig64, NULL, msg32, pubkey, n_sigs)) {
+        return 0;
+    }
+
+    /* s = z_1⋅s_1 + ... + z_n⋅s_n */
+    secp256k1_scalar_set_int(&s, 0);
+    for (i = 0; i < n_sigs; i++) {
+        unsigned char randomizer[32];
+        secp256k1_scalar zi;
+        secp256k1_scalar si;
+
+        secp256k1_sha256_initialize(&hash);
+        secp256k1_sha256_write(&hash, midhash, sizeof(midhash));
+        /* TODO: fix endianness issue */
+        secp256k1_sha256_write(&hash, (unsigned char *)&i, sizeof(i));
+        secp256k1_sha256_finalize(&hash, randomizer);
+        secp256k1_scalar_set_b32(&zi, randomizer, NULL);
+
+        secp256k1_scalar_set_b32(&si, &sig64[i][32], NULL);
+        secp256k1_scalar_mul(&si, &si, &zi);
+        secp256k1_scalar_add(&s, &s, &si);
+
+        memcpy(&aggsig[i*32], sig64[i], 32);
+    }
+
+    /* Return sig = r_1 || ... || r_n || bytes(s) */
+    secp256k1_scalar_get_b32(&aggsig[n_sigs*32], &s);
+    *aggsig_size = 32 * (1 + n_sigs);
+
+    return 1;
+}
+
+int secp256k1_schnorrsig_aggverify(const secp256k1_context* ctx, unsigned char **msg32, uint32_t n_msgs, secp256k1_xonly_pubkey *pubkey, unsigned char *aggsig, size_t aggsig_size) {
+    unsigned char midhash[32];
+    uint32_t i;
+    secp256k1_gej lhs, rhs;
+    secp256k1_scalar s;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(msg32 != NULL);
+    ARG_CHECK(pubkey != NULL);
+    ARG_CHECK(aggsig != NULL);
+
+    secp256k1_gej_set_infinity(&rhs);
+    if (aggsig_size != 32*(1 + n_msgs)) {
+        return 0;
+    }
+
+    if (!compute_midhash(ctx, midhash, NULL, aggsig, msg32, pubkey, n_msgs)) {
+        return 0;
+    }
+
+    for (i = 0; i < n_msgs; i++) {
+        secp256k1_sha256 hash;
+        unsigned char randomizer[32];
+        secp256k1_scalar zi;
+        secp256k1_fe rx;
+        secp256k1_ge rp, pp;
+        secp256k1_scalar ei;
+        unsigned char pk_ser[32];
+        secp256k1_gej ppj, acc;
+
+        secp256k1_sha256_initialize(&hash);
+        secp256k1_sha256_write(&hash, midhash, sizeof(midhash));
+        /* TODO: fix endianness issue */
+        secp256k1_sha256_write(&hash, (unsigned char *)&i, sizeof(i));
+        secp256k1_sha256_finalize(&hash, randomizer);
+        secp256k1_scalar_set_b32(&zi, randomizer, NULL);
+
+        /* R_i = lift_x(int(r_i)); fail if that fails */
+        if (!secp256k1_fe_set_b32(&rx, &aggsig[i*32])) {
+            return 0;
+        }
+        if (!secp256k1_ge_set_xo_var(&rp, &rx, 0)) {
+            return 0;
+        }
+
+        /* P_i = lift_x(int(pk_i)); fail if that fails */
+        if (!secp256k1_xonly_pubkey_load(ctx, &pp, &pubkey[i])) {
+            return 0;
+        }
+
+        /* e_i = int(hash_{BIP0340/challenge}(bytes(r_i) || pk_i || m_i)) mod n */
+        /* TODO: compute pubkey serialization again after compute_midhash? */
+        if (!secp256k1_xonly_pubkey_serialize(ctx, pk_ser, &pubkey[i])) {
+            return 0;
+        }
+        secp256k1_schnorrsig_challenge(&ei, &aggsig[i*32], msg32[i], pk_ser);
+        secp256k1_gej_set_ge(&ppj, &pp);
+        /* e_i⋅P_i */
+        secp256k1_ecmult(&ctx->ecmult_ctx, &acc, &ppj, &ei, NULL);
+        /* R_i + e_i⋅P_i */
+        secp256k1_gej_add_ge_var(&acc, &acc, &rp, NULL);
+        /* z_i⋅(R_i + e_i⋅P_i) */
+        secp256k1_ecmult(&ctx->ecmult_ctx, &acc, &acc, &zi, NULL);
+        secp256k1_gej_add_var(&rhs, &rhs, &acc, NULL);
+    }
+    /* s = int(sig[n⋅32:(n+1)⋅32]) */
+    secp256k1_scalar_set_b32(&s, &aggsig[n_msgs*32], &overflow);
+    if (overflow) {
+        return 0;
+    }
+    /* s⋅G */
+    secp256k1_ecmult(&ctx->ecmult_ctx, &lhs, NULL, &secp256k1_scalar_zero, &s);
+
+    /* lhs ?= rhs */
+    secp256k1_gej_neg(&lhs, &lhs);
+    secp256k1_gej_add_var(&lhs, &lhs, &rhs, NULL);
+    return secp256k1_gej_is_infinity(&lhs);
+}
+
 #endif

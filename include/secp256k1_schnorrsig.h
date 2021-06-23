@@ -1,6 +1,8 @@
 #ifndef SECP256K1_SCHNORRSIG_H
 #define SECP256K1_SCHNORRSIG_H
 
+#include <stdint.h>
+
 #include "secp256k1.h"
 #include "secp256k1_extrakeys.h"
 
@@ -103,6 +105,25 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_schnorrsig_verify(
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *pubkey
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+SECP256K1_API int secp256k1_schnorrsig_aggregate(
+    const secp256k1_context* ctx,
+    unsigned char* aggsig,
+    size_t* aggsig_size,
+    unsigned char **sig64,
+    unsigned char **msg32,
+    secp256k1_xonly_pubkey *pubkey,
+    uint32_t n_sigs
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
+SECP256K1_API int secp256k1_schnorrsig_aggverify(
+    const secp256k1_context* ctx,
+    unsigned char **msg32,
+    uint32_t n_msgs,
+    secp256k1_xonly_pubkey *pubkey,
+    unsigned char *aggsig,
+    size_t aggsig_size
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 #ifdef __cplusplus
 }

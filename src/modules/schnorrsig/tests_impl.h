@@ -789,6 +789,36 @@ void test_schnorrsig_taproot(void) {
     CHECK(secp256k1_xonly_pubkey_tweak_add_check(ctx, output_pk_bytes, pk_parity, &internal_pk, tweak) == 1);
 }
 
+
+#define N_SIGS 3
+void test_schnorrsig_aggregate(void) {
+    unsigned char aggsig[32*(N_SIGS + 1)];
+    size_t aggsig_size = sizeof(aggsig);
+    unsigned char sig64[N_SIGS][64];
+    unsigned char *sig64_ptr[N_SIGS];
+    unsigned char msg32[N_SIGS][32];
+    unsigned char *msg32_ptr[N_SIGS];
+    secp256k1_xonly_pubkey pubkey[N_SIGS];
+    int i;
+
+    for (i = 0; i < N_SIGS; i++) {
+        unsigned char sk[32];
+        secp256k1_keypair keypair;
+
+        msg32_ptr[i] = &msg32[i][0];
+        sig64_ptr[i] = &sig64[i][0];
+        secp256k1_testrand256(sk);
+        secp256k1_testrand256(msg32[i]);
+
+        CHECK(secp256k1_keypair_create(ctx, &keypair, sk) == 1);
+        CHECK(secp256k1_keypair_xonly_pub(ctx, &pubkey[i], NULL, &keypair));
+        CHECK(secp256k1_schnorrsig_sign(ctx, sig64[i], msg32[i], &keypair, NULL, NULL));
+    }
+
+    CHECK(secp256k1_schnorrsig_aggregate(ctx, aggsig, &aggsig_size, sig64_ptr, msg32_ptr, pubkey, N_SIGS));
+    CHECK(secp256k1_schnorrsig_aggverify(ctx, msg32_ptr, N_SIGS, pubkey, aggsig, aggsig_size));
+}
+
 void run_schnorrsig_tests(void) {
     int i;
     run_nonce_function_bip340_tests();
@@ -801,6 +831,7 @@ void run_schnorrsig_tests(void) {
         test_schnorrsig_sign_verify();
     }
     test_schnorrsig_taproot();
+    test_schnorrsig_aggregate();
 }
 
 #endif
