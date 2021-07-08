@@ -30,25 +30,25 @@ static int secp256k1_musig_compute_ell(const secp256k1_context *ctx, unsigned ch
 }
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
- * SHA256 to SHA256("MuSig coefficient")||SHA256("MuSig coefficient"). */
+ * SHA256 to SHA256("KeyAgg coefficient")||SHA256("KeyAgg coefficient"). */
 static void secp256k1_musig_sha256_init_tagged(secp256k1_sha256 *sha) {
     secp256k1_sha256_initialize(sha);
 
-    sha->s[0] = 0x0fd0690cul;
-    sha->s[1] = 0xfefeae97ul;
-    sha->s[2] = 0x996eac7ful;
-    sha->s[3] = 0x5c30d864ul;
-    sha->s[4] = 0x8c4a0573ul;
-    sha->s[5] = 0xaca1a22ful;
-    sha->s[6] = 0x6f43b801ul;
-    sha->s[7] = 0x85ce27cdul;
+    sha->s[0] = 0x6ef02c5aul;
+    sha->s[1] = 0x06a480deul;
+    sha->s[2] = 0x1f298665ul;
+    sha->s[3] = 0x1d1134f2ul;
+    sha->s[4] = 0x56a0b063ul;
+    sha->s[5] = 0x52da4147ul;
+    sha->s[6] = 0xf280d9d4ul;
+    sha->s[7] = 0x4484be15ul;
     sha->bytes = 64;
 }
 
-/* Compute MuSig coefficient which is constant 1 for the second pubkey and
+/* Compute KeyAgg coefficient which is constant 1 for the second pubkey and
  * SHA256(ell, x) otherwise. second_pk_x can be NULL in case there is no
  * second_pk. Assumes both field elements x and second_pk_x are normalized. */
-static void secp256k1_musig_coefficient_internal(secp256k1_scalar *r, const unsigned char *ell, secp256k1_fe *x, const secp256k1_fe *second_pk_x) {
+static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsigned char *ell, secp256k1_fe *x, const secp256k1_fe *second_pk_x) {
     secp256k1_sha256 sha;
     unsigned char buf[32];
 
@@ -65,10 +65,10 @@ static void secp256k1_musig_coefficient_internal(secp256k1_scalar *r, const unsi
 }
 
 /* Assumes both field elements x and second_pk_x are normalized. */
-static void secp256k1_musig_coefficient(secp256k1_scalar *r, const secp256k1_musig_pre_session *pre_session, secp256k1_fe *x) {
+static void secp256k1_musig_keyaggcoef(secp256k1_scalar *r, const secp256k1_musig_pre_session *pre_session, secp256k1_fe *x) {
     secp256k1_fe second_pk_x;
     secp256k1_fe_set_b32(&second_pk_x, pre_session->second_pk);
-    secp256k1_musig_coefficient_internal(r, pre_session->pk_hash, x, &second_pk_x);
+    secp256k1_musig_keyaggcoef_internal(r, pre_session->pk_hash, x, &second_pk_x);
 }
 
 typedef struct {
@@ -84,7 +84,7 @@ static int secp256k1_musig_pubkey_combine_callback(secp256k1_scalar *sc, secp256
     if (!secp256k1_xonly_pubkey_load(ctx->ctx, pt, &ctx->pks[idx])) {
         return 0;
     }
-    secp256k1_musig_coefficient_internal(sc, ctx->ell, &pt->x, &ctx->second_pk_x);
+    secp256k1_musig_keyaggcoef_internal(sc, ctx->ell, &pt->x, &ctx->second_pk_x);
     return 1;
 }
 
@@ -224,7 +224,7 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pj, &secret);
     secp256k1_ge_set_gej(&p, &pj);
     secp256k1_fe_normalize_var(&p.x);
-    secp256k1_musig_coefficient(&mu, &session->pre_session, &p.x);
+    secp256k1_musig_keyaggcoef(&mu, &session->pre_session, &p.x);
     /* Compute the signer's public key point and determine if the secret is
      * negated before signing. That happens if if the signer's pubkey has an odd
      * Y coordinate XOR the MuSig-combined pubkey has an odd Y coordinate XOR
@@ -233,7 +233,7 @@ int secp256k1_musig_session_init(const secp256k1_context* ctx, secp256k1_musig_s
      * This can be seen by looking at the secret key belonging to `combined_pk`.
      * Let's define
      * P' := mu_0*|P_0| + ... + mu_n*|P_n| where P_i is the i-th public key
-     * point x_i*G, mu_i is the i-th musig coefficient and |.| is a function
+     * point x_i*G, mu_i is the i-th KeyAgg coefficient and |.| is a function
      * that normalizes a point to an even Y by negating if necessary similar to
      * secp256k1_extrakeys_ge_even_y. Then we have
      * P := |P'| + t*G where t is the tweak.
@@ -615,10 +615,10 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     if (!secp256k1_xonly_pubkey_load(ctx, &pkp, pubkey)) {
         return 0;
     }
-    /* Multiplying the messagehash by the musig coefficient is equivalent
+    /* Multiplying the messagehash by the KeyAgg coefficient is equivalent
      * to multiplying the signer's public key by the coefficient, except
      * much easier to do. */
-    secp256k1_musig_coefficient(&mu, &session->pre_session, &pkp.x);
+    secp256k1_musig_keyaggcoef(&mu, &session->pre_session, &pkp.x);
     secp256k1_scalar_mul(&e, &e, &mu);
 
     if (!secp256k1_xonly_pubkey_load(ctx, &rp, &signer->nonce)) {
