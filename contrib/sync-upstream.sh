@@ -22,11 +22,11 @@ if [ "$#" -lt 1 ]; then
 fi
 
 REMOTE=upstream
-REMOTE_BRANCH=$REMOTE/master
+REMOTE_BRANCH="$REMOTE/master"
 # Makes sure you have a remote "upstream" that is up-to-date
 setup() {
     ret=0
-    git fetch $REMOTE &> /dev/null || ret=$?
+    git fetch "$REMOTE" &> /dev/null || ret="$?"
     if [ ${ret} == 0 ]; then
         return
     fi
@@ -36,13 +36,13 @@ setup() {
         [Yy]* ) ;;
         * ) exit 1;;
     esac
-    git remote add $REMOTE git@github.com:bitcoin-core/secp256k1.git &> /dev/null
-    git fetch $REMOTE &> /dev/null
+    git remote add "$REMOTE" git@github.com:bitcoin-core/secp256k1.git &> /dev/null
+    git fetch "$REMOTE" &> /dev/null
 }
 
 range() {
-    RANGESTART_COMMIT=$(git merge-base $REMOTE_BRANCH master)
-    RANGEEND_COMMIT=$(git rev-parse $REMOTE_BRANCH)
+    RANGESTART_COMMIT=$(git merge-base "$REMOTE_BRANCH" master)
+    RANGEEND_COMMIT=$(git rev-parse "$REMOTE_BRANCH")
     if [ "$#" = 1 ]; then
         RANGEEND_COMMIT=$1
     fi
@@ -101,7 +101,7 @@ git pull
 git checkout -b temp-merge-"$PRNUM"
 
 BASEDIR=$(dirname "$0")
-FNAME=$BASEDIR/gh-pr-create.sh
+FNAME="$BASEDIR/gh-pr-create.sh"
 cat <<EOT > "$FNAME"
 #!/bin/sh
 gh pr create -t "$TITLE" -b "$BODY" --web
