@@ -81,9 +81,9 @@ TITLE="Upstream PRs"
 BODY=""
 for COMMIT in $COMMITS
 do
-    PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\).*'/'\1'/)
+    PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\).*'/'\2'/)
     TITLE="$TITLE $PRNUM,"
-    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge #\([0-9]*\)'/'[bitcoin-core\/secp256k1#\1]'/)")
+    BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\)'/'[bitcoin-core\/secp256k1#\2]'/)")
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
