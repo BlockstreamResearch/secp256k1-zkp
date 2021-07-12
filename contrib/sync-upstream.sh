@@ -47,7 +47,7 @@ range() {
         RANGEEND_COMMIT=$1
     fi
 
-    COMMITS=$(git --no-pager log --oneline "$REMOTE_BRANCH" --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
+    COMMITS=$(git --no-pager log --oneline --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
     COMMITS=$(echo "$COMMITS" | tac | awk '{ print $1 }' ORS=' ')
     echo "Merging $COMMITS. Continue with y"
     read -r yn
