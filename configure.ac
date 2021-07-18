@@ -492,6 +492,7 @@ fi
 
 if test x"$enable_module_musig" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_MUSIG, 1, [Define this symbol to enable the MuSig module])
+  enable_module_schnorrsig=yes
 fi
 
 if test x"$enable_module_recovery" = x"yes"; then
@@ -513,7 +514,8 @@ fi
 if test x"$enable_module_surjectionproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SURJECTIONPROOF, 1, [Define this symbol to enable the surjection proof module])
 fi
-
+# Test if extrakeys is set _after_ the MuSig module to allow the MuSig
+# module to set enable_module_schnorrsig=yes
 if test x"$enable_module_schnorrsig" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SCHNORRSIG, 1, [Define this symbol to enable the schnorrsig module])
   enable_module_extrakeys=yes
@@ -663,6 +665,7 @@ echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
+echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo
