@@ -1117,7 +1117,7 @@ void musig_test_vectors(void) {
                 memcpy(pk_ser_tmp[2], pk_ser[1], sizeof(pk_ser_tmp[2]));
                 memcpy(pk_ser_tmp[3], pk_ser[1], sizeof(pk_ser_tmp[3]));
                 has_second_pk = 1;
-                second_pk_idx = 3;
+                second_pk_idx = 2; /* second_pk_idx = 3 is equally valid */
                 break;
             default:
                 CHECK(0);
