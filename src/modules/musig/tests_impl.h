@@ -72,7 +72,7 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sig_verify(ctx, &session[1], &signer1[1], &partial_sig[1], &pk[1]) == 1);
 
     CHECK(secp256k1_musig_partial_sig_combine(ctx, &session[0], final_sig, partial_sig, 2) == 1);
-    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig, msg, &combined_pk) == 1);
+    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig, msg, sizeof(msg), &combined_pk) == 1);
 }
 
 void musig_api_tests(secp256k1_scratch_space *scratch) {
@@ -488,7 +488,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sig_combine(none, &session[0], final_sig, partial_sig_adapted, 2) == 1);
     CHECK(ecount == 4);
 
-    CHECK(secp256k1_schnorrsig_verify(vrfy, final_sig, msg, &combined_pk) == 1);
+    CHECK(secp256k1_schnorrsig_verify(vrfy, final_sig, msg, sizeof(msg), &combined_pk) == 1);
 
     /** Secret adaptor can be extracted from signature */
     ecount = 0;
@@ -848,7 +848,7 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sig_adapt(ctx, &partial_sig_b_adapted[0], &partial_sig_b[0], sec_adaptor, combined_nonce_parity_b));
     memcpy(&partial_sig_b_adapted[1], &partial_sig_b[1], sizeof(partial_sig_b_adapted[1]));
     CHECK(secp256k1_musig_partial_sig_combine(ctx, &musig_session_b[0], final_sig_b, partial_sig_b_adapted, 2) == 1);
-    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig_b, msg32_b, &combined_pk_b) == 1);
+    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig_b, msg32_b, sizeof(msg32_b), &combined_pk_b) == 1);
 
     /* Step 6: Signer 1 extracts adaptor from the published signature, applies it to
      * other partial signature, and takes A-coins. */
@@ -857,7 +857,7 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sig_adapt(ctx, &partial_sig_a[0], &partial_sig_a[0], sec_adaptor_extracted, combined_nonce_parity_a));
     CHECK(secp256k1_musig_partial_sign(ctx, &musig_session_a[1], &partial_sig_a[1]));
     CHECK(secp256k1_musig_partial_sig_combine(ctx, &musig_session_a[1], final_sig_a, partial_sig_a, 2) == 1);
-    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig_a, msg32_a, &combined_pk_a) == 1);
+    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig_a, msg32_a, sizeof(msg32_a), &combined_pk_a) == 1);
 }
 
 /* Checks that hash initialized by secp256k1_musig_sha256_init_tagged has the
@@ -934,7 +934,7 @@ void musig_tweak_test_helper(const secp256k1_xonly_pubkey* combined_pubkey, cons
     CHECK(secp256k1_musig_partial_sig_verify(ctx, &session[0], &signers0[1], &partial_sig[1], &pk[1]) == 1);
     CHECK(secp256k1_musig_partial_sig_verify(ctx, &session[1], &signers1[0], &partial_sig[0], &pk[0]) == 1);
     CHECK(secp256k1_musig_partial_sig_combine(ctx, &session[0], final_sig, partial_sig, 2));
-    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig, msg, combined_pubkey) == 1);
+    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig, msg, sizeof(msg), combined_pubkey) == 1);
 }
 
 /* In this test we create a combined public key P and a commitment Q = P +
