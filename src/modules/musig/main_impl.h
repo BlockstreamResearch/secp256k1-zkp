@@ -12,12 +12,28 @@
 #include "include/secp256k1_musig.h"
 #include "hash.h"
 
+/* Initializes SHA256 with fixed midstate. This midstate was computed by applying
+ * SHA256 to SHA256("KeyAgg list")||SHA256("KeyAgg list"). */
+static void secp256k1_musig_keyagglist_sha256(secp256k1_sha256 *sha) {
+    secp256k1_sha256_initialize(sha);
+
+    sha->s[0] = 0xb399d5e0ul;
+    sha->s[1] = 0xc8fff302ul;
+    sha->s[2] = 0x6badac71ul;
+    sha->s[3] = 0x07c5b7f1ul;
+    sha->s[4] = 0x9701e2eful;
+    sha->s[5] = 0x2a72ecf8ul;
+    sha->s[6] = 0x201a4c7bul;
+    sha->s[7] = 0xab148a38ul;
+    sha->bytes = 64;
+}
+
 /* Computes ell = SHA256(pk[0], ..., pk[np-1]) */
 static int secp256k1_musig_compute_ell(const secp256k1_context *ctx, unsigned char *ell, const secp256k1_xonly_pubkey * const* pk, size_t np) {
     secp256k1_sha256 sha;
     size_t i;
 
-    secp256k1_sha256_initialize(&sha);
+    secp256k1_musig_keyagglist_sha256(&sha);
     for (i = 0; i < np; i++) {
         unsigned char ser[32];
         if (!secp256k1_xonly_pubkey_serialize(ctx, ser, pk[i])) {
@@ -31,7 +47,7 @@ static int secp256k1_musig_compute_ell(const secp256k1_context *ctx, unsigned ch
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("KeyAgg coefficient")||SHA256("KeyAgg coefficient"). */
-static void secp256k1_musig_sha256_init_tagged(secp256k1_sha256 *sha) {
+static void secp256k1_musig_keyaggcoef_sha256(secp256k1_sha256 *sha) {
     secp256k1_sha256_initialize(sha);
 
     sha->s[0] = 0x6ef02c5aul;
@@ -55,7 +71,7 @@ static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsig
     if (secp256k1_fe_cmp_var(x, second_pk_x) == 0) {
         secp256k1_scalar_set_int(r, 1);
     } else {
-        secp256k1_musig_sha256_init_tagged(&sha);
+        secp256k1_musig_keyaggcoef_sha256(&sha);
         secp256k1_sha256_write(&sha, ell, 32);
         secp256k1_fe_get_b32(buf, x);
         secp256k1_sha256_write(&sha, buf, 32);

@@ -79,7 +79,7 @@ The algorithm ''KeyAgg(pk<sub>1..u</sub>)'' is defined as:
 * Return ''bytes(S)''.
 
 The algorithm ''HashKeys(pk<sub>1..u</sub>)'' is defined as:
-* Return ''hash(pk<sub>1</sub> || pk<sub>2</sub> || ... || pk<sub>u</sub>)''
+* Return ''hash<sub>KeyAgg list</sub>(pk<sub>1</sub> || pk<sub>2</sub> || ... || pk<sub>u</sub>)''
 
 The algorithm ''IsSecond(pk<sub>1..u</sub>, i)'' is defined as:
 * For ''j = 1 .. u'':
