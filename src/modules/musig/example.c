@@ -159,7 +159,7 @@ int sign(const secp256k1_context* ctx, unsigned char seckeys[][32], const secp25
     }
     printf("ok\n");
     printf("Verifying signature.....");
-    if (!secp256k1_schnorrsig_verify(ctx, sig, msg, &combined_pk)) {
+    if (!secp256k1_schnorrsig_verify(ctx, sig, msg, 32, &combined_pk)) {
         printf("FAILED\n");
         return 1;
     }
