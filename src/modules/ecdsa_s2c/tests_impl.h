@@ -137,14 +137,12 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 2);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(both, &sig, s2c_data, NULL) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(none, &sig, s2c_data, &s2c_opening) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(sign, &sig, s2c_data, &s2c_opening) == 0);
-    CHECK(ecount == 5);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(none, &sig, s2c_data, &s2c_opening) == 1);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(sign, &sig, s2c_data, &s2c_opening) == 1);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, s2c_data, &s2c_opening) == 1);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, sec, &s2c_opening) == 0);
-    CHECK(ecount == 5); /* wrong data is not an API error */
+    CHECK(ecount == 3); /* wrong data is not an API error */
 
     /* Signing with NULL s2c_opening gives the same result */
     CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, NULL, msg, sec, s2c_data) == 1);
@@ -202,12 +200,10 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 4);
     CHECK(secp256k1_anti_exfil_host_verify(both, &sig, msg, &pk, hostrand, NULL) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_anti_exfil_host_verify(none, &sig, msg, &pk, hostrand, &s2c_opening) == 0);
-    CHECK(ecount == 6);
-    CHECK(secp256k1_anti_exfil_host_verify(sign, &sig, msg, &pk, hostrand, &s2c_opening) == 0);
-    CHECK(ecount == 7);
+    CHECK(secp256k1_anti_exfil_host_verify(none, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
+    CHECK(secp256k1_anti_exfil_host_verify(sign, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
     CHECK(secp256k1_anti_exfil_host_verify(vrfy, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
-    CHECK(ecount == 7);
+    CHECK(ecount == 5);
 
     secp256k1_context_destroy(both);
     secp256k1_context_destroy(vrfy);

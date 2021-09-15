@@ -25,7 +25,6 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
 
     /* Sanity checks */
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(sig != NULL);
     ARG_CHECK(online_pubkeys != NULL);
@@ -90,7 +89,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
     /* Actually sign */
     if (ret) {
         sig->n_keys = n_keys;
-        ret = secp256k1_borromean_sign(&ctx->ecmult_ctx, &ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
+        ret = secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
         /* Signing will change s[index], so update in the sig structure */
         secp256k1_scalar_get_b32(&sig->data[32 * (index + 1)], &s[index]);
     }
@@ -107,7 +106,6 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(sig != NULL);
     ARG_CHECK(online_pubkeys != NULL);
     ARG_CHECK(offline_pubkeys != NULL);
@@ -129,7 +127,7 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
         return 0;
     }
     /* Do verification */
-    return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
+    return secp256k1_borromean_verify(NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
 }
 
 size_t secp256k1_whitelist_signature_n_keys(const secp256k1_whitelist_signature *sig) {

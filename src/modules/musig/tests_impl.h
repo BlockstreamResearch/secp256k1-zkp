@@ -159,34 +159,29 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
 
     /* Key combination */
     ecount = 0;
-    CHECK(secp256k1_musig_pubkey_combine(none, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_musig_pubkey_combine(sign, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 0);
-    CHECK(ecount == 2);
+    CHECK(secp256k1_musig_pubkey_combine(none, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
+    CHECK(secp256k1_musig_pubkey_combine(sign, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
-    CHECK(ecount == 2);
     /* pubkey_combine does not require a scratch space */
     CHECK(secp256k1_musig_pubkey_combine(vrfy, NULL, &combined_pk, &pre_session, pk_ptr, 2) == 1);
-    CHECK(ecount == 2);
     /* A small scratch space works too, but will result in using an ineffecient algorithm */
     scratch_small = secp256k1_scratch_space_create(ctx, 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch_small, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     secp256k1_scratch_space_destroy(ctx, scratch_small);
-    CHECK(ecount == 2);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, NULL, &pre_session, pk_ptr, 2) == 0);
-    CHECK(ecount == 3);
+    CHECK(ecount == 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, NULL, pk_ptr, 2) == 1);
-    CHECK(ecount == 3);
+    CHECK(ecount == 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 2) == 0);
-    CHECK(ecount == 4);
+    CHECK(ecount == 2);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, invalid_pk_ptr2, 2) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, invalid_pk_ptr3, 3) == 0);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 0) == 0);
-    CHECK(ecount == 7);
+    CHECK(ecount == 5);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, NULL, 0) == 0);
-    CHECK(ecount == 8);
+    CHECK(ecount == 6);
 
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_pubkey_combine(vrfy, scratch, &combined_pk, &pre_session, pk_ptr, 2) == 1);
@@ -201,31 +196,30 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
         CHECK(secp256k1_musig_pubkey_tweak_add(ctx, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 1);
         /* Reset pre_session */
         tmp_pre_session = pre_session;
-        CHECK(secp256k1_musig_pubkey_tweak_add(none, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 1);
-        CHECK(secp256k1_musig_pubkey_tweak_add(sign, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 2);
+        CHECK(secp256k1_musig_pubkey_tweak_add(none, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 1);
+        tmp_pre_session = pre_session;
+        CHECK(secp256k1_musig_pubkey_tweak_add(sign, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 1);
+        tmp_pre_session = pre_session;
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 1);
-        CHECK(ecount == 2);
         tmp_pre_session = pre_session;
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, NULL, &tmp_output_pk, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 3);
+        CHECK(ecount == 1);
         /* Uninitialized pre_session */
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &pre_session_uninitialized, &tmp_output_pk, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 4);
+        CHECK(ecount == 2);
         /* Using the same pre_session twice does not work */
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 1);
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 5);
+        CHECK(ecount == 3);
         tmp_pre_session = pre_session;
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, NULL, &tmp_internal_pk, tweak) == 0);
-        CHECK(ecount == 6);
+        CHECK(ecount == 4);
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, NULL, tweak) == 0);
-        CHECK(ecount == 7);
+        CHECK(ecount == 5);
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, NULL) == 0);
-        CHECK(ecount == 8);
+        CHECK(ecount == 6);
         CHECK(secp256k1_musig_pubkey_tweak_add(vrfy, &tmp_pre_session, &tmp_output_pk, &tmp_internal_pk, ones) == 0);
-        CHECK(ecount == 8);
+        CHECK(ecount == 6);
     }
 
     /** Session creation **/
@@ -413,27 +407,23 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
 
     /** Partial signature verification */
     ecount = 0;
-    CHECK(secp256k1_musig_partial_sig_verify(none, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_musig_partial_sig_verify(sign, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 0);
-    CHECK(ecount == 2);
+    CHECK(secp256k1_musig_partial_sig_verify(none, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 1);
+    CHECK(secp256k1_musig_partial_sig_verify(sign, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 1);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 1);
-    CHECK(ecount == 2);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], &partial_sig[1], &pk[0]) == 0);
-    CHECK(ecount == 2);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, NULL, &signer0[0], &partial_sig[0], &pk[0]) == 0);
-    CHECK(ecount == 3);
+    CHECK(ecount == 1);
     /* Unitialized session */
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session_uninitialized, &signer0[0], &partial_sig[0], &pk[0]) == 0);
-    CHECK(ecount == 4);
+    CHECK(ecount == 2);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], NULL, &partial_sig[0], &pk[0]) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], NULL, &pk[0]) == 0);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], &partial_sig_overflow, &pk[0]) == 0);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], &partial_sig[0], NULL) == 0);
-    CHECK(ecount == 7);
+    CHECK(ecount == 5);
 
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[0], &signer0[0], &partial_sig[0], &pk[0]) == 1);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[1], &signer1[0], &partial_sig[0], &pk[0]) == 1);
@@ -441,7 +431,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &session[1], &signer1[1], &partial_sig[1], &pk[1]) == 1);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &verifier_session, &verifier_signer_data[0], &partial_sig[0], &pk[0]) == 1);
     CHECK(secp256k1_musig_partial_sig_verify(vrfy, &verifier_session, &verifier_signer_data[1], &partial_sig[1], &pk[1]) == 1);
-    CHECK(ecount == 7);
+    CHECK(ecount == 5);
 
     /** Adaptor signature verification */
     memcpy(&partial_sig_adapted[1], &partial_sig[1], sizeof(partial_sig_adapted[1]));
