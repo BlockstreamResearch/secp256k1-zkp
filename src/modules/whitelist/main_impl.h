@@ -144,7 +144,7 @@ int secp256k1_whitelist_signature_parse(const secp256k1_context* ctx, secp256k1_
     }
 
     sig->n_keys = input[0];
-    if (sig->n_keys >= MAX_KEYS || input_len != 1 + 32 * (sig->n_keys + 1)) {
+    if (sig->n_keys > MAX_KEYS || input_len != 1 + 32 * (sig->n_keys + 1)) {
         return 0;
     }
     memcpy(&sig->data[0], &input[1], 32 * (sig->n_keys + 1));
