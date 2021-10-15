@@ -125,7 +125,6 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(combined_pk != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(pubkeys != NULL);
     ARG_CHECK(n_pubkeys > 0);
 
@@ -147,7 +146,7 @@ int secp256k1_musig_pubkey_combine(const secp256k1_context* ctx, secp256k1_scrat
     if (!secp256k1_musig_compute_ell(ctx, ecmult_data.ell, pubkeys, n_pubkeys)) {
         return 0;
     }
-    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, &ctx->ecmult_ctx, scratch, &pkj, NULL, secp256k1_musig_pubkey_combine_callback, (void *) &ecmult_data, n_pubkeys)) {
+    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &pkj, NULL, secp256k1_musig_pubkey_combine_callback, (void *) &ecmult_data, n_pubkeys)) {
         /* The current implementation of ecmult_multi_var makes this code unreachable with tests. */
         return 0;
     }
@@ -617,7 +616,6 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     int overflow;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
     ARG_CHECK(session != NULL);
     ARG_CHECK(signer != NULL);
     ARG_CHECK(partial_sig != NULL);
@@ -661,7 +659,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_scalar_negate(&e, &e);
 
     secp256k1_gej_set_ge(&pkj, &pkp);
-    secp256k1_ecmult(&ctx->ecmult_ctx, &rj, &pkj, &e, &s);
+    secp256k1_ecmult(&rj, &pkj, &e, &s);
 
     if (!session->combined_nonce_parity) {
         secp256k1_ge_neg(&rp, &rp);
