@@ -329,7 +329,6 @@ static void test_borromean(void) {
     unsigned char e0[32];
     secp256k1_scalar s[64];
     secp256k1_gej pubs[64];
-    secp256k1_scalar k[8];
     secp256k1_scalar sec[8];
     secp256k1_ge ge;
     secp256k1_scalar one;
@@ -352,12 +351,8 @@ static void test_borromean(void) {
         rsizes[i] = 1 + (secp256k1_testrand32()&7);
         secidx[i] = secp256k1_testrand32() % rsizes[i];
         random_scalar_order(&sec[i]);
-        random_scalar_order(&k[i]);
         if(secp256k1_testrand32()&7) {
             sec[i] = one;
-        }
-        if(secp256k1_testrand32()&7) {
-            k[i] = one;
         }
         for (j = 0; j < rsizes[i]; j++) {
             random_scalar_order(&s[c + j]);
@@ -373,7 +368,7 @@ static void test_borromean(void) {
         }
         c += rsizes[i];
     }
-    CHECK(secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, &secidx_closure, nrings, m, 32));
+    CHECK(secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, e0, s, pubs, sec, rsizes, &secidx_closure, nrings, m, 32));
     CHECK(secp256k1_borromean_verify(NULL, e0, s, pubs, rsizes, nrings, m, 32));
     i = secp256k1_testrand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);

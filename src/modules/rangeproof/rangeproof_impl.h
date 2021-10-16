@@ -208,7 +208,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_gej pubs[128];     /* Candidate digits for our proof, most inferred. */
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
-    secp256k1_scalar k[32];      /* Nonces for our non-forged signatures. */
     secp256k1_scalar stmp;
     secp256k1_sha256 sha256_m;
     unsigned char prep[4096];
@@ -283,12 +282,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         return 0;
     }
     memset(prep, 0, 4096);
-    for (i = 0; i < rings; i++) {
-        size_t secidx_i = secidx_closure.call(&secidx_closure, i);
-        /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
-        k[i] = s[i * 4 + secidx_i];
-        secp256k1_scalar_clear(&s[i * 4 + secidx_i]);
-    }
     /** Genrand returns the last blinding factor as -sum(rest),
      *   adding in the blinding factor for our commitment, results in the blinding factor for
      *   the commitment to the last digit that the verifier can compute for itself by subtracting
@@ -335,7 +328,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, tmp);
-    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, &secidx_closure, rings, tmp, 32)) {
+    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, sec, rsizes, &secidx_closure, rings, tmp, 32)) {
         return 0;
     }
     len += 32;
