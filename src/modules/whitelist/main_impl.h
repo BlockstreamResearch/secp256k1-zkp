@@ -88,8 +88,9 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
     }
     /* Actually sign */
     if (ret) {
+        secp256k1_borromean_sz_closure secidx_closure = secp256k1_borromean_sz_closure_const(index);
         sig->n_keys = n_keys;
-        ret = secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &index, 1, msg32, 32);
+        ret = secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &sig->data[0], s, pubs, &non, &sec, &n_keys, &secidx_closure, 1, msg32, 32);
         /* Signing will change s[index], so update in the sig structure */
         secp256k1_scalar_get_b32(&sig->data[32 * (index + 1)], &s[index]);
     }

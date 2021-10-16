@@ -18,6 +18,18 @@
 #include "modules/rangeproof/pedersen.h"
 #include "modules/rangeproof/borromean.h"
 
+static size_t secp256k1_borromean_sz_closure_secidx_call(const secp256k1_borromean_sz_closure* self, size_t index) {
+    return (self->input >> (index * 2)) & 3;
+}
+ 
+/** Create a sz_closure for the secret index within each ring */
+static secp256k1_borromean_sz_closure secp256k1_borromean_sz_closure_secidx(uint64_t value) {
+    secp256k1_borromean_sz_closure ret;
+    ret.input = value;
+    ret.call = secp256k1_borromean_sz_closure_secidx_call;
+    return ret;
+}
+ 
 SECP256K1_INLINE static void secp256k1_rangeproof_pub_expand(secp256k1_gej *pubs,
  int exp, size_t *rsizes, size_t rings, const secp256k1_ge* genp) {
     secp256k1_gej base;
@@ -111,12 +123,11 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
     return ret;
 }
 
-SECP256K1_INLINE static int secp256k1_range_proveparams(uint64_t *v, size_t *rings, size_t *rsizes, size_t *npub, size_t *secidx, uint64_t *min_value,
+SECP256K1_INLINE static int secp256k1_range_proveparams(uint64_t *v, size_t *rings, size_t *rsizes, size_t *npub, secp256k1_borromean_sz_closure* secidx_closure, uint64_t *min_value,
  int *mantissa, uint64_t *scale,  int *exp, int *min_bits, uint64_t value) {
     size_t i;
     *rings = 1;
     rsizes[0] = 1;
-    secidx[0] = 0;
     *scale = 1;
     *mantissa = 0;
     *npub = 0;
@@ -170,16 +181,17 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(uint64_t *v, size_t *rin
         for (i = 0; i < *rings; i++) {
             rsizes[i] = ((i < *rings - 1) | (!(*mantissa&1))) ? 4 : 2;
             *npub += rsizes[i];
-            secidx[i] = (*v >> (i*2)) & 3;
         }
         VERIFY_CHECK(*mantissa>0);
         VERIFY_CHECK((*v & ~(UINT64_MAX>>(64-*mantissa))) == 0); /* Did this get all the bits? */
+        *secidx_closure = secp256k1_borromean_sz_closure_secidx(*v);
     } else {
         /* A proof for an exact value. */
         *exp = 0;
         *min_value = value;
         *v = 0;
         *npub = 2;
+        *secidx_closure = secp256k1_borromean_sz_closure_const(0);
     }
     VERIFY_CHECK(*v * *scale + *min_value == value);
     VERIFY_CHECK(*rings > 0);
@@ -207,7 +219,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     int mantissa;                  /* Number of bits proven in the blinded value. */
     size_t rings;                     /* How many digits will our proof cover. */
     size_t rsizes[32];                /* How many possible values there are for each place. */
-    size_t secidx[32];                /* Which digit is the correct one. */
+    secp256k1_borromean_sz_closure secidx_closure;
     size_t len;                       /* Number of bytes used so far. */
     size_t i;
     int overflow;
@@ -216,7 +228,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     if (*plen < 65 || min_value > value || min_bits > 64 || min_bits < 0 || exp < -1 || exp > 18) {
         return 0;
     }
-    if (!secp256k1_range_proveparams(&v, &rings, rsizes, &npub, secidx, &min_value, &mantissa, &scale, &exp, &min_bits, value)) {
+    if (!secp256k1_range_proveparams(&v, &rings, rsizes, &npub, &secidx_closure, &min_value, &mantissa, &scale, &exp, &min_bits, value)) {
         return 0;
     }
     proof[len] = (rsizes[0] > 1 ? (64 | exp) : 0) | (min_value ? 32 : 0);
@@ -259,7 +271,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         size_t idx;
         /* Value encoding sidechannel. */
         idx = rsizes[rings - 1] - 1;
-        idx -= secidx[rings - 1] == idx;
+        idx -= secidx_closure.call(&secidx_closure, rings - 1) == idx;
         idx = ((rings - 1) * 4 + idx) * 32;
         for (i = 0; i < 8; i++) {
             prep[8 + i + idx] = prep[16 + i + idx] = prep[24 + i + idx] = (v >> (56 - i * 8)) & 255;
@@ -272,9 +284,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     }
     memset(prep, 0, 4096);
     for (i = 0; i < rings; i++) {
+        size_t secidx_i = secidx_closure.call(&secidx_closure, i);
         /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
-        k[i] = s[i * 4 + secidx[i]];
-        secp256k1_scalar_clear(&s[i * 4 + secidx[i]]);
+        k[i] = s[i * 4 + secidx_i];
+        secp256k1_scalar_clear(&s[i * 4 + secidx_i]);
     }
     /** Genrand returns the last blinding factor as -sum(rest),
      *   adding in the blinding factor for our commitment, results in the blinding factor for
@@ -295,8 +308,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     }
     npub = 0;
     for (i = 0; i < rings; i++) {
+        uint64_t secidx_i = secidx_closure.call(&secidx_closure, i);
         /*OPT: Use the precomputed gen2 basis?*/
-        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &pubs[npub], &sec[i], ((uint64_t)secidx[i] * scale) << (i*2), genp);
+        secp256k1_pedersen_ecmult(ecmult_gen_ctx, &pubs[npub], &sec[i], (secidx_i * scale) << (i*2), genp);
         if (secp256k1_gej_is_infinity(&pubs[npub])) {
             return 0;
         }
@@ -321,7 +335,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, tmp);
-    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, secidx, rings, tmp, 32)) {
+    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, &secidx_closure, rings, tmp, 32)) {
         return 0;
     }
     len += 32;

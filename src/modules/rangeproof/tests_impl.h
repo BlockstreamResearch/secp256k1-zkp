@@ -312,6 +312,19 @@ static void test_pedersen(void) {
     CHECK(secp256k1_pedersen_verify_tally(ctx, &cptr[1], 1, &cptr[1], 1));
 }
 
+/* Hack size_t closure that will just index into a given array */
+static size_t secp256k1_borromean_sz_closure_test_call(const secp256k1_borromean_sz_closure* self, size_t index) {
+    const size_t* secidx = (const size_t*)self->input;
+    return secidx[index];
+}
+
+static secp256k1_borromean_sz_closure secp256k1_borromean_sz_closure_test(const size_t* secidx) {
+    secp256k1_borromean_sz_closure ret;
+    ret.input = (uint64_t) secidx;
+    ret.call = secp256k1_borromean_sz_closure_test_call;
+    return ret;
+}
+
 static void test_borromean(void) {
     unsigned char e0[32];
     secp256k1_scalar s[64];
@@ -327,6 +340,7 @@ static void test_borromean(void) {
     size_t i;
     size_t j;
     int c;
+    secp256k1_borromean_sz_closure secidx_closure = secp256k1_borromean_sz_closure_test(secidx);
     secp256k1_testrand256_test(m);
     nrings = 1 + (secp256k1_testrand32()&7);
     c = 0;
@@ -359,7 +373,7 @@ static void test_borromean(void) {
         }
         c += rsizes[i];
     }
-    CHECK(secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
+    CHECK(secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, &secidx_closure, nrings, m, 32));
     CHECK(secp256k1_borromean_verify(NULL, e0, s, pubs, rsizes, nrings, m, 32));
     i = secp256k1_testrand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);

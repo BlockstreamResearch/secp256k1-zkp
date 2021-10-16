@@ -278,7 +278,6 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     secp256k1_scalar nonce;
     int overflow = 0;
     size_t rsizes[1];    /* array needed for borromean sig API */
-    size_t indices[1];   /* array needed for borromean sig API */
     size_t i;
     size_t n_total_pubkeys;
     size_t n_used_pubkeys;
@@ -286,6 +285,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     unsigned char msg32[32];
+    secp256k1_borromean_sz_closure secidx_closure;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
@@ -328,7 +328,6 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
 
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
-    indices[0] = (int) ring_input_index;
     secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
     if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
@@ -338,7 +337,8 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
      * homage to the rangeproof code which does this very cleverly to encode messages. */
     nonce = borromean_s[ring_input_index];
     secp256k1_scalar_clear(&borromean_s[ring_input_index]);
-    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
+    secidx_closure = secp256k1_borromean_sz_closure_const(ring_input_index);
+    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, &secidx_closure, 1, msg32, 32) == 0) {
         return 0;
     }
     for (i = 0; i < n_used_pubkeys; i++) {

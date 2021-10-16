@@ -11,6 +11,7 @@
 
 #include "modules/rangeproof/pedersen_impl.h"
 #include "modules/rangeproof/borromean_impl.h"
+#include "modules/rangeproof/borromean_util_impl.h"
 #include "modules/rangeproof/rangeproof_impl.h"
 
 /** Alternative generator for secp256k1.
