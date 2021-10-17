@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-#define SECP256K1_WHITELIST_MAX_N_KEYS	256
+#define SECP256K1_WHITELIST_MAX_N_KEYS 255
 
 /** Opaque data structure that holds a parsed whitelist proof
  *
