@@ -261,11 +261,32 @@ SECP256K1_INLINE static void secp256k1_rangeproof_serialize_point(unsigned char*
     secp256k1_fe_get_b32(data + 1, &pointx);
 }
 
-SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, secp256k1_scalar *s, unsigned char *message,
- size_t *rsizes, size_t rings, const unsigned char *nonce, const secp256k1_ge *commit, const unsigned char *proof, size_t len, const secp256k1_ge* genp) {
-    unsigned char tmp[32];
+SECP256K1_INLINE static void secp256k1_rangeproof_init_rng(
+    secp256k1_rfc6979_hmac_sha256* rng,
+    const unsigned char* nonce,
+    const secp256k1_ge* commit,
+    const unsigned char *proof,
+    const size_t len,
+    const secp256k1_ge* genp
+) {
     unsigned char rngseed[32 + 33 + 33 + 10];
-    secp256k1_rfc6979_hmac_sha256 rng;
+    VERIFY_CHECK(len <= 10);
+
+    memcpy(rngseed, nonce, 32);
+    secp256k1_rangeproof_serialize_point(rngseed + 32, commit);
+    secp256k1_rangeproof_serialize_point(rngseed + 32 + 33, genp);
+    memcpy(rngseed + 33 + 33 + 32, proof, len);
+    secp256k1_rfc6979_hmac_sha256_initialize(rng, rngseed, 32 + 33 + 33 + len);
+}
+
+SECP256K1_INLINE static int secp256k1_rangeproof_genrand(
+    secp256k1_scalar *sec,
+    secp256k1_scalar *s,
+    unsigned char *message,
+    const secp256k1_rangeproof_header* header,
+    secp256k1_rfc6979_hmac_sha256* rng
+) {
+    unsigned char tmp[32];
     secp256k1_scalar acc;
     int overflow;
     int ret;
@@ -273,20 +294,14 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
     size_t j;
     int b;
     size_t npub;
-    VERIFY_CHECK(len <= 10);
-    memcpy(rngseed, nonce, 32);
-    secp256k1_rangeproof_serialize_point(rngseed + 32, commit);
-    secp256k1_rangeproof_serialize_point(rngseed + 32 + 33, genp);
-    memcpy(rngseed + 33 + 33 + 32, proof, len);
-    secp256k1_rfc6979_hmac_sha256_initialize(&rng, rngseed, 32 + 33 + 33 + len);
     secp256k1_scalar_clear(&acc);
     npub = 0;
     ret = 1;
-    for (i = 0; i < rings; i++) {
-        if (i < rings - 1) {
-            secp256k1_rfc6979_hmac_sha256_generate(&rng, tmp, 32);
+    for (i = 0; i < header->n_rings; i++) {
+        if (i < header->n_rings - 1) {
+            secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
             do {
-                secp256k1_rfc6979_hmac_sha256_generate(&rng, tmp, 32);
+                secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
                 secp256k1_scalar_set_b32(&sec[i], tmp, &overflow);
             } while (overflow || secp256k1_scalar_is_zero(&sec[i]));
             secp256k1_scalar_add(&acc, &acc, &sec[i]);
@@ -294,8 +309,8 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
             secp256k1_scalar_negate(&acc, &acc);
             sec[i] = acc;
         }
-        for (j = 0; j < rsizes[i]; j++) {
-            secp256k1_rfc6979_hmac_sha256_generate(&rng, tmp, 32);
+        for (j = 0; j < header->rsizes[i]; j++) {
+            secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
             if (message) {
                 for (b = 0; b < 32; b++) {
                     tmp[b] ^= message[(i * 4 + j) * 32 + b];
@@ -307,7 +322,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
             npub++;
         }
     }
-    secp256k1_rfc6979_hmac_sha256_finalize(&rng);
+    secp256k1_rfc6979_hmac_sha256_finalize(rng);
     secp256k1_scalar_clear(&acc);
     memset(tmp, 0, 32);
     return ret;
@@ -328,6 +343,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     unsigned char tmp[33];
     unsigned char *signs;          /* Location of sign flags in the proof. */
     uint64_t v;
+    secp256k1_rfc6979_hmac_sha256 genrand_rng;
     secp256k1_borromean_sz_closure secidx_closure;
     size_t len;                       /* Number of bytes used so far. */
     size_t i;
@@ -389,7 +405,8 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         }
         prep[idx] = 128;
     }
-    if (!secp256k1_rangeproof_genrand(sec, s, prep, header.rsizes, header.n_rings, nonce, commit, proof, len, genp)) {
+    secp256k1_rangeproof_init_rng(&genrand_rng, nonce, commit, proof, len, genp);
+    if (!secp256k1_rangeproof_genrand(sec, s, prep, &header, &genrand_rng)) {
         return 0;
     }
     memset(prep, 0, 4096);
@@ -481,6 +498,7 @@ SECP256K1_INLINE static void secp256k1_rangeproof_ch32xor(unsigned char *x, cons
 SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *blind, uint64_t *v,
  unsigned char *m, size_t *mlen, secp256k1_scalar *ev, secp256k1_scalar *s,
  secp256k1_rangeproof_header* header, const unsigned char *nonce, const secp256k1_ge *commit, const unsigned char *proof, size_t len, const secp256k1_ge *genp) {
+    secp256k1_rfc6979_hmac_sha256 genrand_rng;
     secp256k1_scalar s_orig[128];
     secp256k1_scalar sec[32];
     secp256k1_scalar stmp;
@@ -496,7 +514,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     size_t npub;
     memset(prep, 0, 4096);
     /* Reconstruct the provers random values. */
-    secp256k1_rangeproof_genrand(sec, s_orig, prep, header->rsizes, header->n_rings, nonce, commit, proof, len, genp);
+    secp256k1_rangeproof_init_rng(&genrand_rng, nonce, commit, proof, len, genp);
+    if (!secp256k1_rangeproof_genrand(sec, s_orig, prep, header, &genrand_rng)) {
+        return 0;
+    }
     *v = UINT64_MAX;
     secp256k1_scalar_clear(blind);
     if (header->n_rings == 1 && header->rsizes[0] == 1) {
