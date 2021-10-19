@@ -28,7 +28,7 @@ typedef struct secp256k1_rangeproof_header {
     /** Number of bits used to represent the proven value. Will be 0 for an exact proof.
      *
      * Encoded in the header. */
-    int mantissa;
+    size_t mantissa;
     /** 10 to the power of exp, or 1 for a proof of an exact value.
      *
      * Implied by `exp`, not encoded. */
@@ -68,6 +68,21 @@ static int secp256k1_rangeproof_header_parse(
     size_t* offset,
     const unsigned char* proof,
     size_t plen
+);
+
+/** Serializes out a rangeproof header which has at least `exp`, `min_value` and `mantissa` set
+ *
+ * Returns: 1 on success, 0 on failure
+ * Out:  proof: the buffer to serialize into
+ *      offset: the number of bytes of `proof` that the header occupies
+ * In:    plen: the length of the proof buffer
+ *      header: the header to serialize
+ */
+static int secp256k1_rangeproof_header_serialize(
+    unsigned char* proof,
+    size_t plen,
+    size_t* offset,
+    const secp256k1_rangeproof_header* header
 );
 
 static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
