@@ -314,13 +314,13 @@ static void test_pedersen(void) {
 
 /* Hack size_t closure that will just index into a given array */
 static size_t secp256k1_borromean_sz_closure_test_call(const secp256k1_borromean_sz_closure* self, size_t index) {
-    const size_t* secidx = (const size_t*)self->input;
+    const size_t* secidx = (const size_t*) (size_t) self->input;
     return secidx[index];
 }
 
 static secp256k1_borromean_sz_closure secp256k1_borromean_sz_closure_test(const size_t* secidx) {
     secp256k1_borromean_sz_closure ret;
-    ret.input = (uint64_t) secidx;
+    ret.input = (uint64_t) (size_t) secidx;
     ret.call = secp256k1_borromean_sz_closure_test_call;
     return ret;
 }
