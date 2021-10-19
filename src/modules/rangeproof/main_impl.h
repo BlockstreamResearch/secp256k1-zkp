@@ -232,17 +232,23 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
 
 int secp256k1_rangeproof_info(const secp256k1_context* ctx, int *exp, int *mantissa,
  uint64_t *min_value, uint64_t *max_value, const unsigned char *proof, size_t plen) {
+    secp256k1_rangeproof_header header;
     size_t offset;
-    uint64_t scale;
     ARG_CHECK(exp != NULL);
     ARG_CHECK(mantissa != NULL);
     ARG_CHECK(min_value != NULL);
     ARG_CHECK(max_value != NULL);
     ARG_CHECK(proof != NULL);
     offset = 0;
-    scale = 1;
     (void)ctx;
-    return secp256k1_rangeproof_getheader_impl(&offset, exp, mantissa, &scale, min_value, max_value, proof, plen);
+    if (!secp256k1_rangeproof_header_parse(&header, &offset, proof, plen)) {
+        return 0;
+    }
+    *exp = header.exp;
+    *mantissa = header.mantissa;
+    *min_value = header.min_value;
+    *max_value = header.max_value;
+    return 1;
 }
 
 int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
