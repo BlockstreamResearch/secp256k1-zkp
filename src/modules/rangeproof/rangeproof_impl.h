@@ -281,7 +281,81 @@ SECP256K1_INLINE static void secp256k1_rangeproof_init_rng(
     secp256k1_rfc6979_hmac_sha256_initialize(rng, rngseed, 32 + 33 + 33 + len);
 }
 
-SECP256K1_INLINE static int secp256k1_rangeproof_genrand(
+SECP256K1_INLINE static int secp256k1_rangeproof_genrand_sign(
+    secp256k1_scalar *sec,
+    secp256k1_scalar *s,
+    const unsigned char* blind,
+    const unsigned char* message,
+    const size_t msg_len,
+    const secp256k1_rangeproof_header* header,
+    const uint64_t proven_value,
+    secp256k1_rfc6979_hmac_sha256* rng
+) {
+    unsigned char tmp[32];
+    secp256k1_scalar acc;
+    int overflow;
+    int ret;
+    size_t i;
+    size_t npub;
+    secp256k1_scalar_set_b32(&acc, blind, &overflow);
+    if (overflow) {
+        return 0;
+    }
+    secp256k1_scalar_negate(&acc, &acc);
+    npub = 0;
+    ret = 1;
+    for (i = 0; i < header->n_rings; i++) {
+        size_t j;
+        if (i < header->n_rings - 1) {
+            secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
+            do {
+                secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
+                secp256k1_scalar_set_b32(&sec[i], tmp, &overflow);
+            } while (overflow || secp256k1_scalar_is_zero(&sec[i]));
+            secp256k1_scalar_add(&acc, &acc, &sec[i]);
+        } else {
+            secp256k1_scalar_negate(&acc, &acc);
+            sec[i] = acc;
+        }
+        for (j = 0; j < header->rsizes[i]; j++) {
+            secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
+            if (message && i < header->n_rings - 1) {
+                /* encode the message side-channel */
+                int b;
+                for (b = 0; b < 32; b++) {
+                    if ((i * 4 + j) * 32 + b < msg_len) {
+                        tmp[b] ^= message[(i * 4 + j) * 32 + b];
+                    }
+                }
+            } else if (i == header->n_rings - 1) {
+                /* encode the value in the final ring thrice, both to inform the rewinder
+                 * which indices are real and to signal to the rewinder that its nonce is
+                 * correct and it is decoding something non-random */
+                size_t jidx = header->rsizes[i] - 1;
+                jidx -= (proven_value >> (2 * i)) == jidx;
+                if (j == jidx) {
+                    size_t k;
+                    tmp[0] ^= 128;
+                    for (k = 0; k < 8; k++) {
+                        unsigned char xor = (proven_value >> (56 - k * 8)) & 255;
+                        tmp[8 + k] ^= xor;
+                        tmp[16 + k] ^= xor;
+                        tmp[24 + k] ^= xor;
+                    }
+                }
+            }
+            secp256k1_scalar_set_b32(&s[npub], tmp, &overflow);
+            ret &= !(overflow || secp256k1_scalar_is_zero(&s[npub]));
+            npub++;
+        }
+    }
+    secp256k1_rfc6979_hmac_sha256_finalize(rng);
+    secp256k1_scalar_clear(&acc);
+    memset(tmp, 0, 32);
+    return ret;
+}
+
+SECP256K1_INLINE static int secp256k1_rangeproof_genrand_rewind(
     secp256k1_scalar *sec,
     secp256k1_scalar *s,
     unsigned char *message,
@@ -315,7 +389,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(
             secp256k1_rfc6979_hmac_sha256_generate(rng, tmp, 32);
             if (message) {
                 for (b = 0; b < 32; b++) {
-                    tmp[b] ^= message[(i * 4 + j) * 32 + b];
                     message[(i * 4 + j) * 32 + b] = tmp[b];
                 }
             }
@@ -340,9 +413,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
     secp256k1_scalar k[32];      /* Nonces for our non-forged signatures. */
-    secp256k1_scalar stmp;
     secp256k1_sha256 sha256_m;
-    unsigned char prep[4096];
     unsigned char tmp[33];
     unsigned char *signs;          /* Location of sign flags in the proof. */
     uint64_t v;
@@ -351,7 +422,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     size_t len;                       /* Number of bytes used so far. */
     size_t i;
     size_t pub_idx;
-    int overflow;
     len = 0;
     if (*plen < 65) {
         return 0;
@@ -390,43 +460,14 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_sha256_write(&sha256_m, tmp, 33);
     secp256k1_sha256_write(&sha256_m, proof, len);
 
-    memset(prep, 0, 4096);
-    if (message != NULL) {
-        memcpy(prep, message, msg_len);
-    }
-    /* Note, the data corresponding to the blinding factors must be zero. */
-    if (header.rsizes[header.n_rings - 1] > 1) {
-        size_t idx;
-        /* Value encoding sidechannel. */
-        idx = header.rsizes[header.n_rings - 1] - 1;
-        idx -= secidx[header.n_rings - 1] == idx;
-        idx = ((header.n_rings - 1) * 4 + idx) * 32;
-        for (i = 0; i < 8; i++) {
-            prep[8 + i + idx] = prep[16 + i + idx] = prep[24 + i + idx] = (v >> (56 - i * 8)) & 255;
-            prep[i + idx] = 0;
-        }
-        prep[idx] = 128;
-    }
     secp256k1_rangeproof_init_rng(&genrand_rng, nonce, commit, proof, len, genp);
-    if (!secp256k1_rangeproof_genrand(sec, s, prep, &header, &genrand_rng)) {
+    if (!secp256k1_rangeproof_genrand_sign(sec, s, blind, message, msg_len, &header, v, &genrand_rng)) {
         return 0;
     }
-    memset(prep, 0, 4096);
     for (i = 0; i < header.n_rings; i++) {
         /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
         k[i] = s[i * 4 + secidx[i]];
         secp256k1_scalar_clear(&s[i * 4 + secidx[i]]);
-    }
-    /** Genrand returns the last blinding factor as -sum(rest),
-     *   adding in the blinding factor for our commitment, results in the blinding factor for
-     *   the commitment to the last digit that the verifier can compute for itself by subtracting
-     *   all the digits in the proof from the commitment. This lets the prover skip sending the
-     *   blinded value for one digit.
-     */
-    secp256k1_scalar_set_b32(&stmp, blind, &overflow);
-    secp256k1_scalar_add(&sec[header.n_rings - 1], &sec[header.n_rings - 1], &stmp);
-    if (overflow || secp256k1_scalar_is_zero(&sec[header.n_rings - 1])) {
-        return 0;
     }
     signs = &proof[len];
     /* We need one sign bit for each blinded value we send. */
@@ -473,7 +514,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     }
     VERIFY_CHECK(len <= *plen);
     *plen = len;
-    memset(prep, 0, 4096);
     return 1;
 }
 
@@ -521,7 +561,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     memset(prep, 0, 4096);
     /* Reconstruct the provers random values. */
     secp256k1_rangeproof_init_rng(&genrand_rng, nonce, commit, proof, len, genp);
-    if (!secp256k1_rangeproof_genrand(sec, s_orig, prep, header, &genrand_rng)) {
+    if (!secp256k1_rangeproof_genrand_rewind(sec, s_orig, prep, header, &genrand_rng)) {
         return 0;
     }
     *v = UINT64_MAX;
