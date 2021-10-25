@@ -258,7 +258,7 @@ int secp256k1_musig_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *a
     return 1;
 }
 
-int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *tweak32) {
+static int secp256k1_musig_pubkey_tweak_add_internal(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *tweak32, int xonly) {
     secp256k1_keyagg_cache_internal cache_i;
     int overflow = 0;
     secp256k1_scalar tweak;
@@ -277,7 +277,7 @@ int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_pub
     if (overflow) {
         return 0;
     }
-    if (secp256k1_extrakeys_ge_even_y(&cache_i.pk)) {
+    if (xonly && secp256k1_extrakeys_ge_even_y(&cache_i.pk)) {
         cache_i.internal_key_parity ^= 1;
         secp256k1_scalar_negate(&cache_i.tweak, &cache_i.tweak);
     }
@@ -292,6 +292,14 @@ int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_pub
         secp256k1_pubkey_save(output_pubkey, &cache_i.pk);
     }
     return 1;
+}
+
+int secp256k1_musig_pubkey_ec_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *tweak32) {
+    return secp256k1_musig_pubkey_tweak_add_internal(ctx, output_pubkey, keyagg_cache, tweak32, 0);
+}
+
+int secp256k1_musig_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *tweak32) {
+    return secp256k1_musig_pubkey_tweak_add_internal(ctx, output_pubkey, keyagg_cache, tweak32, 1);
 }
 
 #endif
