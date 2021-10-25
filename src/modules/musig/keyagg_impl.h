@@ -244,6 +244,20 @@ int secp256k1_musig_pubkey_agg(const secp256k1_context* ctx, secp256k1_scratch_s
     return 1;
 }
 
+int secp256k1_musig_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, secp256k1_musig_keyagg_cache *keyagg_cache) {
+    secp256k1_keyagg_cache_internal cache_i;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(agg_pk != NULL);
+    memset(agg_pk, 0, sizeof(*agg_pk));
+    ARG_CHECK(keyagg_cache != NULL);
+
+    if(!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
+        return 0;
+    }
+    secp256k1_pubkey_save(agg_pk, &cache_i.pk);
+    return 1;
+}
+
 int secp256k1_musig_pubkey_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *tweak32) {
     secp256k1_keyagg_cache_internal cache_i;
     int overflow = 0;

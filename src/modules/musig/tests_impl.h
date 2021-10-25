@@ -140,6 +140,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     unsigned char aggnonce_ser[66];
     unsigned char msg[32];
     secp256k1_xonly_pubkey agg_pk;
+    secp256k1_pubkey full_agg_pk;
     secp256k1_musig_keyagg_cache keyagg_cache;
     secp256k1_musig_keyagg_cache invalid_keyagg_cache;
     secp256k1_musig_session session;
@@ -242,6 +243,15 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_pubkey_agg(none, scratch, &agg_pk, &keyagg_cache, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_pubkey_agg(sign, scratch, &agg_pk, &keyagg_cache, pk_ptr, 2) == 1);
     CHECK(secp256k1_musig_pubkey_agg(vrfy, scratch, &agg_pk, &keyagg_cache, pk_ptr, 2) == 1);
+
+    /* pubkey_get */
+    ecount = 0;
+    CHECK(secp256k1_musig_pubkey_get(none, &full_agg_pk, &keyagg_cache) == 1);
+    CHECK(secp256k1_musig_pubkey_get(none, NULL, &keyagg_cache) == 0);
+    CHECK(ecount == 1);
+    CHECK(secp256k1_musig_pubkey_get(none, &full_agg_pk, NULL) == 0);
+    CHECK(ecount == 2);
+    CHECK(secp256k1_memcmp_var(&full_agg_pk, zeros68, sizeof(full_agg_pk)) == 0);
 
     /** Tweaking **/
     ecount = 0;
