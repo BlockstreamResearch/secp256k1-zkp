@@ -191,6 +191,11 @@ AC_ARG_ENABLE(module_ecdsa-adaptor,
     [enable_module_ecdsa_adaptor=$enableval],
     [enable_module_ecdsa_adaptor=no])
 
+AC_ARG_ENABLE(module_internals,
+    AS_HELP_STRING([--enable-module-musig],[enable internals module (experimental)]),
+    [enable_module_internals=$enableval],
+    [enable_module_internals=no])
+
 AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]),
     [use_external_default_callbacks=$enableval],
@@ -534,6 +539,11 @@ if test x"$enable_module_ecdsa_s2c" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_ECDSA_S2C, 1, [Define this symbol to enable the ECDSA sign-to-contract module])
 fi
 
+if test x"$enable_module_internals" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_INTERNALS, 1, [Define this symbol to enable the internals module])
+  enable_module_internals=yes
+fi
+
 if test x"$use_external_default_callbacks" = x"yes"; then
   AC_DEFINE(USE_EXTERNAL_DEFAULT_CALLBACKS, 1, [Define this symbol if an external implementation of the default callbacks is used])
 fi
@@ -563,6 +573,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building schnorrsig module: $enable_module_schnorrsig])
   AC_MSG_NOTICE([Building ECDSA sign-to-contract module: $enable_module_ecdsa_s2c])
   AC_MSG_NOTICE([Building ECDSA adaptor signatures module: $enable_module_ecdsa_adaptor])
+  AC_MSG_NOTICE([Building internals module: $enable_module_internals])
   AC_MSG_NOTICE([******])
 
 
@@ -645,6 +656,7 @@ AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_INTERNALS], [test x"$enable_module_internals" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
@@ -672,6 +684,7 @@ echo "  module schnorrsig       = $enable_module_schnorrsig"
 echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
+echo "  module internals        = $enable_module_internals"
 echo
 echo "  asm                     = $set_asm"
 echo "  ecmult window size      = $set_ecmult_window"
