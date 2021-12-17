@@ -119,8 +119,8 @@ task:
   name: "x86_64: macOS Catalina"
   macos_instance:
     image: catalina-base
-  # As of d4ca81f48e tasks with valgrind enabled take about 60 minutes
-  timeout_in: 90m
+  # tasks with valgrind enabled take about 90 minutes
+  timeout_in: 120m
   env:
     HOMEBREW_NO_AUTO_UPDATE: 1
     HOMEBREW_NO_INSTALL_CLEANUP: 1
