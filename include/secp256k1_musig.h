@@ -197,11 +197,13 @@ SECP256K1_API int secp256k1_musig_partial_sig_parse(
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:        ctx: pointer to a context object initialized for verification
- *           scratch: scratch space used to compute the aggregate pubkey by
- *                    multiexponentiation. Generally, the larger the scratch
- *                    space, the faster this function. However, the returns of
- *                    providing a larger scratch space are diminishing. If NULL,
- *                    an inefficient algorithm is used.
+ *           scratch: should be NULL because it is not yet implemented. If it
+ *                    was implemented then the scratch space would be used to
+ *                    compute the aggregate pubkey by multiexponentiation.
+ *                    Generally, the larger the scratch space, the faster this
+ *                    function. However, the returns of providing a larger
+ *                    scratch space are diminishing. If NULL, an inefficient
+ *                    algorithm is used.
  *  Out:      agg_pk: the MuSig-aggregated x-only public key. If you do not need it,
  *                    this arg can be NULL.
  *      keyagg_cache: if non-NULL, pointer to a musig_keyagg_cache struct that

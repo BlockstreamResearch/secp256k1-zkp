@@ -190,6 +190,7 @@ int secp256k1_musig_pubkey_agg(const secp256k1_context* ctx, secp256k1_scratch_s
     secp256k1_gej pkj;
     secp256k1_ge pkp;
     size_t i;
+    (void) scratch;
 
     VERIFY_CHECK(ctx != NULL);
     if (agg_pk != NULL) {
@@ -216,7 +217,9 @@ int secp256k1_musig_pubkey_agg(const secp256k1_context* ctx, secp256k1_scratch_s
     if (!secp256k1_musig_compute_pk_hash(ctx, ecmult_data.pk_hash, pubkeys, n_pubkeys)) {
         return 0;
     }
-    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &pkj, NULL, secp256k1_musig_pubkey_agg_callback, (void *) &ecmult_data, n_pubkeys)) {
+    /* TODO: actually use optimized ecmult_multi algorithms by providing a
+     * scratch space */
+    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, &pkj, NULL, secp256k1_musig_pubkey_agg_callback, (void *) &ecmult_data, n_pubkeys)) {
         /* In order to reach this line with the current implementation of
          * ecmult_multi_var one would need to provide a callback that can
          * fail. */
