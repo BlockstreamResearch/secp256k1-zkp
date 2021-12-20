@@ -129,6 +129,15 @@ exhaustive_tests_LDFLAGS = -static
 TESTS += exhaustive_tests
 endif
 
+if ENABLE_MODULE_MUSIG
+noinst_PROGRAMS += example_musig
+example_musig_SOURCES = examples/musig.c
+example_musig_CPPFLAGS = -I$(top_srcdir)/include
+example_musig_LDADD = libsecp256k1.la
+example_musig_LDFLAGS = -static
+TESTS += example_musig
+endif
+
 EXTRA_PROGRAMS = gen_ecmult_static_pre_g
 gen_ecmult_static_pre_g_SOURCES = src/gen_ecmult_static_pre_g.c
 # See Automake manual, Section "Errors with distclean"
