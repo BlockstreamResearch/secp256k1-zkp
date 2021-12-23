@@ -7,6 +7,7 @@ bench_schnorrsig
 bench_sign
 bench_verify
 bench_recover
+bench_whitelist
 bench_internal
 tests
 exhaustive_tests
