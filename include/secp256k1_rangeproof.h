@@ -286,6 +286,99 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
   size_t plen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
+/** Returns the serialized size of a ring signature with the given number of keys
+ *  Args:   ctx: pointer to a context object (cannot be NULL)
+ *  In:  n_keys: number of keys
+ */
+SECP256K1_API size_t secp256k1_ring_signature_length(
+    const secp256k1_context* ctx,
+    size_t n_keys
+) SECP256K1_ARG_NONNULL(1);
+
+/** Returns the minimum scratch space size to sign or verify a ring signature with the given number of keys
+ *  Args:   ctx: pointer to a context object (cannot be NULL)
+ *  In:  n_keys: number of keys
+ */
+SECP256K1_API size_t secp256k1_ring_signature_scratch_space_size(
+    const secp256k1_context* ctx,
+    size_t n_keys
+) SECP256K1_ARG_NONNULL(1);
+
+/** Produces a linear-sized ring signature with a given set of keys, returning a "proof" which can be used to reveal the signer
+ *  Returns 1: Proof successfully created.
+ *          0: if sig_len was less than the `secp256k1_ring_signature_length` for this number of keys
+ *  Args:          ctx: pointer to a context object, initialized for both signing and verification (cannot be NULL)
+ *             scratch: scratch space with enough space available (to learn a minimum size
+ *                      use `secp256k1_ring_signature_scratch_space_size`) (cannot be NULL)
+ *  Out:           sig: pointer to array to receive the signature (cannot be NULL)
+ *        author_proof: if non-NULL, pointer to a 32-byte byte array to receive a proof of authorship
+ *  In:        pubkeys: pointer to array of public keys (cannot be NULL)
+ *           n_pubkeys: length of the above array
+ *             sec_key: secret key to sign with (cannot be NULL)
+ *             sec_idx: index of the signer in the list of pubkeys
+ *               nonce: if non-NULL, 32-byte secret nonce used to randomize the proof; to make a proof it is
+ *                      impossible to revoke anonymity on, leave `author_proof` NULL and throw this value away
+ *             message: 32-byte message hash to sign (cannot be NULL)
+ *  In/out:    sig_len: pointer to the size of `sig`, overwritten with the actual proof size (cannot be NULL)
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ring_sign(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    unsigned char* sig,
+    size_t* sig_len,
+    unsigned char* author_proof,
+    const secp256k1_pubkey* pubkeys,
+    size_t n_pubkeys,
+    const unsigned char *sec_key,
+    size_t sec_idx,
+    const unsigned char *nonce,
+    const unsigned char *message
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(11);
+
+/** Verify a ring signature
+ *  Returns 1: Signature was valid
+ *         0: Signature was not valid
+ *  Args:      ctx: pointer to a context object, initialized for verification (cannot be NULL)
+ *         scratch: scratch space with enough space available (to learn a minimum size
+ *                  use `secp256k1_ring_signature_scratch_space_size`) (cannot be NULL)
+ *  In:        sig: pointer to the signature to verify (cannot be NULL)
+ *         sig_len: length of the signature in bytes.
+ *         pubkeys: pointer to array of public keys (cannot be NULL)
+ *       n_pubkeys: length of the above array
+ *         message: 32-byte message hash that was signed (cannot be NULL)
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ring_verify(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const unsigned char* sig,
+    size_t sig_len,
+    const secp256k1_pubkey* pubkeys,
+    size_t n_pubkeys,
+    const unsigned char *message
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7);
+
+/** De-anonymizes a ring signature, given a 32-byte author proof
+ *  Returns 1: Signature was successfully deanonymized
+ *          0: Author proof was a lie
+ *  Args:          ctx: pointer to a context object (cannot be NULL)
+ *  Out:   author_idx: populated with the index of the author of the ring signature on success;
+ *                     if the function fails, this value is unspecified (cannot be NULL)
+ *  In:           sig: pointer to the signature to verify (cannot be NULL)
+ *            sig_len: length of the signature in bytes.
+ *       author_proof: an author proof as output from `secp256k1_ring_sign` (cannot be NULL)
+ *            pubkeys: pointer to array of public keys (cannot be NULL)
+ *          n_pubkeys: length of the above array
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ring_deanonymize(
+    const secp256k1_context* ctx,
+    size_t *author_idx,
+    const unsigned char* sig,
+    size_t sig_len,
+    const unsigned char* author_proof,
+    const secp256k1_pubkey* pubkeys,
+    size_t n_pubkeys
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
 # ifdef __cplusplus
 }
 # endif
