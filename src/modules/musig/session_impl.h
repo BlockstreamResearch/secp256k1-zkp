@@ -283,10 +283,14 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
     ARG_CHECK(session_id32 != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     if (seckey == NULL) {
-        /* Check in constant time that the session_id is not 0 as a
-         * defense-in-depth measure that may protect against a faulty RNG. */
+        /* Check in constant time that if seckey isn't provided, then the
+         * middle 16 bytes of session_id are not all 0.
+         *
+         * This is a defense-in-depth measure that may protect against a
+         * faulty RNG, as well invalid use of a 64-bit counter (in any
+         * endian-ness) instead of a secure RNG. */
         unsigned char acc = 0;
-        for (i = 0; i < 32; i++) {
+        for (i = 8; i < 24; i++) {
             acc |= session_id32[i];
         }
         ret &= !!acc;
