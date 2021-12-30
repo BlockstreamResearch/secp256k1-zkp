@@ -664,13 +664,6 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_musig_keyaggcoef(&mu, &cache_i, &pkp.x);
     secp256k1_scalar_mul(&e, &session_i.challenge, &mu);
 
-    /* If the MuSig-aggregate point has an odd Y coordinate, the signers will
-     * sign for the negation of their individual xonly public key. If the
-     * aggregate key is untweaked, then internal_key_parity is 0, so `e` is
-     * negated exactly when the aggregate key parity is odd. If the aggregate
-     * key is tweaked, then negation happens when the aggregate key has an odd Y
-     * coordinate XOR the internal key has an odd Y coordinate.*/
-
     /* When producing a partial signature, signer i uses a possibly
      * negated secret key:
      *
