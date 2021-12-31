@@ -4,9 +4,9 @@
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-/**
- * This file demonstrates how to use the MuSig module to create a multisignature.
- * Additionally, see the documentation in include/secp256k1_musig.h.
+/** This file demonstrates how to use the MuSig module to create a
+ *  3-of-3 multisignature. Additionally, see the documentation in
+ *  include/secp256k1_musig.h and src/modules/musig/musig.md.
  */
 
 #include <stdio.h>
