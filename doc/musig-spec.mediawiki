@@ -126,6 +126,19 @@ The algorithm ''NonceAgg(pubnonce<sub>1..u</sub>)'' is defined as:
 ** Let ''R<sub>i</sub> = R'<sub>i</sub>'' if not ''is_infinite(R'<sub>i</sub>)'', otherwise let R<sub>i</sub> = G''
 * Return ''aggnonce = cbytes(R<sub>1</sub>) || cbytes(R<sub>2</sub>)''
 
+===== Note on ''is_infinite(R'<sub>i</sub>)'' =====
+
+If ''is_infinite(R'<sub>i</sub>)'' there is at least one dishonest signer (except with negligible probability).
+If we would fail here, we will never be able to determine who it is.
+Therefore, we should continue such that the culprit is revealed when collecting and verifying partial signatures.
+However, dealing with the point at infinity requires defining a serialization and may require extra code complexity in implementations.
+Instead, we set the aggregate nonce to some arbitrary point, the generator.
+
+This modification does not affect the security of the scheme.
+''NonceAgg'' (both the original and modified version) only depends on publicly available data (the set of public pre-nonces from every signer).
+Thus in the multi-signature security game (EUF-CMA), we can consider ''NonceAgg'' to be performed by the adversary (rather than the challenger) without loss of generality.
+The modification changes neither the behavior of the EUF-CMA challenger nor the condition required to win the security game (the adversary still has to output a valid forgery according to the unmodified MuSig2* scheme). Since we've already proved that MuSig2* is secure against an arbitrary adversary, we can conclude that the modified scheme is still secure.
+
 ==== Signing ====
 
 Input:
