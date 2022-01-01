@@ -121,12 +121,10 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_s2c_sign(none, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_s2c_sign(vrfy, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_ecdsa_s2c_sign(none, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
+    CHECK(secp256k1_ecdsa_s2c_sign(vrfy, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
     CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
 
     CHECK(secp256k1_ecdsa_verify(ctx, &sig, msg, &pk) == 1);
 
@@ -166,12 +164,10 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(none, &s2c_opening, msg, sec, hostrand_commitment) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(vrfy, &s2c_opening, msg, sec, hostrand_commitment) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(none, &s2c_opening, msg, sec, hostrand_commitment) == 1);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(vrfy, &s2c_opening, msg, sec, hostrand_commitment) == 1);
     CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(sign, &s2c_opening, msg, sec, hostrand_commitment) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
 
     ecount = 0;
     CHECK(secp256k1_anti_exfil_sign(both, NULL, msg, sec, hostrand) == 0);
@@ -182,12 +178,10 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(ecount == 3);
     CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_anti_exfil_sign(none, &sig, msg, sec, hostrand) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_anti_exfil_sign(vrfy, &sig, msg, sec, hostrand) == 0);
-    CHECK(ecount == 6);
+    CHECK(secp256k1_anti_exfil_sign(none, &sig, msg, sec, hostrand) == 1);
+    CHECK(secp256k1_anti_exfil_sign(vrfy, &sig, msg, sec, hostrand) == 1);
     CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, hostrand) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
 
     ecount = 0;
     CHECK(secp256k1_anti_exfil_host_verify(both, NULL, msg, &pk, hostrand, &s2c_opening) == 0);

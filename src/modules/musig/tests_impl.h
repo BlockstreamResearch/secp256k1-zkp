@@ -276,40 +276,38 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
 
     /** Session creation **/
     ecount = 0;
-    CHECK(secp256k1_musig_nonce_gen(none, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_musig_nonce_gen(vrfy, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 2);
+    CHECK(secp256k1_musig_nonce_gen(none, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 1);
+    CHECK(secp256k1_musig_nonce_gen(vrfy, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 1);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 1);
-    CHECK(ecount == 2);
+    CHECK(ecount == 0);
     CHECK(secp256k1_musig_nonce_gen(sign, NULL, &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 3);
+    CHECK(ecount == 1);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], NULL, session_id[0], sk[0], msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 4);
+    CHECK(ecount == 2);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], NULL, sk[0], msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     /* no seckey and session_id is 0 */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, NULL, msg, &keyagg_cache, max64) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     /* session_id 0 is fine when a seckey is provided */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, sk[0], msg, &keyagg_cache, max64) == 1);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], NULL, msg, &keyagg_cache, max64) == 1);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     /* invalid seckey */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], max64, msg, &keyagg_cache, max64) == 0);
     CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], sk[0], NULL, &keyagg_cache, max64) == 1);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, NULL, max64) == 1);
-    CHECK(ecount == 5);
+    CHECK(ecount == 3);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &invalid_keyagg_cache, max64) == 0);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
     CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], sk[0], msg, &keyagg_cache, NULL) == 1);
-    CHECK(ecount == 6);
+    CHECK(ecount == 4);
 
     /* Every in-argument except session_id can be NULL */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], NULL, NULL, NULL, NULL) == 1);
@@ -607,11 +605,11 @@ void musig_nonce_test(void) {
     int i, j;
     secp256k1_scalar k[5][2];
 
-    secp256k1_rfc6979_hmac_sha256_generate(&secp256k1_test_rng, session_id, sizeof(session_id));
-    secp256k1_rfc6979_hmac_sha256_generate(&secp256k1_test_rng, sk, sizeof(sk));
-    secp256k1_rfc6979_hmac_sha256_generate(&secp256k1_test_rng, msg, sizeof(msg));
-    secp256k1_rfc6979_hmac_sha256_generate(&secp256k1_test_rng, agg_pk, sizeof(agg_pk));
-    secp256k1_rfc6979_hmac_sha256_generate(&secp256k1_test_rng, extra_input, sizeof(extra_input));
+    secp256k1_testrand_bytes_test(session_id, sizeof(session_id));
+    secp256k1_testrand_bytes_test(sk, sizeof(sk));
+    secp256k1_testrand_bytes_test(msg, sizeof(msg));
+    secp256k1_testrand_bytes_test(agg_pk, sizeof(agg_pk));
+    secp256k1_testrand_bytes_test(extra_input, sizeof(extra_input));
 
     /* Check that a bitflip in an argument results in different nonces. */
     args[0] = session_id;
