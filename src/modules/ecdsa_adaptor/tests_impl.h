@@ -828,16 +828,19 @@ void test_ecdsa_adaptor_api(void) {
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
     secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
     secp256k1_context *both = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_no_precomp);
     int ecount;
 
     secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_error_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(sttc, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(sttc, counting_illegal_callback_fn, &ecount);
 
     secp256k1_testrand256(sk);
     secp256k1_testrand256(msg);
@@ -852,16 +855,18 @@ void test_ecdsa_adaptor_api(void) {
     CHECK(secp256k1_ecdsa_adaptor_encrypt(vrfy, asig, sk, &enckey, msg, NULL, NULL) == 1);
     CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &enckey, msg, NULL, NULL) == 1);
     CHECK(ecount == 0);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, NULL, sk, &enckey, msg, NULL, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sttc, asig, sk, &enckey, msg, NULL, NULL) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &enckey, NULL, NULL, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, NULL, sk, &enckey, msg, NULL, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, NULL, &enckey, msg, NULL, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &enckey, NULL, NULL, NULL) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, NULL, msg, NULL, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, NULL, &enckey, msg, NULL, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &zero_pk, msg, NULL, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, NULL, msg, NULL, NULL) == 0);
     CHECK(ecount == 5);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &zero_pk, msg, NULL, NULL) == 0);
+    CHECK(ecount == 6);
 
     ecount = 0;
     CHECK(secp256k1_ecdsa_adaptor_encrypt(sign, asig, sk, &enckey, msg, NULL, NULL) == 1);
@@ -900,21 +905,24 @@ void test_ecdsa_adaptor_api(void) {
     CHECK(secp256k1_ecdsa_adaptor_recover(vrfy, deckey, &sig, asig, &enckey) == 1);
     CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, asig, &enckey) == 1);
     CHECK(ecount == 0);
-    CHECK(secp256k1_ecdsa_adaptor_recover(sign, NULL, &sig, asig, &enckey) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sttc, deckey, &sig, asig, &enckey) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, NULL, asig, &enckey) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sign, NULL, &sig, asig, &enckey) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, NULL, &enckey) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, NULL, asig, &enckey) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, asig, NULL) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, NULL, &enckey) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, asig, &zero_pk) == 0);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, asig, NULL) == 0);
     CHECK(ecount == 5);
+    CHECK(secp256k1_ecdsa_adaptor_recover(sign, deckey, &sig, asig, &zero_pk) == 0);
+    CHECK(ecount == 6);
 
     secp256k1_context_destroy(none);
     secp256k1_context_destroy(sign);
     secp256k1_context_destroy(vrfy);
     secp256k1_context_destroy(both);
+    secp256k1_context_destroy(sttc);
 }
 
 void adaptor_tests(void) {
