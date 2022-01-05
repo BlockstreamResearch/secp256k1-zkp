@@ -22,11 +22,18 @@
 #endif
 
 /** Implements arithmetic modulo FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE FFFFFC2F,
- *  represented as 5 uint64_t's in base 2^52. The values are allowed to contain >52 each. In particular,
- *  each FieldElem has a 'magnitude' associated with it. Internally, a magnitude M means each element
- *  is at most M*(2^53-1), except the most significant one, which is limited to M*(2^49-1). All operations
- *  accept any input with magnitude at most M, and have different rules for propagating magnitude to their
- *  output.
+ *  represented as 5 uint64_t's in base 2^52, least significant first. Note that the limbs are allowed to
+ *  contain >52 bits each.
+ *
+ *  Each field element has a 'magnitude' associated with it. Internally, a magnitude M means:
+ *  - 2*M*(2^48-1) is the max (inclusive) of the most significant limb
+ *  - 2*M*(2^52-1) is the max (inclusive) of the remaining limbs
+ *
+ *  Operations have different rules for propagating magnitude to their outputs. If an operation takes a
+ *  magnitude M as a parameter, that means the magnitude of input field elements can be at most M (inclusive).
+ *
+ *  Each field element also has a 'normalized' flag. A field element is normalized if its magnitude is either
+ *  0 or 1, and its value is already reduced modulo the order of the field.
  */
 
 #ifdef VERIFY
@@ -227,10 +234,11 @@ static int secp256k1_fe_normalizes_to_zero_var(const secp256k1_fe *r) {
 }
 
 SECP256K1_INLINE static void secp256k1_fe_set_int(secp256k1_fe *r, int a) {
+    VERIFY_CHECK(0 <= a && a <= 0x7FFF);
     r->n[0] = a;
     r->n[1] = r->n[2] = r->n[3] = r->n[4] = 0;
 #ifdef VERIFY
-    r->magnitude = 1;
+    r->magnitude = (a != 0);
     r->normalized = 1;
     secp256k1_fe_verify(r);
 #endif
@@ -376,6 +384,9 @@ SECP256K1_INLINE static void secp256k1_fe_negate(secp256k1_fe *r, const secp256k
 #ifdef VERIFY
     VERIFY_CHECK(a->magnitude <= m);
     secp256k1_fe_verify(a);
+    VERIFY_CHECK(0xFFFFEFFFFFC2FULL * 2 * (m + 1) >= 0xFFFFFFFFFFFFFULL * 2 * m);
+    VERIFY_CHECK(0xFFFFFFFFFFFFFULL * 2 * (m + 1) >= 0xFFFFFFFFFFFFFULL * 2 * m);
+    VERIFY_CHECK(0x0FFFFFFFFFFFFULL * 2 * (m + 1) >= 0x0FFFFFFFFFFFFULL * 2 * m);
 #endif
     r->n[0] = 0xFFFFEFFFFFC2FULL * 2 * (m + 1) - a->n[0];
     r->n[1] = 0xFFFFFFFFFFFFFULL * 2 * (m + 1) - a->n[1];
@@ -496,6 +507,7 @@ static SECP256K1_INLINE void secp256k1_fe_from_storage(secp256k1_fe *r, const se
 #ifdef VERIFY
     r->magnitude = 1;
     r->normalized = 1;
+    secp256k1_fe_verify(r);
 #endif
 }
 

@@ -65,6 +65,17 @@ static int nonce_function_bip340(unsigned char *nonce32, const unsigned char *ms
         for (i = 0; i < 32; i++) {
             masked_key[i] ^= key32[i];
         }
+    } else {
+        /* Precomputed TaggedHash("BIP0340/aux", 0x0000...00); */
+        static const unsigned char ZERO_MASK[32] = {
+              84, 241, 105, 207, 201, 226, 229, 114,
+             116, 128,  68,  31, 144, 186,  37, 196,
+             136, 244,  97, 199,  11,  94, 165, 220,
+             170, 247, 175, 105, 39,  10, 165,  20
+        };
+        for (i = 0; i < 32; i++) {
+            masked_key[i] = key32[i] ^ ZERO_MASK[i];
+        }
     }
 
     /* Tag the hash with algo which is important to avoid nonce reuse across
@@ -77,12 +88,8 @@ static int nonce_function_bip340(unsigned char *nonce32, const unsigned char *ms
         secp256k1_sha256_initialize_tagged(&sha, algo, algolen);
     }
 
-    /* Hash (masked-)key||pk||msg using the tagged hash as per the spec */
-    if (data != NULL) {
-        secp256k1_sha256_write(&sha, masked_key, 32);
-    } else {
-        secp256k1_sha256_write(&sha, key32, 32);
-    }
+    /* Hash masked-key||pk||msg using the tagged hash as per the spec */
+    secp256k1_sha256_write(&sha, masked_key, 32);
     secp256k1_sha256_write(&sha, xonly_pk32, 32);
     secp256k1_sha256_write(&sha, msg, msglen);
     secp256k1_sha256_finalize(&sha, nonce32);
@@ -185,8 +192,9 @@ static int secp256k1_schnorrsig_sign_internal(const secp256k1_context* ctx, unsi
     return ret;
 }
 
-int secp256k1_schnorrsig_sign(const secp256k1_context* ctx, unsigned char *sig64, const unsigned char *msg32, const secp256k1_keypair *keypair, unsigned char *aux_rand32) {
-    return secp256k1_schnorrsig_sign_internal(ctx, sig64, msg32, 32, keypair, secp256k1_nonce_function_bip340, aux_rand32);
+int secp256k1_schnorrsig_sign(const secp256k1_context* ctx, unsigned char *sig64, const unsigned char *msg32, const secp256k1_keypair *keypair, const unsigned char *aux_rand32) {
+    /* We cast away const from the passed aux_rand32 argument since we know the default nonce function does not modify it. */
+    return secp256k1_schnorrsig_sign_internal(ctx, sig64, msg32, 32, keypair, secp256k1_nonce_function_bip340, (unsigned char*)aux_rand32);
 }
 
 int secp256k1_schnorrsig_sign_custom(const secp256k1_context* ctx, unsigned char *sig64, const unsigned char *msg, size_t msglen, const secp256k1_keypair *keypair, secp256k1_schnorrsig_extraparams *extraparams) {

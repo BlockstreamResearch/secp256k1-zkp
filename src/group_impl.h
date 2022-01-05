@@ -67,6 +67,7 @@ static const secp256k1_fe secp256k1_fe_const_b = SECP256K1_FE_CONST(0, 0, 0, 0, 
 static void secp256k1_ge_set_gej_zinv(secp256k1_ge *r, const secp256k1_gej *a, const secp256k1_fe *zi) {
     secp256k1_fe zi2;
     secp256k1_fe zi3;
+    VERIFY_CHECK(!a->infinity);
     secp256k1_fe_sqr(&zi2, zi);
     secp256k1_fe_mul(&zi3, &zi2, zi);
     secp256k1_fe_mul(&r->x, &a->x, &zi2);
@@ -643,6 +644,14 @@ static void secp256k1_ge_from_storage(secp256k1_ge *r, const secp256k1_ge_storag
     secp256k1_fe_from_storage(&r->x, &a->x);
     secp256k1_fe_from_storage(&r->y, &a->y);
     r->infinity = 0;
+}
+
+static SECP256K1_INLINE void secp256k1_gej_cmov(secp256k1_gej *r, const secp256k1_gej *a, int flag) {
+    secp256k1_fe_cmov(&r->x, &a->x, flag);
+    secp256k1_fe_cmov(&r->y, &a->y, flag);
+    secp256k1_fe_cmov(&r->z, &a->z, flag);
+
+    r->infinity ^= (r->infinity ^ a->infinity) & flag;
 }
 
 static SECP256K1_INLINE void secp256k1_ge_storage_cmov(secp256k1_ge_storage *r, const secp256k1_ge_storage *a, int flag) {

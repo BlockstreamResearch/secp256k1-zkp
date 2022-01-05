@@ -14,7 +14,7 @@
 #include "group.h"
 #include "scalar.h"
 #include "ecmult.h"
-#include "ecmult_static_pre_g.h"
+#include "precomputed_ecmult.h"
 
 #if defined(EXHAUSTIVE_TEST_ORDER)
 /* We need to lower these values for exhaustive tests because
@@ -47,7 +47,7 @@
 
 /* The number of objects allocated on the scratch space for ecmult_multi algorithms */
 #define PIPPENGER_SCRATCH_OBJECTS 6
-#define STRAUSS_SCRATCH_OBJECTS 6
+#define STRAUSS_SCRATCH_OBJECTS 7
 
 #define PIPPENGER_MAX_BUCKET_WINDOW 12
 
@@ -94,25 +94,6 @@ static void secp256k1_ecmult_odd_multiples_table(int n, secp256k1_gej *prej, sec
      * the final point's z coordinate is actually used though, so just update that.
      */
     secp256k1_fe_mul(&prej[n-1].z, &prej[n-1].z, &d.z);
-}
-
-/** Fill a table 'pre' with precomputed odd multiples of a.
- *
- *  The resulting point set is brought to a single constant Z denominator, stores the X and Y
- *  coordinates as ge_storage points in pre, and stores the global Z in rz.
- *  It only operates on tables sized for WINDOW_A wnaf multiples.
- *
- *  To compute a*P + b*G, we compute a table for P using this function,
- *  and use the precomputed table in <ecmult_static_pre_g.h> for G.
- */
-static void secp256k1_ecmult_odd_multiples_table_globalz_windowa(secp256k1_ge *pre, secp256k1_fe *globalz, const secp256k1_gej *a) {
-    secp256k1_gej prej[ECMULT_TABLE_SIZE(WINDOW_A)];
-    secp256k1_fe zr[ECMULT_TABLE_SIZE(WINDOW_A)];
-
-    /* Compute the odd multiples in Jacobian form. */
-    secp256k1_ecmult_odd_multiples_table(ECMULT_TABLE_SIZE(WINDOW_A), prej, zr, a);
-    /* Bring them to the same Z denominator. */
-    secp256k1_ge_globalz_set_table_gej(ECMULT_TABLE_SIZE(WINDOW_A), pre, globalz, prej, zr);
 }
 
 /** The following two macro retrieves a particular odd multiple from a table
@@ -220,7 +201,7 @@ struct secp256k1_strauss_state {
 static void secp256k1_ecmult_strauss_wnaf(const struct secp256k1_strauss_state *state, secp256k1_gej *r, size_t num, const secp256k1_gej *a, const secp256k1_scalar *na, const secp256k1_scalar *ng) {
     secp256k1_ge tmpa;
     secp256k1_fe Z;
-    /* Splitted G factors. */
+    /* Split G factors. */
     secp256k1_scalar ng_1, ng_128;
     int wnaf_ng_1[129];
     int bits_ng_1 = 0;
@@ -365,6 +346,9 @@ static int secp256k1_ecmult_strauss_batch(const secp256k1_callback* error_callba
         return 1;
     }
 
+    /* We allocate STRAUSS_SCRATCH_OBJECTS objects on the scratch space. If these
+     * allocations change, make sure to update the STRAUSS_SCRATCH_OBJECTS
+     * constant and strauss_scratch_size accordingly. */
     points = (secp256k1_gej*)secp256k1_scratch_alloc(error_callback, scratch, n_points * sizeof(secp256k1_gej));
     scalars = (secp256k1_scalar*)secp256k1_scratch_alloc(error_callback, scratch, n_points * sizeof(secp256k1_scalar));
     state.prej = (secp256k1_gej*)secp256k1_scratch_alloc(error_callback, scratch, n_points * ECMULT_TABLE_SIZE(WINDOW_A) * sizeof(secp256k1_gej));
@@ -659,8 +643,12 @@ static int secp256k1_ecmult_pippenger_batch(const secp256k1_callback* error_call
     if (inp_g_sc == NULL && n_points == 0) {
         return 1;
     }
-
     bucket_window = secp256k1_pippenger_bucket_window(n_points);
+
+    /* We allocate PIPPENGER_SCRATCH_OBJECTS objects on the scratch space. If
+     * these allocations change, make sure to update the
+     * PIPPENGER_SCRATCH_OBJECTS constant and pippenger_scratch_size
+     * accordingly. */
     points = (secp256k1_ge *) secp256k1_scratch_alloc(error_callback, scratch, entries * sizeof(*points));
     scalars = (secp256k1_scalar *) secp256k1_scratch_alloc(error_callback, scratch, entries * sizeof(*scalars));
     state_space = (struct secp256k1_pippenger_state *) secp256k1_scratch_alloc(error_callback, scratch, sizeof(*state_space));
@@ -668,7 +656,6 @@ static int secp256k1_ecmult_pippenger_batch(const secp256k1_callback* error_call
         secp256k1_scratch_apply_checkpoint(error_callback, scratch, scratch_checkpoint);
         return 0;
     }
-
     state_space->ps = (struct secp256k1_pippenger_point_state *) secp256k1_scratch_alloc(error_callback, scratch, entries * sizeof(*state_space->ps));
     state_space->wnaf_na = (int *) secp256k1_scratch_alloc(error_callback, scratch, entries*(WNAF_SIZE(bucket_window+1)) * sizeof(int));
     buckets = (secp256k1_gej *) secp256k1_scratch_alloc(error_callback, scratch, (1<<bucket_window) * sizeof(*buckets));
