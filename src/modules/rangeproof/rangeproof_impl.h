@@ -116,7 +116,7 @@ static int secp256k1_rangeproof_header_set_for_value(
     secp256k1_rangeproof_header* header,
     uint64_t* proven_value,
     const uint64_t min_value,
-    const uint64_t min_bits,
+    uint64_t min_bits,
     const int exp,
     const uint64_t value
 ) {
@@ -144,7 +144,7 @@ static int secp256k1_rangeproof_header_set_for_value(
     }
 
     /* Deal with extreme values (copied directly from 2015 code) */
-    if (min_bits > 61 || value > INT64_MAX) {
+    if (header->mantissa > 61 || value > INT64_MAX) {
         /* Ten is not a power of two, so dividing by ten and then representing in base-2 times ten
          * expands the representable range. The verifier requires the proven range is within 0..2**64.
          * For very large numbers (all over 2**63) we must change our exponent to compensate.
@@ -152,9 +152,16 @@ static int secp256k1_rangeproof_header_set_for_value(
          */
         header->exp = 0;
     }
+    /* Reduce mantissa to keep within a uint64_t's range (essentially copied from 2015 code) */
+    {
+        const unsigned int max_bits = min_value ? secp256k1_clz64_var(min_value) : 64;
+        if (header->mantissa > max_bits) {
+            header->mantissa = max_bits;
+        }
+    }
     {
         /* If the user has asked for more bits of proof then there is room for in the exponent, reduce the exponent. */
-        uint64_t max = min_bits ? (UINT64_MAX >> (64 - min_bits)) : 0;
+        uint64_t max = header->mantissa ? (UINT64_MAX >> (64 - header->mantissa)) : 0;
         int i;
         for (i = 0; i < header->exp && max <= UINT64_MAX / 10; i++) {
             max *= 10;
