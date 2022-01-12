@@ -130,7 +130,7 @@ size_t secp256k1_bulletproofs_rangeproof_uncompressed_proof_length(const secp256
     if (n_bits > 64) {
         return 0;
     }
-    return 2 * 65 + 64 + n_bits * 64;
+    return SECP256K1_BULLETPROOFS_UNCOMPRESSED_SIZE(n_bits);
 }
 
 int secp256k1_bulletproofs_rangeproof_uncompressed_prove(
