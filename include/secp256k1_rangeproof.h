@@ -10,6 +10,15 @@ extern "C" {
 
 #include <stdint.h>
 
+/** Length of a message that can be embedded into a maximally-sized rangeproof
+ *
+ * It is not be possible to fit a message of this size into a non-maximally-sized
+ * rangeproof, but it is guaranteed that any embeddable message can fit into an
+ * array of this size. This constant is intended to be used for memory allocations
+ * and sanity checks.
+ */
+#define SECP256K1_RANGEPROOF_MAX_MESSAGE_LEN 3968
+
 /** Opaque data structure that stores a Pedersen commitment
  *
  *  The exact representation of data inside is implementation defined and not
