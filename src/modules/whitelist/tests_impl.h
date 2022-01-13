@@ -15,7 +15,7 @@ void test_whitelist_end_to_end_internal(const unsigned char *summed_seckey, cons
         secp256k1_whitelist_signature sig;
         secp256k1_whitelist_signature sig1;
 
-        CHECK(secp256k1_whitelist_sign(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, sub_pubkey, online_seckey, summed_seckey, signer_i, NULL, NULL));
+        CHECK(secp256k1_whitelist_sign(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, sub_pubkey, online_seckey, summed_seckey, signer_i));
         CHECK(secp256k1_whitelist_verify(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, sub_pubkey) == 1);
         /* Check that exchanging keys causes a failure */
         CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, n_keys, sub_pubkey) != 1);
