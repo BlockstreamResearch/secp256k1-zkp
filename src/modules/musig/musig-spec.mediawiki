@@ -89,7 +89,7 @@ The algorithm ''IsSecond(pk<sub>1..u</sub>, i)'' is defined as:
 
 The algorithm ''KeyAggCoeff(pk<sub>1..u</sub>, i)'' is defined as:
 * Let ''L = HashKeys(pk<sub>1..u</sub>)''.
-* Return 1 if ''IsSecond(pk<sub>1..u</sub>, i)'', otherwise return  ''int(hash<sub>KeyAgg coefficient</sub>(L || pk) mod n''.
+* Return 1 if ''IsSecond(pk<sub>1..u</sub>, i)'', otherwise return  ''int(hash<sub>KeyAgg coefficient</sub>(L || pk<sub>i</sub>) mod n''.
 
 == Applications ==
 
