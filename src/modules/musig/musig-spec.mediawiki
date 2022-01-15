@@ -84,7 +84,7 @@ The algorithm ''HashKeys(pk<sub>1..u</sub>)'' is defined as:
 The algorithm ''IsSecond(pk<sub>1..u</sub>, i)'' is defined as:
 * For ''j = 1 .. u'':
 ** If ''pk<sub>j</sub> &ne; pk<sub>1</sub>'':
-*** Return ''true'' if ''pk<sub>j</sub> = pk<sub>i</sub>'', otherwise return ''false''.
+*** Return ''true'' if ''pk<sub>j</sub> != pk<sub>i</sub>'', otherwise return ''false''.
 * Return ''false''
 
 The algorithm ''KeyAggCoeff(pk<sub>1..u</sub>, i)'' is defined as:
