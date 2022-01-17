@@ -412,7 +412,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_gej pubs[128];     /* Candidate digits for our proof, most inferred. */
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
-    secp256k1_scalar k[32];      /* Nonces for our non-forged signatures. */
     secp256k1_sha256 sha256_m;
     unsigned char tmp[33];
     unsigned char *signs;          /* Location of sign flags in the proof. */
@@ -464,11 +463,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     if (!secp256k1_rangeproof_genrand_sign(sec, s, blind, message, msg_len, &header, v, &genrand_rng)) {
         return 0;
     }
-    for (i = 0; i < header.n_rings; i++) {
-        /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
-        k[i] = s[i * 4 + secidx[i]];
-        secp256k1_scalar_clear(&s[i * 4 + secidx[i]]);
-    }
     signs = &proof[len];
     /* We need one sign bit for each blinded value we send. */
     for (i = 0; i < (header.n_rings + 6) >> 3; i++) {
@@ -504,7 +498,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, tmp);
-    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, k, sec, header.rsizes, secidx, header.n_rings, tmp, 32)) {
+    if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, sec, header.rsizes, secidx, header.n_rings, tmp, 32)) {
         return 0;
     }
     len += 32;

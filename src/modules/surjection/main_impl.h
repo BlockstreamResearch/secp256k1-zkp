@@ -275,7 +275,6 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
 int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag, size_t input_index, const unsigned char *input_blinding_key, const unsigned char *output_blinding_key) {
     secp256k1_scalar blinding_key;
     secp256k1_scalar tmps;
-    secp256k1_scalar nonce;
     int overflow = 0;
     size_t rsizes[1];    /* array needed for borromean sig API */
     size_t indices[1];   /* array needed for borromean sig API */
@@ -333,12 +332,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
     }
-    /* Borromean sign will overwrite one of the s values we just generated, so use
-     * it as a nonce instead. This avoids extra random generation and also is an
-     * homage to the rangeproof code which does this very cleverly to encode messages. */
-    nonce = borromean_s[ring_input_index];
-    secp256k1_scalar_clear(&borromean_s[ring_input_index]);
-    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &nonce, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
+    if (secp256k1_borromean_sign(&ctx->ecmult_gen_ctx, &proof->data[0], borromean_s, ring_pubkeys, &blinding_key, rsizes, indices, 1, msg32, 32) == 0) {
         return 0;
     }
     for (i = 0; i < n_used_pubkeys; i++) {
