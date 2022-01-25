@@ -362,21 +362,7 @@ int secp256k1_musig_nonce_agg(const secp256k1_context* ctx, secp256k1_musig_aggn
     }
     for (i = 0; i < 2; i++) {
         if (secp256k1_gej_is_infinity(&aggnonce_ptj[i])) {
-            /* There must be at least one dishonest signer. If we would return 0
-               here, we will never be able to determine who it is. Therefore, we
-               should continue such that the culprit is revealed when collecting
-               and verifying partial signatures.
-
-               However, dealing with the point at infinity (loading,
-               de-/serializing) would require a lot of extra code complexity.
-               Instead, we set the aggregate nonce to some arbitrary point (the
-               generator). This is secure, because it only restricts the
-               abilities of the attacker: an attacker that forces the sum of
-               nonces to be infinity by sending some maliciously generated nonce
-               pairs can be turned into an attacker that forces the sum to be
-               the generator (by simply adding the generator to one of the
-               malicious nonces), and this does not change the winning condition
-               of the EUF-CMA game. */
+            /* Set to G according to the specification */
             aggnonce_pt[i] = secp256k1_ge_const_g;
         } else {
             secp256k1_ge_set_gej(&aggnonce_pt[i], &aggnonce_ptj[i]);
