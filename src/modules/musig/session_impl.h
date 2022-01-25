@@ -538,56 +538,65 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
      * The following public keys arise as intermediate steps:
      * - P[i] is the i-th public key with corresponding secret key x[i]
      *   P[i] := x[i]*G
-     * - P_agg is the aggregate public key
-     *   P_agg := mu[0]*|P[0]| + ... + mu[n-1]*|P[n-1]|
-     * - P_tweak[i] is the tweaked public key after the i-th tweaking operation
-     *   P_tweak[0] := P_agg
-     *   P_tweak[i] := |P_tweak[i-1]| + t[i]*G for i = 1, ..., m
+     * - P_agg[0] is the aggregate public key
+     *   P_agg[0] := mu[0]*|P[0]| + ... + mu[n-1]*|P[n-1]|
+     * - P_agg[i] for 1 <= i <= m is the tweaked public key after the i-th
+     *   tweaking operation. There are two types of tweaking: x-only and ordinary
+     *   "EC" tweaking. We define a boolean predicate xonly(i) that is true if
+     *   the i-th tweaking operation is x-only tweaking and false otherwise
+     *   (ordinary tweaking).
+     *   Let
+     *     P_agg[i] := f(i, P_agg[i-1]) + t[i]*G for i = 1, ..., m
+     *       where f(i, X) := |X| if xonly(i)
+     *             f(i, X) := X   otherwise
      *
      * Note that our goal is to produce a partial signature corresponding to
-     * the final public key after m tweaking operations P_final = |P_tweak[m]|.
+     * the final public key after m tweaking operations P_final = |P_agg[m]|.
      *
-     * Define d[i], d_agg, and d_tweak[i] so that:
+     * Define d[i] for 0 <= i <= n-1 and d_agg[i] for 0 <= i <= m so that:
      * - |P[i]| = d[i]*P[i]
-     * - |P_agg| = d_agg*P_agg
-     * - |P_tweak[i]| = d_tweak[i]*P_tweak[i]
+     * - f(i+1, P_agg[i]) = d_agg[i]*P_agg[i] for 0 <= i <= m - 1
+     * - |P_agg[m]| = d_agg[m]*P_agg[m]
      *
-     * In other words, d[i] = 1 if P[i] has even y coordinate, -1 otherwise;
-     * similarly for d_agg and d_tweak[i].
+     * In other words, d[i] = 1 if P[i] has even y coordinate, -1 otherwise.
+     * For 0 <= i <= m-1, d_agg[i] is -1 if and only if xonly(i+1) is true and
+     * P_agg[i] has an odd Y coordinate.
      *
-     * The (xonly) final public key is P_final = |P_tweak[m]|
-     *   = d_tweak[m]*P_tweak[m]
-     *   = d_tweak[m]*(|P_tweak[m-1]| + t[m]*G)
-     *   = d_tweak[m]*(d_tweak[m-1]*(|P_tweak[m-2]| + t[m-1]*G) + t[m]*G)
-     *   = d_tweak[m]*...*d_tweak[1]*|P_agg| + (d_tweak[m]*t[m]+...+*d_tweak[1]*t[1])*G.
-     * To simplify the equation let us define
-     *   t := d_tweak[m]*t[m]+...+*d_tweak[1]*t[1]
-     *   d_tweak := d_tweak[m]*...*d_tweak[1].
+     * The (x-only) final public key is P_final = |P_agg[m]|
+     *   = d_agg[m]*P_agg[m]
+     *   = d_agg[m]*(f(m, P_agg[m-1]) + t[m]*G)
+     *   = d_agg[m]*(d_agg[m-1]*(f(m-1, P_agg[m-2]) + t[m-1]*G) + t[m]*G)
+     *   = d_agg[m]*...*d_agg[0]*P_agg[0] + (d_agg[m]*t[m]+...+*d_agg[1]*t[1])*G.
+     *   To simplify the equation let us define
+     *     d_agg := d_agg[m]*...*d_agg[0].
+     *     t := d_agg[m]*t[m]+...+*d_agg[1]*t[1] if m > 0, otherwise t := 0
      * Then we have
      *   P_final - t*G
-     *   = d_tweak*|P_agg|
-     *   = d_tweak*d_agg*P_agg
-     *   = d_tweak*d_agg*(mu[0]*|P[0]| + ... + mu[n-1]*|P[n-1]|)
-     *   = d_tweak*d_agg*(d[0]*mu[0]*P[0] + ... + d[n-1]*mu[n-1]*P[n-1])
-     *   = sum((d_tweak*d_agg*d[i])*mu[i]*x[i])*G.
+     *   = d_agg*P_agg[0]
+     *   = d_agg*(mu[0]*|P[0]| + ... + mu[n-1]*|P[n-1]|)
+     *   = d_agg*(d[0]*mu[0]*P[0] + ... + d[n-1]*mu[n-1]*P[n-1])
+     *   = sum((d_agg*d[i])*mu[i]*x[i])*G.
      *
      * Thus whether signer i should use the negated x[i] depends on the product
-     * d_tweak[m]*...*d_tweak[1]*d_agg*d[i]. In other words, negate if and only
+     * d_agg[m]*...*d_agg[1]*d_agg[0]*d[i]. In other words, negate if and only
      * if the following holds:
-     *   (P[i] has odd y) XOR (P_agg has odd y)
-     *     XOR (P_tweak[1] has odd y) XOR ... XOR (P_tweak[m] has odd y)
+     *   (P[i] has odd y) XOR (xonly(1) and P_agg[0] has odd y)
+     *     XOR (xonly(2) and P_agg[1] has odd y)
+     *     XOR ... XOR (xonly(m) and P_agg[m-1] has odd y)
+     *     XOR (P_agg[m] has odd y)
      *
      * Let us now look at how the terms in the equation correspond to the if
      * condition below for some values of m:
-     * m = 0: P_i has odd y = secp256k1_fe_is_odd(&pk.y)
-     *        P_agg has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
+     * m = 0: P[i] has odd y = secp256k1_fe_is_odd(&pk.y)
+     *        P_agg[0] has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
      *        cache_i.internal_key_parity = 0
-     * m = 1: P_i has odd y = secp256k1_fe_is_odd(&pk.y)
-     *        P_agg has odd y = cache_i.internal_key_parity
-     *        P_tweak[1] has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
-     * m = 2: P_i has odd y = secp256k1_fe_is_odd(&pk.y)
-     *        P_agg has odd y XOR P_tweak[1] has odd y = cache_i.internal_key_parity
-     *        P_tweak[2] has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
+     * m = 1: P[i] has odd y = secp256k1_fe_is_odd(&pk.y)
+     *        xonly(1) and P_agg[0] has odd y = cache_i.internal_key_parity
+     *        P_agg[1] has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
+     * m = 2: P[i] has odd y = secp256k1_fe_is_odd(&pk.y)
+     *        (xonly(1) and P_agg[0] has odd y)
+                XOR (xonly(2) and P_agg[1] has odd y) = cache_i.internal_key_parity
+     *        P_agg[2] has odd y = secp256k1_fe_is_odd(&cache_i.pk.y)
      * etc.
      */
     if ((secp256k1_fe_is_odd(&pk.y)
@@ -674,7 +683,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     /* When producing a partial signature, signer i uses a possibly
      * negated secret key:
      *
-     *   sk[i] = (d_tweak*d_agg*d[i])*x[i]
+     *   sk[i] = (d_agg*d[i])*x[i]
      *
      * to ensure that the aggregate signature will correspond to
      * an aggregate public key with even Y coordinate (see the
@@ -698,14 +707,14 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
      * The verifier doesn't have access to sk[i]*G, but can construct
      * it using the xonly public key |P[i]| as follows:
      *
-     *   sk[i]*G = d_tweak*d_agg*d[i]*x[i]*G
-     *           = d_tweak*d_agg*d[i]*P[i]
-     *           = d_tweak*d_agg*|P[i]|
+     *   sk[i]*G = d_agg*d[i]*x[i]*G
+     *           = d_agg*d[i]*P[i]
+     *           = d_agg*|P[i]|
      *
-     * The if condition below is true whenever d_tweak*d_agg is
-     * negative (again, see the explanation in musig_partial_sign). In
-     * this case, the verifier negates e which will have the same end
-     * result as negating |P[i]|, since they are multiplied later anyway.
+     * The if condition below is true whenever d_agg is negative (again, see the
+     * explanation in musig_partial_sign). In this case, the verifier negates e
+     * which will have the same end result as negating |P[i]|, since they are
+     * multiplied later anyway.
      */
     if (secp256k1_fe_is_odd(&cache_i.pk.y)
             != cache_i.internal_key_parity) {
