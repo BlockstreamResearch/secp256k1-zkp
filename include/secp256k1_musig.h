@@ -460,6 +460,18 @@ SECP256K1_API int secp256k1_musig_partial_sign(
 
 /** Verifies an individual signer's partial signature
  *
+ *  The signature is verified for a specific signing session. In order to avoid
+ *  accidentally verifying a signature from a different or non-existing signing
+ *  session, you must ensure the following:
+ *    1. The `keyagg_cache` argument is identical to the one used to create the
+ *       `session` with `musig_nonce_process`.
+ *    2. The `pubkey` argument must be identical to the one sent by the signer
+ *       before aggregating it with `musig_pubkey_agg` to create the
+ *       `keyagg_cache`.
+ *    3. The `pubnonce` argument must be identical to the one sent by the signer
+ *       before aggregating it with `musig_nonce_agg` and using the result to
+ *       create the `session` with `musig_nonce_process`.
+ *
  *  This function is essential when using protocols with adaptor signatures.
  *  However, it is not essential for regular MuSig sessions, in the sense that if any
  *  partial signature does not verify, the full signature will not verify either, so the
@@ -469,13 +481,14 @@ SECP256K1_API int secp256k1_musig_partial_sign(
  *  Returns: 0 if the arguments are invalid or the partial signature does not
  *           verify, 1 otherwise
  *  Args         ctx: pointer to a context object, initialized for verification
- *  In:  partial_sig: pointer to partial signature to verify
- *          pubnonce: public nonce sent by the signer who produced the signature
- *            pubkey: public key of the signer who produced the signature
+ *  In:  partial_sig: pointer to partial signature to verify, sent by
+ *                    the signer associated with `pubnonce` and `pubkey`
+ *          pubnonce: public nonce of the signer in the signing session
+ *            pubkey: public key of the signer in the signing session
  *      keyagg_cache: pointer to the keyagg_cache that was output when the
- *                    aggregate public key for this session
+ *                    aggregate public key for this signing session
  *           session: pointer to the session that was created with
- *                    musig_nonce_process
+ *                    `musig_nonce_process`
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_verify(
     const secp256k1_context* ctx,
