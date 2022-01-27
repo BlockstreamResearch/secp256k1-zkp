@@ -129,15 +129,22 @@ The algorithm ''NonceAgg(pubnonce<sub>1..u</sub>)'' is defined as:
 ===== Note on ''is_infinite(R'<sub>i</sub>)'' =====
 
 If ''is_infinite(R'<sub>i</sub>)'' there is at least one dishonest signer (except with negligible probability).
-If we would fail here, we will never be able to determine who it is.
-Therefore, we should continue such that the culprit is revealed when collecting and verifying partial signatures.
-However, dealing with the point at infinity requires defining a serialization and may require extra code complexity in implementations.
-Instead, we set the aggregate nonce to some arbitrary point, the generator.
+If we fail here, we will never be able to determine who it is.
+Therefore, we continue so that the culprit is revealed when collecting and verifying partial signatures.
 
-This modification does not affect the security of the scheme.
-''NonceAgg'' (both the original and modified version) only depends on publicly available data (the set of public pre-nonces from every signer).
-Thus in the multi-signature security game (EUF-CMA), we can consider ''NonceAgg'' to be performed by the adversary (rather than the challenger) without loss of generality.
-The modification changes neither the behavior of the EUF-CMA challenger nor the condition required to win the security game (the adversary still has to output a valid forgery according to the unmodified MuSig2* scheme). Since we've already proved that MuSig2* is secure against an arbitrary adversary, we can conclude that the modified scheme is still secure.
+However, dealing with the point at infinity requires defining a serialization and may require extra code complexity in implementations.
+Instead of incurring this complexity, we make two modifications (compared to the MuSig2* appendix in the [https://eprint.iacr.org/2020/1261 MuSig2 paper]) to avoid infinity while still allowing us to detect the dishonest signer:
+* In ''NonceAgg'', if an output ''R'<sub>i</sub>'' would be infinity, instead output the generator (an arbitrary choice).
+* In ''Sign'', implicitly disallow the input ''aggnonce'' to contain infinity (since the serialization format doesn't support it).
+
+The entire ''NonceAgg'' function (both the original and modified version) only depends on publicly available data (the set of public pre-nonces from every signer).
+In the unforgeability proof, ''NonceAgg'' is considered to be performed by an untrusted party; thus modifications to ''NonceAgg'' do not affect the unforgeability of the scheme.
+
+The (implicit) modification to ''Sign'' is equivalent to adding a clause, "abort if the input ''aggnonce'' contained infinity".
+This modification only depends on the publicly available ''aggnonce''.
+Given a successful adversary against the security game (EUF-CMA) for the modified scheme, a reduction can win the security game for the original scheme by simulating the modification (i.e. checking whether to abort) towards the adversary.
+
+We conclude that these two modifications preserve the security of the MuSig2* scheme.
 
 ==== Signing ====
 
