@@ -81,18 +81,25 @@ The algorithm '''''KeySort(pk<sub>1..u</sub>)''''' is defined as:
 Input:
 * The number ''u'' of public keys with ''0 < u < 2^32''
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
+* The number ''v'' of tweaks with ''0 &le; v < 2^32''
+* The tweaks ''tweak<sub>1..v</sub>'': ''v'' 32-byte arrays
+* The tweak methods ''is_xonly_t<sub>1..v</sub>'' : ''v'' booleans
 
-The algorithm '''''KeyAgg(pk<sub>1..u</sub>)''''' is defined as:
-* Let ''Q = KeyAggInternal(pk<sub>1..u</sub>)''; fail if that fails.
+The algorithm '''''KeyAgg(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>)''''' is defined as:
+* Let ''(Q,_,_) = KeyAggInternal(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>)''; fail if that fails.
 * Return ''bytes(Q)''.
 
-The algorithm '''''KeyAggInternal(pk<sub>1..u</sub>)''''' is defined as:
+The algorithm '''''KeyAggInternal(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>)''''' is defined as:
 * For ''i = 1 .. u'':
 ** Let ''a<sub>i</sub> = KeyAggCoeff(pk<sub>1..u</sub>, pk<sub>i</sub>)''.
 ** Let ''P<sub>i</sub> = point(pk<sub>i</sub>)''; fail if that fails.
-* Let ''Q = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''
-* Fail if ''is_infinite(Q)''.
-* Return ''Q''.
+* Let ''Q<sub>0</sub> = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''
+* Fail if ''is_infinite(Q<sub>0</sub>)''.
+* Let ''tacc<sub>0</sub> = 0''
+* Let ''gacc<sub>0</sub> = 1''
+* For ''i = 1 .. v'':
+** Let ''(Q<sub>i</sub>, gacc<sub>i</sub>, tacc<sub>i</sub>) = Tweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tweak<sub>i</sub>, tacc<sub>i-1</sub>, is_xonly_t<sub>i</sub>)''; fail if that fails
+* Return ''(Q<sub>v</sub>, gacc<sub>v</sub>, tacc<sub>v</sub>)''.
 
 The algorithm '''''HashKeys(pk<sub>1..u</sub>)''''' is defined as:
 * Return ''hash<sub>KeyAgg list</sub>(pk<sub>1</sub> || pk<sub>2</sub> || ... || pk<sub>u</sub>)''
@@ -108,6 +115,17 @@ The algorithm '''''KeyAggCoeff(pk<sub>1..u</sub>, pk')''''' is defined as:
 * If ''IsSecond(pk<sub>1..u</sub>, pk')'':
 ** Return 1
 * Return ''int(hash<sub>KeyAgg coefficient</sub>(L || pk')) mod n''
+
+The algorithm '''''Tweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tweak<sub>i</sub>, tacc<sub>i-1</sub>, is_xonly_t<sub>i</sub>)''''' is defined as:
+* If ''is_xonly_t<sub>i</sub>'' and ''not has_even_y(Q<sub>i-1</sub>)'':
+** Let ''g<sub>i-1</sub> = -1 mod n''
+* Else: let ''g<sub>i-1</sub> = 1''
+* Let ''t<sub>i</sub> = int(tweak<sub>i</sub>)''; fail if ''t &ge; n''
+* Let ''Q<sub>i</sub> = g<sub>i-1</sub>⋅Q<sub>i-1</sub> + t<sub>i</sub>⋅G''
+** Fail if ''is_infinite(Q<sub>i</sub>)''
+* Let ''gacc<sub>i</sub> = g<sub>i-1</sub>⋅gacc<sub>i-1</sub> mod n''
+* Let ''tacc<sub>i</sub> = t<sub>i</sub> + g<sub>i-1</sub>⋅tacc<sub>i-1</sub> mod n''
+* Return ''(Q<sub>i</sub>, gacc<sub>i</sub>, tacc<sub>i</sub>)''
 
 ==== Nonce Generation ====
 
@@ -137,22 +155,25 @@ The Session Context is a data structure consisting of the following elements:
 * The aggregate public nonce ''aggnonce'': a 66-byte array
 * The number ''u'' of public keys with ''0 < u < 2^32''
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
+* The number ''v'' of tweaks with ''0 &le; v < 2^32''
+* The tweaks ''tweak<sub>1..v</sub>'': ''v'' 32-byte arrays
+* The tweak methods ''is_xonly_t<sub>1..v</sub>'' : ''v'' booleans
 * The message ''m'': a 32-byte array
 
-We write "Let ''(aggnonce, u, pk<sub>1..u</sub>, m) = session_ctx''" to assign names to the elements of a Session Context.
+We write "Let ''(aggnonce, u, pk<sub>1..u</sub>, v, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>, m) = session_ctx''" to assign names to the elements of a Session Context.
 
 The algorithm '''''GetSessionValues(session_ctx)''''' is defined as:
-* Let ''(aggnonce, u, pk<sub>1..u</sub>, m) = session_ctx''
-* Let ''Q = KeyAggInternal(pk<sub>1..u</sub>)''; fail if that fails
+* Let ''(aggnonce, u, pk<sub>1..u</sub>, v, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>, m) = session_ctx''
+* Let ''(Q, gacc<sub>v</sub>, tacc<sub>v</sub>) = KeyAggInternal(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>)''; fail if that fails
 * Let ''b = int(hash<sub>MuSig/noncecoef</sub>(aggnonce || bytes(Q) || m)) mod n''
 * Let ''R<sub>1</sub> = pointc(aggnonce[0:33]), R<sub>2</sub> = pointc(aggnonce[33:66])''; fail if that fails
 * Let ''R = R<sub>1</sub> + b⋅R<sub>2</sub>''
 * Fail if ''is_infinite(R)''
 * Let ''e = int(hash<sub>BIP0340/challenge</sub>(bytes(R) || bytes(Q) || m)) mod n''
-* Return ''(Q, b, R, e)''
+* Return ''(Q, gacc<sub>v</sub>, tacc<sub>v</sub>, b, R, e)''
 
 The algorithm '''''GetSessionKeyAggCoeff(session_ctx, P)''''' is defined as:
-* Let ''(_, u, pk<sub>1..u</sub>, _) = session_ctx''
+* Let ''(_, u, pk<sub>1..u</sub>, _, _, _, _) = session_ctx''
 * Return ''KeyAggCoeff(pk<sub>1..u</sub>, bytes(P))''
 
 ==== Signing ====
@@ -163,7 +184,7 @@ Input:
 * The ''session_ctx'': a [[#session-context|Session Context]] data structure
 
 The algorithm '''''Sign(secnonce, sk, session_ctx)''''' is defined as:
-* Let ''(Q, b, R, e) = GetSessionValues(session_ctx)''; fail if that fails
+* Let ''(Q, gacc<sub>v</sub>, _, b, R, e) = GetSessionValues(session_ctx)''; fail if that fails
 * Let ''k'<sub>1</sub> = int(secnonce[0:32]), k'<sub>2</sub> = int(secnonce[32:64])''
 * Fail if ''k'<sub>i</sub> = 0'' or ''k'<sub>i</sub> &ge; n'' for ''i = 1..2''
 * Let ''k<sub>1</sub> = k'<sub>1</sub>, k<sub>2</sub> = k'<sub>2</sub> '' if ''has_even_y(R)'', otherwise let ''k<sub>1</sub> = n - k'<sub>1</sub>, k<sub>2</sub> = n - k<sub>2</sub>''
@@ -171,7 +192,9 @@ The algorithm '''''Sign(secnonce, sk, session_ctx)''''' is defined as:
 * Fail if ''d' = 0'' or ''d' &ge; n''
 * Let ''P = d'⋅G''
 * Let ''mu = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
-* Let ''d = n - d' '' if ''has_even_y(P) `XOR` has_even_y(Q)'', otherwise let ''d = d' ''
+* Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
+* Let ''gp = 1'' if ''has_even_y(P)'', otherwise let ''gp = -1 mod n''
+* Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' ''
 * Let ''s = (k<sub>1</sub> + b⋅k<sub>2</sub> + e⋅mu⋅d) mod n''
 * Let ''psig = bytes(s)''
 * Let ''pubnonce = cbytes(k'<sub>1</sub>⋅G) || cbytes(k'<sub>2</sub>⋅G)''
@@ -185,12 +208,15 @@ Input:
 * The number ''u'' of public nonces and public keys with ''0 < u < 2^32''
 * The public nonces ''pubnonce<sub>1..u</sub>'': ''u'' 66-byte arrays
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
+* The number ''v'' of tweaks with ''0 &le; v < 2^32''
+* The tweaks ''tweak<sub>1..v</sub>'': ''v'' 32-byte arrays
+* The tweak methods ''is_xonly_t<sub>1..v</sub>'' : ''v'' booleans
 * The message ''m'': a 32-byte array
 * The index of the signer ''i'' in the public nonces and public keys with ''0 < i &le; u''
 
-The algorithm '''''PartialSigVerify(psig, pubnonce<sub>1..u</sub>, pk<sub>1..u</sub>, m, i)''''' is defined as:
+The algorithm '''''PartialSigVerify(psig, pubnonce<sub>1..u</sub>, pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>, m, i)''''' is defined as:
 * Let ''aggnonce = NonceAgg(pubnonce<sub>1..u</sub>)''; fail if that fails
-* Let ''session_ctx = (aggnonce, u, pk<sub>1..u</sub>, m)''
+* Let ''session_ctx = (aggnonce, u, pk<sub>1..u</sub>, v, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>, m)''
 * Run ''PartialSigVerifyInternal(psig, pubnonce<sub>i</sub>, pk<sub>i</sub>, session_ctx)''
 * Return success iff no failure occurred before reaching this point.
 
@@ -203,13 +229,14 @@ Input:
 * The ''session_ctx'': a [[#session-context|Session Context]] data structure
 
 The algorithm '''''PartialSigVerifyInternal(psig, pubnonce, pk<sup>*</sup>, session_ctx)''''' is defined as:
-* Let ''(Q, b, R, e) = GetSessionValues(session_ctx)''; fail if that fails
+* Let ''(Q, gacc<sub>v</sub>, _, b, R, e) = GetSessionValues(session_ctx)''; fail if that fails
 * Let ''s = int(psig)''; fail if ''s &ge; n''
 * Let ''R<sup>*</sup><sub>1</sub> = pointc(pubnonce[0:33]), R<sup>*</sup><sub>2</sub> = pointc(pubnonce[33:66])''
 * Let ''R<sup>*</sup>' = R<sup>*</sup><sub>1</sub> + b⋅R<sup>*</sup><sub>2</sub>''
 * Let ''R<sup>*</sup> = R<sup>*</sup>' '' if ''has_even_y(R)'', otherwise let ''R<sup>*</sup> = -R<sup>*</sup>' ''
-* Let ''P' = point(pk<sup>*</sup>)''; fail if that fails
-* Let ''P = P' '' if ''has_even_y(Q)'', otherwise let ''P = -P' ''
+* Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
+* Let ''g' = g<sub>v</sub>⋅gacc<sub>v</sub> mod n''
+* Let ''P = g'⋅point(pk<sup>*</sup>)''; fail if that fails
 * Let ''mu = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
 * Fail if ''s⋅G &ne; R<sup>*</sup> + e⋅mu⋅P''
 * Return success iff no failure occurred before reaching this point.
@@ -222,15 +249,16 @@ Input:
 * The ''session_ctx'': a [[#session-context|Session Context]] data structure
 
 The algorithm '''''PartialSigAgg(psig<sub>1..u</sub>, session_ctx)''''' is defined as:
-* Let ''(_, _, R, _) = GetSessionValues(session_ctx)''; fail if that fails
+* Let ''(Q, _, tacc<sub>v</sub>, _, _, R, e) = GetSessionValues(session_ctx)''; fail if that fails
 * For ''i = 1 .. u'':
 ** Let ''s<sub>i</sub> = int(psig<sub>i</sub>)''; fail if ''s<sub>i</sub> &ge; n''.
-* Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> mod n''
+* Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
+* Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> + e⋅g<sub>v</sub>⋅tacc<sub>v</sub> mod n''
 * Return ''sig = ''bytes(R) || bytes(s)''
 
 === Signing Flow ===
 
-Note that this specification unnecessarily recomputes intermediary values (such as the aggregate public key) that can be cached in real implementations.
+Note that this specification unnecessarily recomputes intermediary values (such as the aggregate and tweaked public key) that can be cached in real implementations.
 
 There are multiple ways to use above algorithms and arrive at a final Schnorr signature.
 One of them can be described as follows:
