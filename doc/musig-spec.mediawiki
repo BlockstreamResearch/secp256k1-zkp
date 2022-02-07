@@ -175,7 +175,7 @@ The algorithm ''Sign(secnonce, sk, aggnonce, pk<sub>1..u</sub>, m)'' is defined 
 * Let ''psig = bytes(s)''
 * Let ''pubnonce = cbytes(k'<sub>1</sub>⋅G) || cbytes(k'<sub>2</sub>⋅G)''
 * If ''PartialSigVerifyInternal(psig, pubnonce, aggnonce, pk<sub>1..u</sub>, bytes(P), m)'' (see below) returns failure, abort<ref>Verifying the signature before leaving the signer prevents random or attacker provoked computation errors. This prevents publishing invalid signatures which may leak information about the secret key. It is recommended, but can be omitted if the computation cost is prohibitive.</ref>.
-* Return partial signature ''psig
+* Return partial signature ''psig''
 
 ==== Partial Signature Verification ====
 
@@ -185,7 +185,7 @@ Input:
 * The public nonces ''pubnonce<sub>1..u</sub>'': ''u'' 66-byte arrays
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
 * The message ''m'': a 32-byte array
-* The index of the signer ''i'' in the public nonces and public keys with ''0 < i <= u''
+* The index of the signer ''i'' in the public nonces and public keys with ''0 < i &le; u''
 
 The algorithm ''PartialSigVerify(psig, pubnonce<sub>1..u</sub>, pk<sub>1..u</sub>, m, i)'' is defined as:
 * Let ''aggnonce = NonceAgg(pubnonce<sub>1..u</sub>)''; fail if that fails
@@ -224,11 +224,11 @@ The algorithm ''PartialSigVerifyInternal(psig, pubnonce, aggnonce, pk<sub>1..u</
 Input:
 * The final nonce ''R'' as created during  ''Sign'' or ''PartialSigVerify'': a point
 * The number ''u'' of signatures with ''0 < u < 2^32''
-* The partial signatures ''sig<sub>1..u</sub>'': ''u'' 32-byte arrays
+* The partial signatures ''psig<sub>1..u</sub>'': ''u'' 32-byte arrays
 
-The algorithm ''SigAgg(R, sig<sub>1..u</sub>)'' is defined as:
+The algorithm ''PartialSigAgg(R, psig<sub>1..u</sub>)'' is defined as:
 * For ''i = 1 .. u'':
-** Let ''s<sub>i</sub> = int(sig<sub>i</sub>)''; fail if ''s<sub>i</sub> &ge; n''.
+** Let ''s<sub>i</sub> = int(psig<sub>i</sub>)''; fail if ''s<sub>i</sub> &ge; n''.
 * Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> mod n''
 * Return ''sig = ''bytes(R) || bytes(s)''
 
@@ -241,7 +241,7 @@ One of them can be described as follows:
 The signers ''1'' to ''n'' each run ''NonceGen'' to compute ''secnonce'' and ''pubnonce''.
 Every signer sends its public key and ''pubnonce'' to every other signer and all signers agree on a single message to sign.
 Then, the signers run ''NonceAgg'' and ''Sign'' with their secret signing key and ''secnonce''.
-They send the resulting partial signature to every other signer and combine them with the ''SigAgg'' algorithm.
+They send the resulting partial signature to every other signer and combine them with the ''PartialSigAgg'' algorithm.
 
 ''IMPORTANT'': The ''Sign'' algorithm must '''not''' be executed twice with the same ''secnonce''.
 Otherwise, it is possible to extract the secret signing key from the partial signatures.
