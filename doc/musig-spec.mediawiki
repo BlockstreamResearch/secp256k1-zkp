@@ -29,7 +29,7 @@ This document is licensed under the 2-clause BSD license.
 * The public key inputs are serialized using x-only (32 byte) instead of compressed (33 byte) serialization. The reason for this is that as x-only keys are becoming more common, the full key may not be available.
 * The public nonces are serialized in compressed format (33 bytes). We accept the small overhead compared to x-only serialization to avoid complicating the specification.
 
-=== Specification ===
+=== Notation ===
 
 The following conventions are used, with constants as defined for [https://www.secg.org/sec2-v2.pdf secp256k1]. We note that adapting this specification to other elliptic curves is not straightforward and can result in an insecure scheme<ref>Among other pitfalls, using the specification with a curve whose order is not close to the size of the range of the nonce derivation function is insecure.</ref>.
 * Lowercase variables represent integers or byte arrays.
@@ -61,6 +61,27 @@ The following conventions are used, with constants as defined for [https://www.s
 ** The function ''pointc(x)'', where ''x'' is a 33-byte array (compressed serialization), sets ''P = lift_x(int(x[1:33]))'' and fails if that fails. If ''x[0] = 2'' it returns ''P'' and if ''x[0] = 3'' it returns ''-P''. Otherwise, it fails.
 ** The function ''hash<sub>tag</sub>(x)'' where ''tag'' is a UTF-8 encoded tag name and ''x'' is a byte array returns the 32-byte hash ''SHA256(SHA256(tag) || SHA256(tag) || x)''.
 
+=== Dealing with Infinity in Nonce Aggregation ===
+
+If it happens that ''is_infinite(R'<sub>i</sub>)'' inside ''[[#NonceAgg infinity|NonceAgg]]''  there is at least one dishonest signer (except with negligible probability).
+If we fail here, we will never be able to determine who it is.
+Therefore, we continue so that the culprit is revealed when collecting and verifying partial signatures.
+
+However, dealing with the point at infinity requires defining a serialization and may require extra code complexity in implementations.
+Instead of incurring this complexity, we make two modifications (compared to the MuSig2* appendix in the [https://eprint.iacr.org/2020/1261 MuSig2 paper]) to avoid infinity while still allowing us to detect the dishonest signer:
+* In ''NonceAgg'', if an output ''R'<sub>i</sub>'' would be infinity, instead output the generator (an arbitrary choice).
+* In ''Sign'', implicitly disallow the input ''aggnonce'' to contain infinity (since the serialization format doesn't support it).
+
+The entire ''NonceAgg'' function (both the original and modified version) only depends on publicly available data (the set of public pre-nonces from every signer).
+In the unforgeability proof, ''NonceAgg'' is considered to be performed by an untrusted party; thus modifications to ''NonceAgg'' do not affect the unforgeability of the scheme.
+
+The (implicit) modification to ''Sign'' is equivalent to adding a clause, "abort if the input ''aggnonce'' contained infinity".
+This modification only depends on the publicly available ''aggnonce''.
+Given a successful adversary against the security game (EUF-CMA) for the modified scheme, a reduction can win the security game for the original scheme by simulating the modification (i.e. checking whether to abort) towards the adversary.
+
+We conclude that these two modifications preserve the security of the MuSig2* scheme.
+
+=== Specification ===
 
 ==== Key Sorting ====
 
@@ -123,28 +144,8 @@ The algorithm ''NonceAgg(pubnonce<sub>1..u</sub>)'' is defined as:
 ** For ''j = 1 .. u'':
 *** Let ''R<sub>i,j</sub> = pointc(pubnonce<sub>j</sub>[(i-1)*33:i*33])''; fail if that fails
 ** Let ''R'<sub>i</sub> = R<sub>i,1</sub> + R<sub>i,2</sub> + ... + R<sub>i,u</sub>''
-** Let ''R<sub>i</sub> = R'<sub>i</sub>'' if not ''is_infinite(R'<sub>i</sub>)'', otherwise let R<sub>i</sub> = G''
+** <div id="NonceAgg infinity"></div>Let ''R<sub>i</sub> = R'<sub>i</sub>'' if not ''is_infinite(R'<sub>i</sub>)'', otherwise let R<sub>i</sub> = G'' (see [[#dealing-with-infinity-in-nonce-aggregation|Dealing with Infinity in Nonce Aggregation]])
 * Return ''aggnonce = cbytes(R<sub>1</sub>) || cbytes(R<sub>2</sub>)''
-
-===== Note on ''is_infinite(R'<sub>i</sub>)'' =====
-
-If ''is_infinite(R'<sub>i</sub>)'' there is at least one dishonest signer (except with negligible probability).
-If we fail here, we will never be able to determine who it is.
-Therefore, we continue so that the culprit is revealed when collecting and verifying partial signatures.
-
-However, dealing with the point at infinity requires defining a serialization and may require extra code complexity in implementations.
-Instead of incurring this complexity, we make two modifications (compared to the MuSig2* appendix in the [https://eprint.iacr.org/2020/1261 MuSig2 paper]) to avoid infinity while still allowing us to detect the dishonest signer:
-* In ''NonceAgg'', if an output ''R'<sub>i</sub>'' would be infinity, instead output the generator (an arbitrary choice).
-* In ''Sign'', implicitly disallow the input ''aggnonce'' to contain infinity (since the serialization format doesn't support it).
-
-The entire ''NonceAgg'' function (both the original and modified version) only depends on publicly available data (the set of public pre-nonces from every signer).
-In the unforgeability proof, ''NonceAgg'' is considered to be performed by an untrusted party; thus modifications to ''NonceAgg'' do not affect the unforgeability of the scheme.
-
-The (implicit) modification to ''Sign'' is equivalent to adding a clause, "abort if the input ''aggnonce'' contained infinity".
-This modification only depends on the publicly available ''aggnonce''.
-Given a successful adversary against the security game (EUF-CMA) for the modified scheme, a reduction can win the security game for the original scheme by simulating the modification (i.e. checking whether to abort) towards the adversary.
-
-We conclude that these two modifications preserve the security of the MuSig2* scheme.
 
 ==== Signing ====
 
