@@ -28,8 +28,9 @@ This document is licensed under the 2-clause BSD license.
 * The second unique key in the pubkey list given to ''KeyAgg'' (as well as any keys identical to this key) gets the constant KeyAgg coefficient 1 which saves an exponentiation (see the MuSig2* appendix in the [https://eprint.iacr.org/2020/1261 MuSig2 paper]).
 * The public key inputs are serialized using x-only (32 byte) instead of compressed (33 byte) serialization. The reason for this is that as x-only keys are becoming more common, the full key may not be available.
 * The public nonces are serialized in compressed format (33 bytes). We accept the small overhead compared to x-only serialization to avoid complicating the specification.
+* This specification supports signing for ''tweaked'' aggregate public keys. There are two modes of tweaking. ''Ordinary'' tweaking allows deriving child aggregate public keys per [https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki BIP32]. ''X-only'' tweaking allows creating a [https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki BIP341] Taproot tweak. See section [[#tweaking|Tweaking]] below for details.
 
-=== Specification ===
+=== Notation ===
 
 The following conventions are used, with constants as defined for [https://www.secg.org/sec2-v2.pdf secp256k1]. We note that adapting this specification to other elliptic curves is not straightforward and can result in an insecure scheme<ref>Among other pitfalls, using the specification with a curve whose order is not close to the size of the range of the nonce derivation function is insecure.</ref>.
 * Lowercase variables represent integers or byte arrays.
@@ -47,6 +48,7 @@ The following conventions are used, with constants as defined for [https://www.s
 ** The function ''bytes(x)'', where ''x'' is an integer, returns the 32-byte encoding of ''x'', most significant byte first.
 ** The function ''bytes(P)'', where ''P'' is a point, returns ''bytes(x(P))''.
 ** The function ''has_even_y(P)'', where ''P'' is a point for which ''not is_infinite(P)'', returns ''y(P) mod 2 = 0''.
+** The function ''with_even_y(P)'', where ''P'' is a point, returns ''P'' if ''is_infinite(P)'' or ''has_even_y(P)''. Otherwise,  ''with_even_y(P)'' returns ''-P''.
 ** The function ''cbytes(P)'', where ''P'' is a point, returns ''a || bytes(P)'' where ''a'' is a byte that is ''2'' if ''has_even_y(P)'' and ''3'' otherwise.
 ** The function ''int(x)'', where ''x'' is a 32-byte array, returns the 256-bit unsigned integer whose most significant byte first encoding is ''x''.
 ** The function ''lift_x(x)'', where ''x'' is an integer in range ''0..2<sup>256</sup>-1'', returns the point ''P'' for which ''x(P) = x''<ref>
@@ -63,6 +65,7 @@ The following conventions are used, with constants as defined for [https://www.s
 * Other:
 ** Tuples are written by listing the elements within parentheses and separated by commas. For example, ''(2, 3, 1)'' is a tuple.
 
+=== Specification ===
 
 ==== Key Sorting ====
 
@@ -242,6 +245,20 @@ An implementation may invalidate the secnonce argument after ''Sign'' to avoid a
 Avoiding reuse also implies that the ''NonceGen'' algorithm must compute unbiased, uniformly random values ''k<sub>1</sub>'' and ''k<sub>2</sub>''.
 
 === Remarks on Security and Correctness ===
+
+==== Tweaking ====
+
+This MuSig specification supports two modes of tweaking that correspond to the following algorithms:
+
+Input:
+* ''P'': a point
+* The tweak ''t'': an integer with ''0 &le; t < n ''
+
+The algorithm '''''OrdinaryTweak(P, t)''''' is defined as:
+* Return ''P + t⋅G''
+
+The algorithm '''''XonlyTweak(P, t)''''' is defined as:
+* Return ''with_even_y(P) + t⋅G''
 
 ==== Dealing with Infinity in Nonce Aggregation ====
 
