@@ -191,11 +191,11 @@ The algorithm '''''Sign(secnonce, sk, session_ctx)''''' is defined as:
 * Let ''d' = int(sk)''
 * Fail if ''d' = 0'' or ''d' &ge; n''
 * Let ''P = d'⋅G''
-* Let ''mu = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
-* Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
+* Let ''a = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
 * Let ''gp = 1'' if ''has_even_y(P)'', otherwise let ''gp = -1 mod n''
-* Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' ''
-* Let ''s = (k<sub>1</sub> + b⋅k<sub>2</sub> + e⋅mu⋅d) mod n''
+* Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
+* <div id="Sign negation"></div>Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' '' (See [[negation-of-the-secret-key-when-signing|Negation Of The Secret Key When Signing]])
+* Let ''s = (k<sub>1</sub> + b⋅k<sub>2</sub> + e⋅a⋅d) mod n''
 * Let ''psig = bytes(s)''
 * Let ''pubnonce = cbytes(k'<sub>1</sub>⋅G) || cbytes(k'<sub>2</sub>⋅G)''
 * If ''PartialSigVerifyInternal(psig, pubnonce, bytes(P), session_ctx)'' (see below) returns failure, abort<ref>Verifying the signature before leaving the signer prevents random or attacker provoked computation errors. This prevents publishing invalid signatures which may leak information about the secret key. It is recommended, but can be omitted if the computation cost is prohibitive.</ref>.
@@ -236,9 +236,9 @@ The algorithm '''''PartialSigVerifyInternal(psig, pubnonce, pk<sup>*</sup>, sess
 * Let ''R<sup>*</sup> = R<sup>*</sup>' '' if ''has_even_y(R)'', otherwise let ''R<sup>*</sup> = -R<sup>*</sup>' ''
 * Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
 * Let ''g' = g<sub>v</sub>⋅gacc<sub>v</sub> mod n''
-* Let ''P = g'⋅point(pk<sup>*</sup>)''; fail if that fails
-* Let ''mu = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
-* Fail if ''s⋅G &ne; R<sup>*</sup> + e⋅mu⋅P''
+* <div id="SigVerify negation"></div>Let ''P = g'⋅point(pk<sup>*</sup>)''; fail if that fails (See [[#negation-of-the-public-key-when-partially-verifying|Negation Of The Public Key When Partially Verifying]])
+* Let ''a = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
+* Fail if ''s⋅G &ne; R<sup>*</sup> + e⋅a⋅P''
 * Return success iff no failure occurred before reaching this point.
 
 ==== Partial Signature Aggregation ====
@@ -287,6 +287,90 @@ The algorithm '''''OrdinaryTweak(P, t)''''' is defined as:
 
 The algorithm '''''XonlyTweak(P, t)''''' is defined as:
 * Return ''with_even_y(P) + t⋅G''
+
+==== Negation Of The Secret Key When Signing ====
+
+In order to produce a partial signature for an x-only public key that is an aggregate of ''u'' x-only keys and tweaked ''v'' times (x-only or ordinarily), the ''[[#Sign negation|Sign]]'' algorithm may need to negate the secret key during the signing process.
+
+<poem>
+The following public keys arise as intermediate steps in the MuSig protocol:
+• ''P<sub>i</sub>'' as computed in ''KeyAggInternal'' is the point corresponding to the ''i''-th signer's x-only public key. Defining ''d'<sub>i</sub>'' to be the ''d' '' value as computed in the ''Sign'' algorithm of the ''i''-th signer, we have
+    ''P<sub>i</sub> = with_even_y(d'<sub>i</sub>⋅G) ''.
+• ''Q<sub>0</sub>'' is an aggregate of the signer's public keys and defined in ''KeyAggInternal''  as
+    ''Q<sub>0</sub> = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''.
+• ''Q<sub>i</sub>'' as computed in ''Tweak'' for ''1 &le; i &le; v'' is the tweaked public key after the ''i''-th tweaking operation. It holds that
+    ''Q<sub>i</sub> = f(i-1) + t<sub>i</sub>⋅G'' for ''i = 1, ..., v'' where
+        ''f(i) := with_even_y(Q<sub>i</sub>)'' if ''is_xonly_t<sub>i+1</sub>'' and
+        ''f(i) := Q<sub>i</sub>'' otherwise.
+</poem>
+
+The goal is to produce a partial signature corresponding to the output of ''KeyAgg'', i.e., the final (x-only) public key point after ''v'' tweaking operations ''with_even_y(Q<sub>v</sub>)''.
+
+<poem>
+We define ''gp<sub>i</sub>'' for ''1 &le; i &le; u'' to be ''gp '' as computed in the ''Sign'' algorithm of the ''i''-th signer. It holds that
+    ''P<sub>i</sub> = gp<sub>i</sub>⋅d'<sub>i</sub>⋅G''.
+
+For ''0 &le; i &le; v-1'', the ''Tweak'' algorithm called from ''KeyAggInternal'' sets ''g<sub>i</sub>'' to ''-1 mod n'' if and only if ''is_xonly_t<sub>i+1</sub>'' is true and ''Q<sub>i</sub>'' has an odd Y coordinate. Therefore, we have
+    ''f(i) = g<sub>i</sub>⋅Q<sub>i</sub>'' for ''0 &le; i &le; v - 1''.
+
+Furthermore, the ''Sign'' and ''PartialSigVerify'' algorithms set ''g<sub>v</sub>'' such that
+    ''with_even_y(Q<sub>v</sub>) = g<sub>v</sub>⋅Q<sub>v</sub>''.
+</poem>
+
+<poem>
+So, the (x-only) final public key is
+    ''with_even_y(Q<sub>v</sub>)
+        = g<sub>v</sub>⋅Q<sub>v</sub>
+        = g<sub>v</sub>⋅(f(v-1) + t<sub>v</sub>⋅G)
+        = g<sub>v</sub>⋅(g<sub>v-1</sub>⋅(f(v-2) + t<sub>v-1</sub>⋅G) + t<sub>v</sub>⋅G)
+        = g<sub>v</sub>⋅g<sub>v-1</sub>⋅f(v-2) + g<sub>v</sub>⋅(t<sub>v</sub> + g<sub>v-1</sub>⋅t<sub>v-1</sub>)⋅G
+        = g<sub>v</sub>⋅g<sub>v-1</sub>⋅f(v-2) + (sum<sub>i=v-1..v</sub> t<sub>i</sub>⋅prod<sub>j=i..v</sub> g<sub>j</sub>)⋅G
+        = g<sub>v</sub>⋅g<sub>v-1</sub>⋅...⋅g<sub>1</sub>⋅f(0) + (sum<sub>i=1..v</sub> t<sub>i</sub>⋅prod<sub>j=i..v</sub> g<sub>j</sub>)⋅G
+        = g<sub>v</sub>⋅...⋅g<sub>0</sub>⋅Q<sub>0</sub> + g<sub>v</sub>⋅tacc<sub>v</sub>⋅G''
+    where ''tacc<sub>i</sub>'' is computed by ''KeyAggInternal'' and ''Tweak'' as follows:
+      ''tacc<sub>0</sub> = 0
+      tacc<sub>i</sub> = t<sub>i</sub> + g<sub>i-1</sub>⋅tacc<sub>i-1</sub> for i=1..v mod n''
+    for which it holds that ''g<sub>v</sub>⋅tacc<sub>v</sub> = sum<sub>i=1..v</sub> t<sub>i</sub>⋅prod<sub>j=i..v</sub> g<sub>j</sub>''.
+</poem>
+
+<poem>
+''KeyAggInternal'' and ''Tweak'' compute
+    ''gacc<sub>0</sub> = 1
+    gacc<sub>i</sub> = g<sub>i-1</sub>⋅gacc<sub>i-1</sub> for i=1..v mod n''
+So we can rewrite above equation for the final public key as
+  ''with_even_y(Q<sub>v</sub>) = g<sub>v</sub>⋅gacc<sub>v</sub>⋅Q<sub>0</sub> + g<sub>v</sub>⋅tacc<sub>v</sub>⋅G''.
+</poem>
+
+<poem>
+Then we have
+    ''with_even_y(Q<sub>v</sub>) - g<sub>v</sub>⋅tacc<sub>v</sub>⋅G
+        = g<sub>v</sub>⋅gacc<sub>v</sub>⋅Q<sub>0</sub>
+        = g<sub>v</sub>⋅gacc<sub>v</sub>⋅(a<sub>1</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>)
+        = g<sub>v</sub>⋅gacc<sub>v</sub>⋅(a<sub>1</sub>⋅gp<sub>1</sub>⋅d'<sub>1</sub>⋅G + ... + a<sub>u</sub>⋅gp<sub>u</sub>⋅d'<sub>u</sub>⋅G)
+        = sum<sub>i=1..u</sub>(g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp<sub>i</sub>⋅a<sub>i</sub>⋅d'<sub>i</sub>)*G''.
+</poem>
+
+Thus, signer ''i'' multiplies its secret key ''d'<sub>i</sub>'' with ''g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp<sub>i</sub>'' in the ''[[#Sign negation|Sign]]'' algorithm.
+
+==== Negation Of The Public Key When Partially Verifying ====
+
+<poem>
+As explained in [[#negation-of-the-secret-key-when-signing|Negation Of The Secret Key When Signing]] the signer uses a possibly negated secret key
+    ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' mod n''
+when producing a partial signature to ensure that the aggregate signature will correspond to an aggregate public key with even Y coordinate.
+</poem>
+
+<poem>
+The ''[[#SigVerify negation|PartialSigVerifyInternal]]'' algorithm is supposed to check
+  ''s⋅G = R<sup>*</sup> + e⋅a⋅d⋅G''.
+</poem>
+
+<poem>
+The verifier doesn't have access to ''d⋅G'', but can construct it using the xonly public key ''pk<sup>*</sup>'' as follows:
+''d⋅G
+    = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d'⋅G
+    = g<sub>v</sub>⋅gacc<sub>v</sub>⋅point(pk<sup>*</sup>)''
+</poem>
 
 ==== Dealing with Infinity in Nonce Aggregation ====
 
