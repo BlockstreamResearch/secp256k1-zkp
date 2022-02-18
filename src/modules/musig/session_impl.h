@@ -393,17 +393,25 @@ static int secp256k1_musig_compute_noncehash(unsigned char *noncehash, secp256k1
     return 1;
 }
 
-static int secp256k1_musig_nonce_process_internal(int *fin_nonce_parity, unsigned char *fin_nonce, secp256k1_scalar *b, secp256k1_gej *aggnoncej, const unsigned char *agg_pk32, const unsigned char *msg) {
+static int secp256k1_musig_nonce_process_internal(const secp256k1_context* ctx, int *fin_nonce_parity, unsigned char *fin_nonce, secp256k1_scalar *b, secp256k1_gej *aggnoncej, secp256k1_ge *aggnonce, const unsigned char *agg_pk32, const unsigned char *msg, const secp256k1_pubkey *adaptor) {
     unsigned char noncehash[32];
     secp256k1_ge fin_nonce_pt;
     secp256k1_gej fin_nonce_ptj;
-    secp256k1_ge aggnonce[2];
 
-    secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
-    secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
+    /* Add public adaptor to nonce */
+    if (adaptor != NULL) {
+        secp256k1_ge adaptorp;
+        if (!secp256k1_pubkey_load(ctx, &adaptorp, adaptor)) {
+            return 0;
+        }
+        secp256k1_gej_add_ge_var(&aggnoncej[0], &aggnoncej[0], &adaptorp, NULL);
+        secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
+    }
+
     if (!secp256k1_musig_compute_noncehash(noncehash, aggnonce, agg_pk32, msg)) {
         return 0;
     }
+
     /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
     secp256k1_scalar_set_b32(b, noncehash, NULL);
     secp256k1_ecmult(&fin_nonce_ptj, &aggnoncej[1], b, NULL);
@@ -442,15 +450,8 @@ int secp256k1_musig_nonce_process(const secp256k1_context* ctx, secp256k1_musig_
     }
     secp256k1_gej_set_ge(&aggnonce_ptj[0], &aggnonce_pt[0]);
     secp256k1_gej_set_ge(&aggnonce_ptj[1], &aggnonce_pt[1]);
-    /* Add public adaptor to nonce */
-    if (adaptor != NULL) {
-        secp256k1_ge adaptorp;
-        if (!secp256k1_pubkey_load(ctx, &adaptorp, adaptor)) {
-            return 0;
-        }
-        secp256k1_gej_add_ge_var(&aggnonce_ptj[0], &aggnonce_ptj[0], &adaptorp, NULL);
-    }
-    if (!secp256k1_musig_nonce_process_internal(&session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_ptj, agg_pk32, msg32)) {
+
+    if (!secp256k1_musig_nonce_process_internal(ctx, &session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_ptj, aggnonce_pt, agg_pk32, msg32, adaptor)) {
         return 0;
     }
 
