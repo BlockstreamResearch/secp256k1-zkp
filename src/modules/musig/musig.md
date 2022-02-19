@@ -32,7 +32,7 @@ Essentially, the protocol proceeds in the following steps:
 
 1. Generate a keypair with `secp256k1_keypair_create` and obtain the xonly public key with `secp256k1_keypair_xonly_pub`.
 2. Call `secp256k1_musig_pubkey_agg` with the xonly pubkeys of all participants.
-3. Optionally add a (Taproot) tweak with `secp256k1_musig_pubkey_tweak_add`.
+3. Optionally add a x-only tweak (Taproot) with `secp256k1_musig_pubkey_xonly_tweak_add` or a (BIP 32) tweak with `secp256k1_musig_pubkey_ec_tweak_add`.
 4. Generate a pair of secret and public nonce with `secp256k1_musig_nonce_gen` and send the public nonce to the other signers.
 5. Someone (not necessarily the signer) aggregates the public nonce with `secp256k1_musig_nonce_agg` and sends it to the signers.
 6. Process the aggregate nonce with `secp256k1_musig_nonce_process`.
