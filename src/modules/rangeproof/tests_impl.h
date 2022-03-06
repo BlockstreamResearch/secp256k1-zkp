@@ -789,7 +789,7 @@ void test_rangeproof_fixed_vectors(void) {
     CHECK(value == 86);
     CHECK(min_value == 86);
     CHECK(max_value == 25586);
-    CHECK(m_len == 448); /* length of the sidechannel in the proof */
+    CHECK(m_len == 384); /* length of the sidechannel in the proof */
     for (i = 0; i < m_len; i++) {
         /* No message encoded in this vector */
         CHECK(message[i] == 0);
@@ -860,7 +860,7 @@ void test_rangeproof_fixed_vectors(void) {
     CHECK(value == 11);
     CHECK(min_value == 0);
     CHECK(max_value == 15);
-    CHECK(m_len == 192); /* length of the sidechannel in the proof */
+    CHECK(m_len == 128); /* length of the sidechannel in the proof */
     CHECK(secp256k1_memcmp_var(message, message_2, sizeof(message_2)) == 0);
     for (i = sizeof(message_2); i < m_len; i++) {
         CHECK(message[i] == 0);

@@ -369,12 +369,11 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     unsigned char prep[4096];
     unsigned char tmp[32];
     uint64_t value = 0;
+    size_t final_x_pos;
     size_t offset;
     size_t i;
     size_t j;
     int b;
-    size_t skip1;
-    size_t skip2;
     size_t npub;
     npub = ((rings - 1) << 2) + rsizes[rings-1];
     VERIFY_CHECK(npub <= 128);
@@ -421,19 +420,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
         }
         return 0;
     }
-    skip1 = rsizes[rings - 1] - 1 - j;
-    skip2 = ((value >> ((rings - 1) << 1)) & 3);
-    if (skip1 == skip2) {
-        /*Value is in wrong position.*/
-        if (mlen) {
-            *mlen = 0;
-        }
-        return 0;
-    }
-    skip1 += (rings - 1) << 2;
-    skip2 += (rings - 1) << 2;
     /* Like in the rsize[] == 1 case, Having figured out which s is the one which was not forged, we can recover the blinding factor. */
-    secp256k1_rangeproof_recover_x(&stmp, &s_orig[skip2], &ev[skip2], &s[skip2]);
+    final_x_pos = 4 * (rings - 1) + ((*v >> (2 * (rings - 1))) & 3);
+    secp256k1_rangeproof_recover_x(&stmp, &s_orig[final_x_pos], &ev[final_x_pos], &s[final_x_pos]);
     secp256k1_scalar_negate(&sec[rings - 1], &sec[rings - 1]);
     secp256k1_scalar_add(blind, &stmp, &sec[rings - 1]);
     if (!m || !mlen || *mlen == 0) {
@@ -445,14 +434,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
     }
     offset = 0;
     npub = 0;
-    for (i = 0; i < rings; i++) {
+    for (i = 0; i < rings - 1; i++) {
         size_t idx;
         idx = (value >> (i << 1)) & 3;
         for (j = 0; j < rsizes[i]; j++) {
-            if (npub == skip1 || npub == skip2) {
-                npub++;
-                continue;
-            }
             if (idx == j) {
                 /** For the non-forged signatures the signature is calculated instead of random, instead we recover the prover's nonces.
                  *  this could just as well recover the blinding factors and messages could be put there as is done for recovering the
