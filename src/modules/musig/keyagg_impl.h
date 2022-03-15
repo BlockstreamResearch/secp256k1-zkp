@@ -69,7 +69,7 @@ static void secp256k1_keyagg_cache_save(secp256k1_musig_keyagg_cache *cache, sec
     ptr += 32;
     memcpy(ptr, cache_i->pk_hash, 32);
     ptr += 32;
-    *ptr = cache_i->internal_key_parity;
+    *ptr = cache_i->parity_acc;
     ptr += 1;
     secp256k1_scalar_get_b32(ptr, &cache_i->tweak);
 }
@@ -84,7 +84,7 @@ static int secp256k1_keyagg_cache_load(const secp256k1_context* ctx, secp256k1_k
     ptr += 32;
     memcpy(cache_i->pk_hash, ptr, 32);
     ptr += 32;
-    cache_i->internal_key_parity = *ptr & 1;
+    cache_i->parity_acc = *ptr & 1;
     ptr += 1;
     secp256k1_scalar_set_b32(&cache_i->tweak, ptr, NULL);
     return 1;
@@ -278,7 +278,7 @@ static int secp256k1_musig_pubkey_tweak_add_internal(const secp256k1_context* ct
         return 0;
     }
     if (xonly && secp256k1_extrakeys_ge_even_y(&cache_i.pk)) {
-        cache_i.internal_key_parity ^= 1;
+        cache_i.parity_acc ^= 1;
         secp256k1_scalar_negate(&cache_i.tweak, &cache_i.tweak);
     }
     secp256k1_scalar_add(&cache_i.tweak, &cache_i.tweak, &tweak);

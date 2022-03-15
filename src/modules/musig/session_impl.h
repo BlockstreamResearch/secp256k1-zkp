@@ -513,21 +513,19 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
         return 0;
     }
     secp256k1_fe_normalize_var(&pk.y);
+
     /* The specification requires that the secret key is multiplied by
-     * g*gp = g[0]*...g[v]*gp.
-     * Since all factors are 1 or -1, the key is negated if and only if
-     *   (P[i] has odd y) XOR (is_xonly_t[1] and Q[0] has odd y)
-     *     XOR (is_xonly_t[2] and Q[1] has odd y)
-     *     XOR ... XOR (is_xonly_t[v] and Q[v-1] has odd y)
-     *     XOR (Q[v] has odd y)
-     * which is equivalent to
-     *   secp256k1_fe_is_odd(&pk.y)
-     *     XOR cache_i.internal_key_parity
-     *     XOR secp256k1_fe_is_odd(&cache_i.pk.y)).
+     * g[v]*g*gp. All factors are -1 or 1. The value g[v] is -1 iff
+     * secp256k1_fe_is_odd(&cache_i.pk.y)), g is is -1 iff parity_acc is 1 and
+     * gp is -1 if secp256k1_fe_is_odd(&pk.y). Therefore, multiplying by
+     * g[v]*g*gp is equivalent to negating if
+     *     secp256k1_fe_is_odd(&cache_i.pk.y))
+     *       XOR cache_i.parity_acc
+     *       XOR secp256k1_fe_is_odd(&pk.y).
      */
-    if ((secp256k1_fe_is_odd(&pk.y)
-         != secp256k1_fe_is_odd(&cache_i.pk.y))
-         != cache_i.internal_key_parity) {
+    if ((secp256k1_fe_is_odd(&cache_i.pk.y)
+         != cache_i.parity_acc)
+         != secp256k1_fe_is_odd(&pk.y)) {
         secp256k1_scalar_negate(&sk, &sk);
     }
 
@@ -599,14 +597,13 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_musig_keyaggcoef(&mu, &cache_i, &pkp.x);
     secp256k1_scalar_mul(&e, &session_i.challenge, &mu);
 
-    /* The specification requires that the public key is multiplied by g which
-     * is negative if and only if fe_is_odd(&cache_i.pk.y) XOR
-     * internal_key_parity. Instead of multiplying g with the public key, we
-     * negate e which will have the same end result, since e and the public key
-     * are multiplied later anyway.
-     */
+    /* The specification requires that the public key is multiplied by g[v]*g.
+     * All factors are -1 or 1. The value g[v] is -1 iff
+     * secp256k1_fe_is_odd(&cache_i.pk.y)) and g is is -1 iff parity_acc is 1.
+     * Therefore, multiplying by g[v]*g is equivalent to negating if
+     * fe_is_odd(&cache_i.pk.y) XOR parity_acc. */
     if (secp256k1_fe_is_odd(&cache_i.pk.y)
-            != cache_i.internal_key_parity) {
+            != cache_i.parity_acc) {
         secp256k1_scalar_negate(&e, &e);
     }
 
