@@ -1,5 +1,5 @@
 <pre>
-  Title: MuSig Key Aggregation
+  Title: MuSig
   Author:
   Status: Draft
   License: BSD-2-Clause
@@ -10,7 +10,7 @@
 
 === Abstract ===
 
-This document describes MuSig Key Aggregation in libsecp256k1-zkp.
+This document proposes a standard for the MuSig2 protocol that supports ''tweaking'' and outputs [https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki BIP340] public keys and signatures.
 
 === Copyright ===
 
@@ -65,10 +65,10 @@ The following conventions are used, with constants as defined for [https://www.s
 ==== Key Sorting ====
 
 Input:
-* The number ''u'' of signatures with ''0 < u < 2^32''
+* The number ''u'' of public keys with ''0 < u < 2^32''
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
 
-The algorithm ''KeySort(pk<sub>1..u</sub>)'' is defined as:
+The algorithm '''''KeySort(pk<sub>1..u</sub>)''''' is defined as:
 * Return ''pk<sub>1..u</sub>'' sorted in lexicographical order.
 
 ==== Key Aggregation ====
@@ -77,11 +77,11 @@ Input:
 * The number ''u'' of public keys with ''0 < u < 2^32''
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
 
-The algorithm ''KeyAgg(pk<sub>1..u</sub>)'' is defined as:
+The algorithm '''''KeyAgg(pk<sub>1..u</sub>)''''' is defined as:
 * Let ''Q = KeyAggInternal(pk<sub>1..u</sub>)''; fail if that fails.
 * Return ''bytes(Q)''.
 
-The algorithm ''KeyAggInternal(pk<sub>1..u</sub>)'' is defined as:
+The algorithm '''''KeyAggInternal(pk<sub>1..u</sub>)''''' is defined as:
 * For ''i = 1 .. u'':
 ** Let ''a<sub>i</sub> = KeyAggCoeff(pk<sub>1..u</sub>, pk<sub>i</sub>)''.
 ** Let ''P<sub>i</sub> = point(pk<sub>i</sub>)''; fail if that fails.
@@ -89,16 +89,16 @@ The algorithm ''KeyAggInternal(pk<sub>1..u</sub>)'' is defined as:
 * Fail if ''is_infinite(Q)''.
 * Return ''Q''.
 
-The algorithm ''HashKeys(pk<sub>1..u</sub>)'' is defined as:
+The algorithm '''''HashKeys(pk<sub>1..u</sub>)''''' is defined as:
 * Return ''hash<sub>KeyAgg list</sub>(pk<sub>1</sub> || pk<sub>2</sub> || ... || pk<sub>u</sub>)''
 
-The algorithm ''IsSecond(pk<sub>1..u</sub>, pk')'' is defined as:
+The algorithm '''''IsSecond(pk<sub>1..u</sub>, pk')''''' is defined as:
 * For ''j = 1 .. u'':
 ** If ''pk<sub>j</sub> &ne; pk<sub>1</sub>'':
 *** Return ''true'' if ''pk<sub>j</sub> = pk' '', otherwise return ''false''.
 * Return ''false''
 
-The algorithm ''KeyAggCoeff(pk<sub>1..u</sub>, pk')'' is defined as:
+The algorithm '''''KeyAggCoeff(pk<sub>1..u</sub>, pk')''''' is defined as:
 * Let ''L = HashKeys(pk<sub>1..u</sub>)''.
 * If ''IsSecond(pk<sub>1..u</sub>, pk')'':
 ** Return 1
@@ -106,7 +106,7 @@ The algorithm ''KeyAggCoeff(pk<sub>1..u</sub>, pk')'' is defined as:
 
 ==== Nonce Generation ====
 
-The algorithm ''NonceGen()'' is defined as:
+The algorithm '''''NonceGen()''''' is defined as:
 * Generate two random integers ''k<sub>1</sub>, k<sub>2</sub>'' in the range ''1...n-1''
 * Let ''R<sup>*</sup><sub>1</sub> = k<sub>1</sub>⋅G, R<sup>*</sup><sub>2</sub> = k<sub>2</sub>⋅G''
 * Let ''pubnonce = cbytes(R<sup>*</sup><sub>1</sub>) || cbytes(R<sup>*</sup><sub>2</sub>)''
@@ -118,7 +118,7 @@ The algorithm ''NonceGen()'' is defined as:
 * The number ''u'' of ''pubnonces'' with ''0 < u < 2^32''
 * The public nonces ''pubnonce<sub>1..u</sub>'': ''u'' 66-byte arrays
 
-The algorithm ''NonceAgg(pubnonce<sub>1..u</sub>)'' is defined as:
+The algorithm '''''NonceAgg(pubnonce<sub>1..u</sub>)''''' is defined as:
 * For ''i = 1 .. 2'':
 ** For ''j = 1 .. u'':
 *** Let ''R<sub>i,j</sub> = pointc(pubnonce<sub>j</sub>[(i-1)*33:i*33])''; fail if that fails
@@ -156,7 +156,7 @@ Input:
 * The public keys ''pk<sub>1..u</sub>'': ''u'' 32-byte arrays
 * The message ''m'': a 32-byte array
 
-The algorithm ''Sign(secnonce, sk, aggnonce, pk<sub>1..u</sub>, m)'' is defined as:
+The algorithm '''''Sign(secnonce, sk, aggnonce, pk<sub>1..u</sub>, m)''''' is defined as:
 * Let ''R<sub>1</sub> = pointc(aggnonce[0:33]), R<sub>2</sub> = pointc(aggnonce[33:66])''; fail if that fails
 * Let ''Q = KeyAggInternal(pk<sub>1..u</sub>)''; fail if that fails
 * Let ''b = int(hash<sub>MuSig/noncecoef</sub>(aggnonce || bytes(Q) || m)) mod n''
@@ -187,7 +187,7 @@ Input:
 * The message ''m'': a 32-byte array
 * The index of the signer ''i'' in the public nonces and public keys with ''0 < i &le; u''
 
-The algorithm ''PartialSigVerify(psig, pubnonce<sub>1..u</sub>, pk<sub>1..u</sub>, m, i)'' is defined as:
+The algorithm '''''PartialSigVerify(psig, pubnonce<sub>1..u</sub>, pk<sub>1..u</sub>, m, i)''''' is defined as:
 * Let ''aggnonce = NonceAgg(pubnonce<sub>1..u</sub>)''; fail if that fails
 * Run ''PartialSigVerifyInternal(psig, pubnonce<sub>i</sub>, aggnonce, pk<sub>1..u</sub>, pk<sub>i</sub>, m)''
 * Return success iff no failure occurred before reaching this point.
@@ -203,7 +203,7 @@ Input:
 * The public key of the signer ''pk<sup>*</sup>'' (in ''pk<sub>1..u</sub>''): a 32-byte array
 * The message ''m'': a 32-byte array
 
-The algorithm ''PartialSigVerifyInternal(psig, pubnonce, aggnonce, pk<sub>1..u</sub>, pk<sup>*</sup>, m)'' is defined as:
+The algorithm '''''PartialSigVerifyInternal(psig, pubnonce, aggnonce, pk<sub>1..u</sub>, pk<sup>*</sup>, m)''''' is defined as:
 * Let ''s = int(psig)''; fail if ''s &ge; n''
 * Let ''R<sub>1</sub> = pointc(aggnonce[0:33]), R<sub>2</sub> = pointc(aggnonce[33:66])''; fail if that fails
 * Let ''Q = KeyAggInternal(pk<sub>1..u</sub>)''; fail if that fails
@@ -226,7 +226,7 @@ Input:
 * The number ''u'' of signatures with ''0 < u < 2^32''
 * The partial signatures ''psig<sub>1..u</sub>'': ''u'' 32-byte arrays
 
-The algorithm ''PartialSigAgg(R, psig<sub>1..u</sub>)'' is defined as:
+The algorithm '''''PartialSigAgg(R, psig<sub>1..u</sub>)''''' is defined as:
 * For ''i = 1 .. u'':
 ** Let ''s<sub>i</sub> = int(psig<sub>i</sub>)''; fail if ''s<sub>i</sub> &ge; n''.
 * Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> mod n''
