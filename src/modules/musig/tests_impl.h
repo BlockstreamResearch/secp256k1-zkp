@@ -883,7 +883,7 @@ void musig_tweak_test(secp256k1_scratch_space *scratch) {
      * that key. If xonly is set to true, the function f is normalizes the input
      * point to have an even X-coordinate ("xonly-tweaking").
      * Otherwise, the function f is the identity function. */
-    for (i = 1; i < N_TWEAKS; i++) {
+    for (i = 1; i <= N_TWEAKS; i++) {
         unsigned char tweak[32];
         int P_parity;
         int xonly = secp256k1_testrand_bits(1);
