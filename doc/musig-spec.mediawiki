@@ -90,9 +90,10 @@ The algorithm '''''KeyAgg(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<su
 * Return ''bytes(Q)''.
 
 The algorithm '''''KeyAggInternal(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xonly_t<sub>1..v</sub>)''''' is defined as:
+* Let ''pk2 = GetSecondKey(pk<sub>1..u</sub>)''
 * For ''i = 1 .. u'':
-** Let ''a<sub>i</sub> = KeyAggCoeff(pk<sub>1..u</sub>, pk<sub>i</sub>)''.
 ** Let ''P<sub>i</sub> = point(pk<sub>i</sub>)''; fail if that fails.
+** Let ''a<sub>i</sub> = KeyAggCoeff'(pk<sub>1..u</sub>, pk<sub>i</sub>, pk2)''.
 * Let ''Q<sub>0</sub> = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''
 * Fail if ''is_infinite(Q<sub>0</sub>)''.
 * Let ''tacc<sub>0</sub> = 0''
@@ -104,15 +105,19 @@ The algorithm '''''KeyAggInternal(pk<sub>1..u</sub>, tweak<sub>1..v</sub>, is_xo
 The algorithm '''''HashKeys(pk<sub>1..u</sub>)''''' is defined as:
 * Return ''hash<sub>KeyAgg list</sub>(pk<sub>1</sub> || pk<sub>2</sub> || ... || pk<sub>u</sub>)''
 
-The algorithm '''''IsSecond(pk<sub>1..u</sub>, pk')''''' is defined as:
+The algorithm '''''GetSecondKey(pk<sub>1..u</sub>)''''' is defined as:
 * For ''j = 1 .. u'':
 ** If ''pk<sub>j</sub> &ne; pk<sub>1</sub>'':
-*** Return ''true'' if ''pk<sub>j</sub> = pk' '', otherwise return ''false''.
-* Return ''false''
+*** Return ''pk<sub>j</sub>''
+* Return ''bytes(0)''
 
 The algorithm '''''KeyAggCoeff(pk<sub>1..u</sub>, pk')''''' is defined as:
-* Let ''L = HashKeys(pk<sub>1..u</sub>)''.
-* If ''IsSecond(pk<sub>1..u</sub>, pk')'':
+* Let ''pk2 = GetSecondKey(pk<sub>1..u</sub>)'':
+* Return ''KeyAggCoeff'(pk<sub>1..u</sub>, pk', pk2)''
+
+The algorithm '''''KeyAggCoeff'(pk<sub>1..u</sub>, pk', pk2)''''' is defined as:
+* Let ''L = HashKeys(pk<sub>1..u</sub>)''
+* If ''pk' = pk2'':
 ** Return 1
 * Return ''int(hash<sub>KeyAgg coefficient</sub>(L || pk')) mod n''
 
