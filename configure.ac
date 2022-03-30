@@ -146,8 +146,8 @@ AC_ARG_ENABLE(module_ecdh,
 
 AC_ARG_ENABLE(module_musig,
     AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
-    [enable_module_musig=$enableval],
-    [enable_module_musig=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_musig], [no], [yes])])
 
 AC_ARG_ENABLE(module_recovery,
     AS_HELP_STRING([--enable-module-recovery],[enable ECDSA pubkey recovery module [default=no]]), [],
@@ -155,18 +155,18 @@ AC_ARG_ENABLE(module_recovery,
 
 AC_ARG_ENABLE(module_generator,
     AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module [default=no]]),
-    [enable_module_generator=$enableval],
-    [enable_module_generator=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_generator], [no], [yes])])
 
 AC_ARG_ENABLE(module_rangeproof,
     AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module [default=no]]),
-    [enable_module_rangeproof=$enableval],
-    [enable_module_rangeproof=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_rangeproof], [no], [yes])])
 
 AC_ARG_ENABLE(module_whitelist,
     AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
-    [enable_module_whitelist=$enableval],
-    [enable_module_whitelist=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_whitelist], [no], [yes])])
 
 AC_ARG_ENABLE(module_extrakeys,
     AS_HELP_STRING([--enable-module-extrakeys],[enable extrakeys module [default=no]]), [],
@@ -178,13 +178,13 @@ AC_ARG_ENABLE(module_schnorrsig,
 
 AC_ARG_ENABLE(module_ecdsa_s2c,
     AS_HELP_STRING([--enable-module-ecdsa-s2c],[enable ECDSA sign-to-contract module [default=no]]),
-    [enable_module_ecdsa_s2c=$enableval],
-    [enable_module_ecdsa_s2c=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_ecdsa_s2c], [no], [yes])])
 
 AC_ARG_ENABLE(module_ecdsa-adaptor,
     AS_HELP_STRING([--enable-module-ecdsa-adaptor],[enable ECDSA adaptor module [default=no]]),
-    [enable_module_ecdsa_adaptor=$enableval],
-    [enable_module_ecdsa_adaptor=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_ecdsa_adaptor], [no], [yes])])
 
 AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]), [],
@@ -192,13 +192,13 @@ AC_ARG_ENABLE(external_default_callbacks,
 
 AC_ARG_ENABLE(module_surjectionproof,
     AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
-    [enable_module_surjectionproof=$enableval],
-    [enable_module_surjectionproof=no])
+    [],
+    [SECP_SET_DEFAULT([enable_module_surjectionproof], [no], [yes])])
 
 AC_ARG_ENABLE(reduced_surjection_proof_size,
     AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
-    [use_reduced_surjection_proof_size=$enableval],
-    [use_reduced_surjection_proof_size=no])
+    [],
+    [SECP_SET_DEFAULT([use_reduced_surjection_proof_size], [no], [no])])
 
 # Test-only override of the (autodetected by the C code) "widemul" setting.
 # Legal values are int64 (for [u]int64_t), int128 (for [unsigned] __int128), and auto (the default).
