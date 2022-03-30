@@ -21,6 +21,8 @@ valgrind --version || true
     --enable-module-ecdsa-s2c="$ECDSA_S2C" \
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
+    --enable-module-schnorrsig="$SCHNORRSIG" \
+    --enable-examples="$EXAMPLES" \
     --with-valgrind="$WITH_VALGRIND" \
     --host="$HOST" $EXTRAFLAGS
 
