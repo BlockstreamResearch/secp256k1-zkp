@@ -842,3 +842,8 @@ int secp256k1_tagged_sha256(const secp256k1_context* ctx, unsigned char *hash32,
 # include "modules/surjection/main_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_INTERNALS
+# include "modules/internals/main_impl.h"
+#endif
+
+

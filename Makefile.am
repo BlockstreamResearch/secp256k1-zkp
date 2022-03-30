@@ -232,3 +232,8 @@ endif
 if ENABLE_MODULE_ECDSA_ADAPTOR
 include src/modules/ecdsa_adaptor/Makefile.am.include
 endif
+
+if ENABLE_MODULE_INTERNALS
+include src/modules/internals/Makefile.am.include
+endif
+
