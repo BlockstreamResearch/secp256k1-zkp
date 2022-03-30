@@ -101,6 +101,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    EXPERIMENTAL: yes
     ECDSA_S2C: yes
     RANGEPROOF: yes
     WHITELIST: yes
@@ -191,6 +192,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    EXPERIMENTAL: yes
     ECDSA_S2C: yes
     RANGEPROOF: yes
     WHITELIST: yes
@@ -284,6 +286,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    EXPERIMENTAL: yes
     ECDSA_S2C: yes
     RANGEPROOF: yes
     WHITELIST: yes
