@@ -175,15 +175,15 @@ endif
 TESTS += schnorr_example
 endif
 if ENABLE_MODULE_MUSIG
-noinst_PROGRAMS += example_musig
-example_musig_SOURCES = examples/musig.c
-example_musig_CPPFLAGS = -I$(top_srcdir)/include
-example_musig_LDADD = libsecp256k1.la
-example_musig_LDFLAGS = -static
+noinst_PROGRAMS += musig_example
+musig_example_SOURCES = examples/musig.c
+musig_example_CPPFLAGS = -I$(top_srcdir)/include
+musig_example_LDADD = libsecp256k1.la
+musig_example_LDFLAGS = -static
 if BUILD_WINDOWS
-example_musig_LDFLAGS += -lbcrypt
+musig_example_LDFLAGS += -lbcrypt
 endif
-TESTS += example_musig
+TESTS += musig_example
 endif
 endif
 
