@@ -1,8 +1,11 @@
-/***********************************************************************
- * Copyright (c) 2018 Jonas Nick                                       *
- * Distributed under the MIT software license, see the accompanying    *
- * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
- **********************************************************************/
+/*************************************************************************
+ * Written in 2018 by Jonas Nick                                         *
+ * To the extent possible under law, the author(s) have dedicated all    *
+ * copyright and related and neighboring rights to the software in this  *
+ * file to the public domain worldwide. This software is distributed     *
+ * without any warranty. For the CC0 Public Domain Dedication, see       *
+ * EXAMPLES_COPYING or https://creativecommons.org/publicdomain/zero/1.0 *
+ *************************************************************************/
 
 /** This file demonstrates how to use the MuSig module to create a
  *  3-of-3 multisignature. Additionally, see the documentation in
