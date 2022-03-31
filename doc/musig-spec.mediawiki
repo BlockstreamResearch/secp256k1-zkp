@@ -57,6 +57,57 @@ Also, the signers' public nonces are serialized in compressed format (33 bytes) 
 
 When implementing the specification, make sure to understand this section thoroughly, particularly the [[#signing-flow|Signing Flow]], to avoid subtle mistakes that lead to catastrophic failure.
 
+=== Signing Flow ===
+
+The basic order of operations to create a multi-signature with the specification is as follows:
+The signers start by exchanging public keys and computing an aggregate public key using the ''KeyAgg'' algorithm.
+When they want to sign a message, each signer starts the signing session by running ''NonceGen'' to compute ''secnonce'' and ''pubnonce''.
+Then, the signers broadcast their ''pubnonce'' to each other and run ''NonceAgg'' to compute an aggregate nonce.
+At this point, every signer has the required data to sign, which, in the specification, is stored in a data structure called [[#session-context|Session Context]].
+After running ''Sign'' with the secret signing key, the ''secnonce'' and the session context, each signer sends their partial signature to an aggregator node, which produces a final signature using ''PartialSigAgg''.
+If all signers behaved honestly, the result passes [https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki BIP340] verification.
+
+'''IMPORTANT''': The ''Sign'' algorithm must '''not''' be executed twice with the same ''secnonce''.
+Otherwise, extracting the secret signing key from the partial signatures is possible.
+To avoid accidental reuse, an implementation may securely erase the ''secnonce'' argument by overwriting it with zeros after ''Sign'' has been run.
+A ''secnonce'' consisting of only zeros is invalid for ''Sign'' and will cause it to fail.
+The ''NonceGen'' algorithm '''must''' draw unbiased, uniformly random values ''k<sub>1</sub>'' and ''k<sub>2</sub>''.
+In particular, ''k<sub>1</sub>'' and ''k<sub>2</sub>'' must _not_ be derived deterministically from the session parameters (see [[#nonce-generation|Nonce Generation]]).
+
+The output of ''KeyAgg'' is dependent on the order of the input public keys.
+If there is no common order of the signers already, the public keys can be sorted with the ''KeySort'' algorithm to ensure that the same aggregate key is calculated.
+Note that public keys are allowed to occur multiple times in the input of ''KeyAgg'' and ''KeySort'', and that it is possible to successfully complete a MuSig2 signing session with duplicated public keys.
+
+In some applications, it is beneficial to generate and exchange ''pubnonces'' before the message to sign or the final set of signers is known.
+After this preprocessing phase, the ''Sign'' algorithm can be run immediately when the message and set of signers is determined.
+This way, the final signature is created quicker and with fewer roundtrips.
+However, applications that use this method presumably store the nonces for a longer time and must therefore be even more careful not to reuse them.
+Moreover, this method prohibits a defense-in-depth measure that strengthens [[#nonce-generation|Nonce Generation]].
+
+Instead of every signer broadcasting their ''pubnonce'' to every other signer, the signers can send their ''pubnonce'' to a single aggregator node that runs ''NonceAgg'' and sends the ''aggnonce'' back to the signers.
+This technique reduces the overall communication.
+The aggregator node does not need to be trusted for the scheme's security to hold.
+All the aggregator node can do is prevent the signing session from succeeding by sending out incorrect aggregate nonces.
+
+If any signer sends an incorrect partial signature, i.e., one that has not then been created with ''Sign'' and the right arguments for the session, the MuSig2 protocol may fail to output a valid Schnorr signature.
+This standard provides the method ''PartialSigVerify'' to verify the correctness of partial signatures.
+If partial signatures are authenticated, this method can be used to identify disruptive signers and hold them accountable.
+Note that partial signatures are ''not'' signatures.
+An adversary can forge a partial signature, i.e., create a partial signature without knowing the secret key for the claimed public key<ref>Assume an adversary wants to forge a partial signature for public key ''P''. It joins the signing session pretending to be two different signers, one with public key ''P' and one with another public key. The adversary can then set the second signer's nonce such that it will be able to produce a partial signature for ''P'', but not for the other claimed signer.</ref>.
+However, if ''PartialSigVerify'' succeeds for all partial signatures then ''PartialSigAgg'' will return a valid Schnorr signature.
+
+To simplify the specification, some intermediary values are unnecessarily recomputed from scratch, e.g., when executing ''GetSessionValues'' multiple times.
+Actual implementations can cache these values.
+As a result, the [[#session-context|Session Context]] may look very different in implementations or may not exist at all.
+
+==== Nonce Generation ====
+
+TODO
+
+==== Tweaking ====
+
+TODO
+
 === Notation ===
 
 The following conventions are used, with constants as defined for [https://www.secg.org/sec2-v2.pdf secp256k1]. We note that adapting this specification to other elliptic curves is not straightforward and can result in an insecure scheme.
@@ -288,22 +339,6 @@ Input:
 * Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> + e⋅g<sub>v</sub>⋅tacc<sub>v</sub> mod n''
 * Return ''sig = ''bytes(R) || bytes(s)''
 
-=== Signing Flow ===
-
-Note that this specification unnecessarily recomputes intermediary values (such as the aggregate and tweaked public key) that can be cached in real implementations.
-
-There are multiple ways to use above algorithms and arrive at a final Schnorr signature.
-One of them can be described as follows:
-The signers ''1'' to ''n'' each run ''NonceGen'' to compute ''secnonce'' and ''pubnonce''.
-Every signer sends its public key and ''pubnonce'' to every other signer and all signers agree on a single message to sign.
-Then, the signers run ''NonceAgg'' and ''Sign'' with their secret signing key and ''secnonce''.
-They send the resulting partial signature to every other signer and combine them with the ''PartialSigAgg'' algorithm.
-
-''IMPORTANT'': The ''Sign'' algorithm must '''not''' be executed twice with the same ''secnonce''.
-Otherwise, it is possible to extract the secret signing key from the partial signatures.
-An implementation may invalidate the secnonce argument after ''Sign'' to avoid any reuse.
-Avoiding reuse also implies that the ''NonceGen'' algorithm must compute unbiased, uniformly random values ''k<sub>1</sub>'' and ''k<sub>2</sub>''.
-
 === Test Vectors and Reference Code ===
 
 There are some vectors in libsecp256k1's [https://github.com/ElementsProject/secp256k1-zkp/blob/master/src/modules/musig/tests_impl.h MuSig test file].
@@ -311,7 +346,7 @@ Search for the ''musig_test_vectors_keyagg'' and ''musig_test_vectors_sign'' fun
 
 == Remarks on Security and Correctness ==
 
-=== Tweaking ===
+=== Tweaking Definition ===
 
 This MuSig2 specification supports two modes of tweaking that correspond to the following algorithms:
 
