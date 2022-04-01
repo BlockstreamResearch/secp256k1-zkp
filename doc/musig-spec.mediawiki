@@ -78,7 +78,8 @@ The output of ''KeyAgg'' is dependent on the order of the input public keys.
 If there is no common order of the signers already, the public keys can be sorted with the ''KeySort'' algorithm to ensure that the same aggregate key is calculated.
 Note that public keys are allowed to occur multiple times in the input of ''KeyAgg'' and ''KeySort'', and that it is possible to successfully complete a MuSig2 signing session with duplicated public keys.
 
-In some applications, it is beneficial to generate and exchange ''pubnonces'' before the message to sign or the final set of signers is known.
+In some applications, it is beneficial to generate and exchange ''pubnonces'' before the signer's secret key, the final set of signers, or the message to sign is known.
+In this case, only the available arguments are provided to the ''NonceGen'' algorithm.
 After this preprocessing phase, the ''Sign'' algorithm can be run immediately when the message and set of signers is determined.
 This way, the final signature is created quicker and with fewer roundtrips.
 However, applications that use this method presumably store the nonces for a longer time and must therefore be even more careful not to reuse them.
@@ -125,6 +126,7 @@ The following conventions are used, with constants as defined for [https://www.s
 ** The function ''x[i:j]'', where ''x'' is a byte array and ''i, j &ge; 0'', returns a ''(j - i)''-byte array with a copy of the ''i''-th byte (inclusive) to the ''j''-th byte (exclusive) of ''x''.
 ** The function ''bytes(x)'', where ''x'' is an integer, returns the 32-byte encoding of ''x'', most significant byte first.
 ** The function ''bytes(P)'', where ''P'' is a point, returns ''bytes(x(P))''.
+** The function ''len(x)'' where ''x'' is a byte array returns the length of the array.
 ** The function ''has_even_y(P)'', where ''P'' is a point for which ''not is_infinite(P)'', returns ''y(P) mod 2 = 0''.
 ** The function ''with_even_y(P)'', where ''P'' is a point, returns ''P'' if ''is_infinite(P)'' or ''has_even_y(P)''. Otherwise,  ''with_even_y(P)'' returns ''-P''.
 ** The function ''cbytes(P)'', where ''P'' is a point, returns ''a || bytes(P)'' where ''a'' is a byte that is ''2'' if ''has_even_y(P)'' and ''3'' otherwise.
@@ -212,8 +214,19 @@ Input:
 
 ==== Nonce Generation ====
 
-'''''NonceGen()''''':
-* Generate two random integers ''k<sub>1</sub>, k<sub>2</sub>'' in the range ''1...n-1''
+Input:
+* The secret signing key ''sk'': a 32-byte array or 0-byte array (optional argument)
+* The aggregate public key ''aggpk'': a 32-byte array or 0-byte array (optional argument)
+* The message ''m'': a 32-byte array or 0-byte array (optional argument)
+* The auxiliary input ''in'': a byte array of length ''&ge; 0'' (optional argument)
+
+'''''NonceGen(sk, aggpk, m, in)''''':
+* Let ''rand' '' be a 32-byte array freshly drawn uniformly at random
+* If ''len(sk) > 0'':
+** Let ''rand'' be the byte-wise xor of ''sk'' and ''hash<sub>MuSig/aux</sub>(rand')''<ref>The random data is hashed (with a unique tag) as a precaution against situations where the randomness may be correlated with the secret signing key itself. It is xored with the secret key (rather than combined with it in a hash) to reduce the number of operations exposed to the actual secret key.</ref>.
+* Else: let ''rand = rand' ''
+* Let ''k<sub>i</sub> = int(hash<sub>MuSig/nonce</sub>(rand || len(aggpk) || aggpk || i || len(m) || m || len(in) || in)) mod n'' for ''i = 1,2''
+* Fail if ''k<sub>1</sub> = 0'' or ''k<sub>2</sub> = 0''
 * Let ''R<sup>*</sup><sub>1</sub> = k<sub>1</sub>⋅G, R<sup>*</sup><sub>2</sub> = k<sub>2</sub>⋅G''
 * Let ''pubnonce = cbytes(R<sup>*</sup><sub>1</sub>) || cbytes(R<sup>*</sup><sub>2</sub>)''
 * Let ''secnonce = bytes(k<sub>1</sub>) || bytes(k<sub>2</sub>)''
