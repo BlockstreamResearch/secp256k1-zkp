@@ -305,12 +305,6 @@ Input:
 * Run ''PartialSigVerifyInternal(psig, pubnonce<sub>i</sub>, pk<sub>i</sub>, session_ctx)''
 * Return success iff no failure occurred before reaching this point.
 
-Input:
-* The partial signature ''psig'': a 32-byte array
-* The public nonce of the signer ''pubnonce'': a 66-byte array
-* The public key of the signer ''pk<sup>*</sup>'' (in ''pk<sub>1..u</sub>'' of the session_ctx''): a 32-byte array
-* The ''session_ctx'': a [[#session-context|Session Context]] data structure
-
 '''''PartialSigVerifyInternal(psig, pubnonce, pk<sup>*</sup>, session_ctx)''''':
 * Let ''(Q, gacc<sub>v</sub>, _, b, R, e) = GetSessionValues(session_ctx)''; fail if that fails
 * Let ''s = int(psig)''; fail if ''s &ge; n''
