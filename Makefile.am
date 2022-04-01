@@ -65,6 +65,7 @@ noinst_HEADERS += contrib/lax_der_parsing.h
 noinst_HEADERS += contrib/lax_der_parsing.c
 noinst_HEADERS += contrib/lax_der_privatekey_parsing.h
 noinst_HEADERS += contrib/lax_der_privatekey_parsing.c
+noinst_HEADERS += examples/random.h
 
 PRECOMPUTED_LIB = libsecp256k1_precomputed.la
 noinst_LTLIBRARIES = $(PRECOMPUTED_LIB)
@@ -141,13 +142,49 @@ exhaustive_tests_LDFLAGS = -static
 TESTS += exhaustive_tests
 endif
 
+if USE_EXAMPLES
+noinst_PROGRAMS += ecdsa_example
+ecdsa_example_SOURCES = examples/ecdsa.c
+ecdsa_example_CPPFLAGS = -I$(top_srcdir)/include
+ecdsa_example_LDADD = libsecp256k1.la
+ecdsa_example_LDFLAGS = -static
+if BUILD_WINDOWS
+ecdsa_example_LDFLAGS += -lbcrypt
+endif
+TESTS += ecdsa_example
+if ENABLE_MODULE_ECDH
+noinst_PROGRAMS += ecdh_example
+ecdh_example_SOURCES = examples/ecdh.c
+ecdh_example_CPPFLAGS = -I$(top_srcdir)/include
+ecdh_example_LDADD = libsecp256k1.la
+ecdh_example_LDFLAGS = -static
+if BUILD_WINDOWS
+ecdh_example_LDFLAGS += -lbcrypt
+endif
+TESTS += ecdh_example
+endif
+if ENABLE_MODULE_SCHNORRSIG
+noinst_PROGRAMS += schnorr_example
+schnorr_example_SOURCES = examples/schnorr.c
+schnorr_example_CPPFLAGS = -I$(top_srcdir)/include
+schnorr_example_LDADD = libsecp256k1.la
+schnorr_example_LDFLAGS = -static
+if BUILD_WINDOWS
+schnorr_example_LDFLAGS += -lbcrypt
+endif
+TESTS += schnorr_example
+endif
 if ENABLE_MODULE_MUSIG
-noinst_PROGRAMS += example_musig
-example_musig_SOURCES = examples/musig.c
-example_musig_CPPFLAGS = -I$(top_srcdir)/include
-example_musig_LDADD = libsecp256k1.la
-example_musig_LDFLAGS = -static
-TESTS += example_musig
+noinst_PROGRAMS += musig_example
+musig_example_SOURCES = examples/musig.c
+musig_example_CPPFLAGS = -I$(top_srcdir)/include
+musig_example_LDADD = libsecp256k1.la
+musig_example_LDFLAGS = -static
+if BUILD_WINDOWS
+musig_example_LDFLAGS += -lbcrypt
+endif
+TESTS += musig_example
+endif
 endif
 
 ### Precomputed tables

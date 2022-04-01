@@ -1,8 +1,11 @@
-/***********************************************************************
- * Copyright (c) 2018 Jonas Nick                                       *
- * Distributed under the MIT software license, see the accompanying    *
- * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
- **********************************************************************/
+/*************************************************************************
+ * Written in 2018 by Jonas Nick                                         *
+ * To the extent possible under law, the author(s) have dedicated all    *
+ * copyright and related and neighboring rights to the software in this  *
+ * file to the public domain worldwide. This software is distributed     *
+ * without any warranty. For the CC0 Public Domain Dedication, see       *
+ * EXAMPLES_COPYING or https://creativecommons.org/publicdomain/zero/1.0 *
+ *************************************************************************/
 
 /** This file demonstrates how to use the MuSig module to create a
  *  3-of-3 multisignature. Additionally, see the documentation in
@@ -14,6 +17,8 @@
 #include <secp256k1.h>
 #include <secp256k1_schnorrsig.h>
 #include <secp256k1_musig.h>
+
+#include "random.h"
 
 struct signer_secrets {
     secp256k1_keypair keypair;
@@ -31,20 +36,14 @@ struct signer {
 /* Create a key pair, store it in signer_secrets->keypair and signer->pubkey */
 int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     unsigned char seckey[32];
-    FILE *frand = fopen("/dev/urandom", "r");
-    if (frand == NULL) {
-        return 0;
-    }
-    do {
-        if(!fread(seckey, sizeof(seckey), 1, frand)) {
-             fclose(frand);
-             return 0;
-         }
-    /* The probability that this not a valid secret key is approximately 2^-128 */
-    } while (!secp256k1_ec_seckey_verify(ctx, seckey));
-    fclose(frand);
-    if (!secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
-        return 0;
+    while (1) {
+        if (!fill_random(seckey, sizeof(seckey))) {
+            printf("Failed to generate randomness\n");
+            return 1;
+        }
+        if (secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
+            break;
+        }
     }
     if (!secp256k1_keypair_xonly_pub(ctx, &signer->pubkey, NULL, &signer_secrets->keypair)) {
         return 0;
@@ -100,21 +99,14 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     secp256k1_musig_session session;
 
     for (i = 0; i < N_SIGNERS; i++) {
-        FILE *frand;
         unsigned char seckey[32];
         unsigned char session_id[32];
         /* Create random session ID. It is absolutely necessary that the session ID
          * is unique for every call of secp256k1_musig_nonce_gen. Otherwise
          * it's trivial for an attacker to extract the secret key! */
-        frand = fopen("/dev/urandom", "r");
-        if(frand == NULL) {
+        if (!fill_random(session_id, sizeof(session_id))) {
             return 0;
         }
-        if (!fread(session_id, 32, 1, frand)) {
-            fclose(frand);
-            return 0;
-        }
-        fclose(frand);
         if (!secp256k1_keypair_sec(ctx, seckey, &signer_secrets[i].keypair)) {
             return 0;
         }
