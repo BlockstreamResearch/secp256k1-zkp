@@ -109,7 +109,7 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
 }
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
- unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
+ unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *sec,
  const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
@@ -125,7 +125,6 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     VERIFY_CHECK(e0 != NULL);
     VERIFY_CHECK(s != NULL);
     VERIFY_CHECK(pubs != NULL);
-    VERIFY_CHECK(k != NULL);
     VERIFY_CHECK(sec != NULL);
     VERIFY_CHECK(rsizes != NULL);
     VERIFY_CHECK(secidx != NULL);
@@ -135,7 +134,8 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     count = 0;
     for (i = 0; i < nrings; i++) {
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
-        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
+        /* We have been provided an s value that we will just overwrite, so use it as a nonce */
+        secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &s[count + secidx[i]]);
         secp256k1_ge_set_gej(&rge, &rgej);
         if (secp256k1_gej_is_infinity(&rgej)) {
             return 0;
@@ -165,6 +165,10 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     secp256k1_sha256_finalize(&sha256_e0, e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
+        /* We have been provided an s value that we will just overwrite, so use it as a nonce */
+        secp256k1_scalar k = s[count + secidx[i]];
+        secp256k1_scalar_clear(&s[count + secidx[i]]);
+
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
@@ -186,7 +190,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
         }
         secp256k1_scalar_mul(&s[count + j], &ens, &sec[i]);
         secp256k1_scalar_negate(&s[count + j], &s[count + j]);
-        secp256k1_scalar_add(&s[count + j], &s[count + j], &k[i]);
+        secp256k1_scalar_add(&s[count + j], &s[count + j], &k);
         if (secp256k1_scalar_is_zero(&s[count + j])) {
             return 0;
         }

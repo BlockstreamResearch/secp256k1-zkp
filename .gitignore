@@ -2,6 +2,7 @@ bench
 bench_ecmult
 bench_generator
 bench_rangeproof
+bench_whitelist
 bench_internal
 tests
 exhaustive_tests
