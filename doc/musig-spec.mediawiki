@@ -90,6 +90,11 @@ This technique reduces the overall communication.
 The aggregator node does not need to be trusted for the scheme's security to hold.
 All the aggregator node can do is prevent the signing session from succeeding by sending out incorrect aggregate nonces.
 
+In general, MuSig2 signers are stateful in the sense that they first generate ''secnonce'' and then need to store it until they receive the other signer's ''pubnonces'' or the ''aggnonce''.
+However, it is possible for one of the signers to be stateless.
+This signer waits until it receives the ''pubnonce'' of all the other signers and until session parameters such as a message to sign, public keys, and tweaks are determined.
+Then, the signer can run ''NonceGen'', ''NonceAgg'' and ''Sign'' in sequence and send out its ''pubnonce'' along with its partial signature.
+
 If any signer sends an incorrect partial signature, i.e., one that has not then been created with ''Sign'' and the right arguments for the session, the MuSig2 protocol may fail to output a valid Schnorr signature.
 This standard provides the method ''PartialSigVerify'' to verify the correctness of partial signatures.
 If partial signatures are authenticated, this method can be used to identify disruptive signers and hold them accountable.
