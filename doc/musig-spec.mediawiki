@@ -14,7 +14,7 @@
 
 This document proposes a standard for the [https://eprint.iacr.org/2020/1261.pdf MuSig2] protocol.
 The standard is compatible with [https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki BIP340] public keys and signatures.
-It also supports ''tweaking'', which allows creating [https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki BIP341] Taproot outputs with key and script paths.
+It supports ''tweaking'', which allows deriving [https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki BIP32] child keys from aggregate keys and creating [https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki BIP341] Taproot outputs with key and script paths.
 
 === Copyright ===
 
@@ -495,3 +495,5 @@ A scheme very similar to MuSig2 and with two-point nonces was independently prov
 <references />
 
 == Acknowledgements ==
+
+We thank Brandon Black, Riccardo Casatta, Russell O'Connor, and Pieter Wuille for their contributions to this document.
