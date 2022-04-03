@@ -71,8 +71,6 @@ If all signers behaved honestly, the result passes [https://github.com/bitcoin/b
 Otherwise, extracting the secret signing key from the partial signatures is possible.
 To avoid accidental reuse, an implementation may securely erase the ''secnonce'' argument by overwriting it with zeros after ''Sign'' has been run.
 A ''secnonce'' consisting of only zeros is invalid for ''Sign'' and will cause it to fail.
-The ''NonceGen'' algorithm '''must''' draw unbiased, uniformly random values ''k<sub>1</sub>'' and ''k<sub>2</sub>''.
-In particular, ''k<sub>1</sub>'' and ''k<sub>2</sub>'' must _not_ be derived deterministically from the session parameters (see [[#nonce-generation|Nonce Generation]]).
 
 The output of ''KeyAgg'' is dependent on the order of the input public keys.
 If there is no common order of the signers already, the public keys can be sorted with the ''KeySort'' algorithm to ensure that the same aggregate key is calculated.
@@ -108,11 +106,43 @@ As a result, the [[#session-context|Session Context]] may look very different in
 
 ==== Nonce Generation ====
 
-TODO
+'''IMPORTANT''': ''NonceGen'' must have access to a high-quality random generator to draw an unbiased, uniformly random value ''rand' ''.
+Additionally, implementors must avoid modifying the ''NonceGen'' algorithm without being fully aware of the implications.
+In contrast to BIP340 signing, the values ''k<sub>1</sub>'' and ''k<sub>2</sub>'' must _not_ be derived deterministically from the session parameters because otherwise active attackers can  [https://medium.com/blockstream/musig-dn-schnorr-multisignatures-with-verifiably-deterministic-nonces-27424b5df9d6#e3b6 trick the victim into reusing a nonce].
+
+The optional arguments to ''NonceGen'' enable a defense-in-depth mechanism that may prevent secret key exposure if ''rand' '' is accidentally not drawn uniformly at random.
+If the value ''rand' '' would be identical in two ''NonceGen'' invocations, but any optional argument is unequal, the values ''k<sub>1</sub>'' and ''k<sub>2</sub>'' are unequal as well (with overwhelming probability).
+In this case, accidentally using the same ''secnonce'' for ''Sign'' in both sessions would be avoided.
+Therefore, it is recommended to provide the optional arguments ''sk'', ''aggpk'', and ''m'' if these session parameters are already determined during nonce generation.
+The auxiliary input ''in'' can contain additional contextual data that has a chance of changing between ''NonceGen'' runs.
+However, the protection from the optional arguments should only be viewed as a last resort.
+In most conceivable scenarios, the assumption that the arguments are different between two executions of ''NonceGen'' is relatively strong, particularly when facing an active attacker.
+
+On systems where obtaining uniformly random values is much harder than maintaining a global atomic counter, it can be beneficial to modify ''NonceGen''.
+Instead of drawing ''rand' '' uniformly at random, ''rand' '' can be the output of an atomic counter.
+With this modification, the secret signing key ''sk'' of the signer generating the nonce is _not_ an optional argument and must be provided to ''NonceGen''.
+The counter must never return the same output in two ''NonceGen'' invocations with the same ''sk''.
+
+It is possible to modify ''NonceGen'' such that the ''secnonce'' of a single signer can be derived deterministically.
+For a deterministic nonce generation algorithm ''NonceGen' '', the arguments ''sk'', ''aggpk'' and ''m'' are not optional and must be set precisely to the signer's secret key and the aggregate public key and message of the session.
+In addition, ''NonceGen' '' requires the ''pubnonce'' value of _all_ other signers, which can be provided via the ''in'' argument.
+Hence, using ''NonceGen' '' is only possible for the last signer to generate a nonce and makes the signer stateless, similar to the signer mentioned in the [[#signing-flow|Signing Flow]] section.
+Lastly, to make ''NonceGen' '' deterministic, ''rand' '' is removed and ''rand'' is set to ''sk''.
+Note that failure to provide the correct arguments to ''NonceGen' '' will allow attackers to extract secret keys.
 
 ==== Tweaking ====
 
-TODO
+In addition to public keys, the ''KeyAgg'' algorithm accepts tweaks, which modify the aggregate public key as defined in the [[#tweaking-definition|Tweaking Definition]] subsection.
+For example, if ''KeyAgg'' is run with ''v = 2'', ''is_xonly_t<sub>1</sub> = false'', ''is_xonly_t<sub>2</sub> = true'', then the aggregate key is first ordinarily tweaked with ''tweak<sub>1</sub>'' and then X-only tweaked with ''tweak<sub>2</sub>''.
+
+The purpose of specifying tweaking is to ensure compatibility with existing uses of tweaking, i.e., that the result of signing is a valid signature for the tweaked public key.
+The MuSig2 algorithms take arbitrary tweaks as input but accepting arbitrary tweaks may negatively affect the protocol's security.
+Instead, signers should obtain the tweaks according to other specifications.
+This typically involves deriving the tweaks from a hash of the aggregate public key and some other information.
+
+Ordinary tweaking can be used to derive child public keys from an aggregate public key using [https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki BIP32].
+On the other hand, X-only tweaking is required for Taproot tweaking per [https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki BIP341].
+A Taproot-tweaked public key commits to a ''script path'', allowing users to create transaction outputs that are spendable either with a MuSig2 multi-signature or by providing inputs that satisfy the script path.
 
 === Notation ===
 
