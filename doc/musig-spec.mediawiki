@@ -1,7 +1,9 @@
 <pre>
   BIP: ?
   Title: MuSig2
-  Author:
+  Author: Jonas Nick <jonasd.nick@gmail.com>
+          Tim Ruffing <crypto@timruffing.de>
+          Elliott Jin <elliott.jin@gmail.com>
   Status: Draft
   License: BSD-3-Clause
   Type: Informational
