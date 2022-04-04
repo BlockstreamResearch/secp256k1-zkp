@@ -214,13 +214,13 @@ Input:
 * Let ''pk2 = GetSecondKey(pk<sub>1..u</sub>)''
 * For ''i = 1 .. u'':
 ** Let ''P<sub>i</sub> = point(pk<sub>i</sub>)''; fail if that fails.
-** Let ''a<sub>i</sub> = KeyAggCoeff'(pk<sub>1..u</sub>, pk<sub>i</sub>, pk2)''.
+** Let ''a<sub>i</sub> = KeyAggCoeffInternal(pk<sub>1..u</sub>, pk<sub>i</sub>, pk2)''.
 * Let ''Q<sub>0</sub> = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''
 * Fail if ''is_infinite(Q<sub>0</sub>)''.
 * Let ''tacc<sub>0</sub> = 0''
 * Let ''gacc<sub>0</sub> = 1''
 * For ''i = 1 .. v'':
-** Let ''(Q<sub>i</sub>, gacc<sub>i</sub>, tacc<sub>i</sub>) = Tweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tweak<sub>i</sub>, tacc<sub>i-1</sub>, is_xonly_t<sub>i</sub>)''; fail if that fails
+** Let ''(Q<sub>i</sub>, gacc<sub>i</sub>, tacc<sub>i</sub>) = ApplyTweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tacc<sub>i-1</sub>, tweak<sub>i</sub>, is_xonly_t<sub>i</sub>)''; fail if that fails
 * Return ''(Q<sub>v</sub>, gacc<sub>v</sub>, tacc<sub>v</sub>)''.
 
 '''''HashKeys(pk<sub>1..u</sub>)''''':
@@ -234,15 +234,15 @@ Input:
 
 '''''KeyAggCoeff(pk<sub>1..u</sub>, pk')''''':
 * Let ''pk2 = GetSecondKey(pk<sub>1..u</sub>)'':
-* Return ''KeyAggCoeff'(pk<sub>1..u</sub>, pk', pk2)''
+* Return ''KeyAggCoeffInternal(pk<sub>1..u</sub>, pk', pk2)''
 
-'''''KeyAggCoeff'(pk<sub>1..u</sub>, pk', pk2)''''':
+'''''KeyAggCoeffInternal(pk<sub>1..u</sub>, pk', pk2)''''':
 * Let ''L = HashKeys(pk<sub>1..u</sub>)''
 * If ''pk' = pk2'':
 ** Return 1
 * Return ''int(hash<sub>KeyAgg coefficient</sub>(L || pk')) mod n''<ref>The key aggregation coefficient is computed by hashing the public key instead of its index, which requires one more invocation of the SHA-256 compression function. However, it results in significantly simpler implementations because signers do not need to translate between public key indices before and after sorting.</ref>
 
-'''''Tweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tweak<sub>i</sub>, tacc<sub>i-1</sub>, is_xonly_t<sub>i</sub>)''''':
+'''''ApplyTweak(Q<sub>i-1</sub>, gacc<sub>i-1</sub>, tacc<sub>i-1</sub>, tweak<sub>i</sub>, is_xonly_t<sub>i</sub>)''''':
 * If ''is_xonly_t<sub>i</sub>'' and ''not has_even_y(Q<sub>i-1</sub>)'':
 ** Let ''g<sub>i-1</sub> = -1 mod n''
 * Else: let ''g<sub>i-1</sub> = 1''
@@ -333,7 +333,7 @@ Input:
 * Let ''a = GetSessionKeyAggCoeff(session_ctx, P)''; fail if that fails
 * Let ''gp = 1'' if ''has_even_y(P)'', otherwise let ''gp = -1 mod n''
 * Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
-* <div id="Sign negation"></div>Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' '' (See [[negation-of-the-secret-key-when-signing|Negation Of The Secret Key When Signing]])
+* <div id="Sign negation"></div>Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' mod n'' (See [[negation-of-the-secret-key-when-signing|Negation Of The Secret Key When Signing]])
 * Let ''s = (k<sub>1</sub> + b⋅k<sub>2</sub> + e⋅a⋅d) mod n''
 * Let ''psig = bytes(s)''
 * Let ''pubnonce = cbytes(k'<sub>1</sub>⋅G) || cbytes(k'<sub>2</sub>⋅G)''
@@ -402,10 +402,10 @@ Input:
 * ''P'': a point
 * The tweak ''t'': an integer with ''0 &le; t < n ''
 
-'''''OrdinaryTweak(P, t)''''':
+'''''ApplyOrdinaryTweak(P, t)''''':
 * Return ''P + t⋅G''
 
-'''''XonlyTweak(P, t)''''':
+'''''ApplyXonlyTweak(P, t)''''':
 * Return ''with_even_y(P) + t⋅G''
 
 === Negation Of The Secret Key When Signing ===
