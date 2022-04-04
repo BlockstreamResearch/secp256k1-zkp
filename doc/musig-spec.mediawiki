@@ -165,7 +165,7 @@ The following conventions are used, with constants as defined for [https://www.s
 * Functions and operations:
 ** ''||'' refers to byte array concatenation.
 ** The function ''x[i:j]'', where ''x'' is a byte array and ''i, j &ge; 0'', returns a ''(j - i)''-byte array with a copy of the ''i''-th byte (inclusive) to the ''j''-th byte (exclusive) of ''x''.
-** The function ''bytes(x)'', where ''x'' is an integer, returns the 32-byte encoding of ''x'', most significant byte first.
+** The function ''bytes(n, x)'', where ''x'' is an integer, returns the n-byte encoding of ''x'', most significant byte first.
 ** The function ''bytes(P)'', where ''P'' is a point, returns ''bytes(x(P))''.
 ** The function ''len(x)'' where ''x'' is a byte array returns the length of the array.
 ** The function ''has_even_y(P)'', where ''P'' is a point for which ''not is_infinite(P)'', returns ''y(P) mod 2 = 0''.
@@ -230,7 +230,7 @@ Input:
 * For ''j = 1 .. u'':
 ** If ''pk<sub>j</sub> &ne; pk<sub>1</sub>'':
 *** Return ''pk<sub>j</sub>''
-* Return ''bytes(0)''
+* Return ''bytes(32, 0)''
 
 '''''KeyAggCoeff(pk<sub>1..u</sub>, pk')''''':
 * Let ''pk2 = GetSecondKey(pk<sub>1..u</sub>)'':
@@ -259,18 +259,18 @@ Input:
 * The secret signing key ''sk'': a 32-byte array or 0-byte array (optional argument)
 * The aggregate public key ''aggpk'': a 32-byte array or 0-byte array (optional argument)
 * The message ''m'': a 32-byte array or 0-byte array (optional argument)
-* The auxiliary input ''in'': a byte array of length ''&ge; 0'' (optional argument)
+* The auxiliary input ''in'': a byte array with ''0 &le; len(in) &le; 2<sup>32</sup>-1'' (optional argument)
 
 '''''NonceGen(sk, aggpk, m, in)''''':
 * Let ''rand' '' be a 32-byte array freshly drawn uniformly at random
 * If ''len(sk) > 0'':
 ** Let ''rand'' be the byte-wise xor of ''sk'' and ''hash<sub>MuSig/aux</sub>(rand')''<ref>The random data is hashed (with a unique tag) as a precaution against situations where the randomness may be correlated with the secret signing key itself. It is xored with the secret key (rather than combined with it in a hash) to reduce the number of operations exposed to the actual secret key.</ref>.
 * Else: let ''rand = rand' ''
-* Let ''k<sub>i</sub> = int(hash<sub>MuSig/nonce</sub>(rand || len(aggpk) || aggpk || i || len(m) || m || len(in) || in)) mod n'' for ''i = 1,2''
+* Let ''k<sub>i</sub> = int(hash<sub>MuSig/nonce</sub>(rand || bytes(1, len(aggpk)) || aggpk || bytes(1, i) || bytes(1, len(m)) || m || bytes(4, len(in)) || in)) mod n'' for ''i = 1,2''
 * Fail if ''k<sub>1</sub> = 0'' or ''k<sub>2</sub> = 0''
 * Let ''R<sup>*</sup><sub>1</sub> = k<sub>1</sub>⋅G, R<sup>*</sup><sub>2</sub> = k<sub>2</sub>⋅G''
 * Let ''pubnonce = cbytes(R<sup>*</sup><sub>1</sub>) || cbytes(R<sup>*</sup><sub>2</sub>)''
-* Let ''secnonce = bytes(k<sub>1</sub>) || bytes(k<sub>2</sub>)''
+* Let ''secnonce = bytes(32, k<sub>1</sub>) || bytes(32, k<sub>2</sub>)''
 * Return ''secnonce'' and ''pubnonce''
 
 ==== Nonce Aggregation ====
@@ -335,7 +335,7 @@ Input:
 * Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
 * <div id="Sign negation"></div>Let ''d = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d' '' (See [[negation-of-the-secret-key-when-signing|Negation Of The Secret Key When Signing]])
 * Let ''s = (k<sub>1</sub> + b⋅k<sub>2</sub> + e⋅a⋅d) mod n''
-* Let ''psig = bytes(s)''
+* Let ''psig = bytes(32, s)''
 * Let ''pubnonce = cbytes(k'<sub>1</sub>⋅G) || cbytes(k'<sub>2</sub>⋅G)''
 * If ''PartialSigVerifyInternal(psig, pubnonce, bytes(P), session_ctx)'' (see below) returns failure, abort<ref>Verifying the signature before leaving the signer prevents random or attacker provoked computation errors. This prevents publishing invalid signatures which may leak information about the secret key. It is recommended, but can be omitted if the computation cost is prohibitive.</ref>.
 * Return partial signature ''psig''
@@ -385,7 +385,7 @@ Input:
 ** Let ''s<sub>i</sub> = int(psig<sub>i</sub>)''; fail if ''s<sub>i</sub> &ge; n''.
 * Let ''g<sub>v</sub> = 1'' if ''has_even_y(Q)'', otherwise let ''g<sub>v</sub> = -1 mod n''
 * Let ''s = s<sub>1</sub> + ... + s<sub>u</sub> + e⋅g<sub>v</sub>⋅tacc<sub>v</sub> mod n''
-* Return ''sig = ''bytes(R) || bytes(s)''
+* Return ''sig = ''bytes(R) || bytes(32, s)''
 
 === Test Vectors and Reference Code ===
 
