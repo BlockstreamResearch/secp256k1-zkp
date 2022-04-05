@@ -426,27 +426,28 @@ Input:
 In order to produce a partial signature for an X-only public key that is an aggregate of ''u'' X-only keys and tweaked ''v'' times (X-only or ordinarily), the ''[[#Sign negation|Sign]]'' algorithm may need to negate the secret key during the signing process.
 
 <poem>
-The following public keys arise as intermediate steps in the MuSig2 protocol:
-• ''P<sub>i</sub>'' as computed in ''KeyAggInternal'' is the point corresponding to the ''i''-th signer's X-only public key. Defining ''d'<sub>i</sub>'' to be the ''d' '' value as computed in the ''Sign'' algorithm of the ''i''-th signer, we have
+The following elliptic curve points arise as intermediate steps in the MuSig2 protocol:
+• ''P<sub>i</sub>'' as computed in ''KeyAggInternal'' is the point corresponding to the ''i''-th signer's X-only public key. Defining ''d'<sub>i</sub>'' to be the ''i''-th signer's secret key as an integer, i.e. the ''d' '' value as computed in the ''Sign'' algorithm of the ''i''-th signer, we have
     ''P<sub>i</sub> = with_even_y(d'<sub>i</sub>⋅G) ''.
 • ''Q<sub>0</sub>'' is an aggregate of the signer's public keys and defined in ''KeyAggInternal''  as
     ''Q<sub>0</sub> = a<sub>1</sub>⋅P<sub>1</sub> + a<sub>2</sub>⋅P<sub>1</sub> + ... + a<sub>u</sub>⋅P<sub>u</sub>''.
 • ''Q<sub>i</sub>'' as computed in ''Tweak'' for ''1 &le; i &le; v'' is the tweaked public key after the ''i''-th tweaking operation. It holds that
     ''Q<sub>i</sub> = f(i-1) + t<sub>i</sub>⋅G'' for ''i = 1, ..., v'' where
-        ''f(i) := with_even_y(Q<sub>i</sub>)'' if ''is_xonly_t<sub>i+1</sub>'' and
-        ''f(i) := Q<sub>i</sub>'' otherwise.
+        ''f(i-1) := with_even_y(Q<sub>i-1</sub>)'' if ''is_xonly_t<sub>i</sub>'' and
+        ''f(i-1) := Q<sub>i-1</sub>'' otherwise.
+• ''with_even_y(Q<sub>v</sub>)'' is the final result of ''KeyAgg''.
 </poem>
 
-The goal is to produce a partial signature corresponding to the output of ''KeyAgg'', i.e., the final (X-only) public key point after ''v'' tweaking operations ''with_even_y(Q<sub>v</sub>)''.
+The signer's goal is to produce a partial signature corresponding to the final result of ''KeyAgg'', i.e. the X-only public key ''with_even_y(Q<sub>v</sub>)''.
 
 <poem>
-We define ''gp<sub>i</sub>'' for ''1 &le; i &le; u'' to be ''gp '' as computed in the ''Sign'' algorithm of the ''i''-th signer. It holds that
+We define ''gp<sub>i</sub>'' for ''1 &le; i &le; u'' to be ''gp '' as computed in the ''Sign'' algorithm of the ''i''-th signer. Note that ''gp<sub>i</sub>'' indicates whether the ''i''-th signer needed to negate their secret key to produce an X-only public key. In particular,
     ''P<sub>i</sub> = gp<sub>i</sub>⋅d'<sub>i</sub>⋅G''.
 
-For ''0 &le; i &le; v-1'', the ''Tweak'' algorithm called from ''KeyAggInternal'' sets ''g<sub>i</sub>'' to ''-1 mod n'' if and only if ''is_xonly_t<sub>i+1</sub>'' is true and ''Q<sub>i</sub>'' has an odd Y coordinate. Therefore, we have
+For ''0 &le; i &le; v-1'', the ''Tweak'' algorithm called from ''KeyAggInternal'' sets ''g<sub>i</sub>'' to ''-1 mod n'' if and only if ''is_xonly_t<sub>i+1</sub>'' is true and ''Q<sub>i</sub>'' has an odd Y coordinate. In other words, ''g<sub>i</sub>'' indicates whether ''Q<sub>i</sub>'' needed to be negated to apply an X-only tweak:
     ''f(i) = g<sub>i</sub>⋅Q<sub>i</sub>'' for ''0 &le; i &le; v - 1''.
 
-Furthermore, the ''Sign'' and ''PartialSigVerify'' algorithms set ''g<sub>v</sub>'' such that
+Furthermore, the ''Sign'' and ''PartialSigVerify'' algorithms set ''g<sub>v</sub>'' depending on whether ''Q<sub>v</sub>'' needed to be negated to produce the (X-only) final output of ''KeyAgg':
     ''with_even_y(Q<sub>v</sub>) = g<sub>v</sub>⋅Q<sub>v</sub>''.
 </poem>
 
@@ -483,7 +484,7 @@ Then we have
         = sum<sub>i=1..u</sub>(g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp<sub>i</sub>⋅a<sub>i</sub>⋅d'<sub>i</sub>)*G''.
 </poem>
 
-Thus, signer ''i'' multiplies its secret key ''d'<sub>i</sub>'' with ''g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp<sub>i</sub>'' in the ''[[#Sign negation|Sign]]'' algorithm.
+Intuitively, ''gacc<sub>i</sub>'' tracks accumulated sign flipping and ''tacc<sub>i</sub>'' tracks the accumulated tweak value after applying the first ''i'' individual tweaks. Additionally, ''g<sub>v</sub>'' indicates whether ''Q<sub>v</sub>'' needed to be negated to produce the final X-only result, and ''gp<sub>i</sub>'' indicates whether ''d'<sub>i</sub>'' needs to be negated to produce the initial X-only key ''P<sub>i</sub>''. Thus, signer ''i'' multiplies its secret key ''d'<sub>i</sub>'' with ''g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp<sub>i</sub>'' in the ''[[#Sign negation|Sign]]'' algorithm.
 
 ==== Negation Of The Public Key When Partially Verifying ====
 
@@ -503,6 +504,7 @@ The verifier doesn't have access to ''d⋅G'', but can construct it using the xo
 ''d⋅G
     = g<sub>v</sub>⋅gacc<sub>v</sub>⋅gp⋅d'⋅G
     = g<sub>v</sub>⋅gacc<sub>v</sub>⋅point(pk<sup>*</sup>)''
+Note that the aggregate public key and list of tweaks are inputs to partial signature verification, so the verifier can also construct ''g<sub>v</sub>'' and ''gacc<sub>v</sub>''.
 </poem>
 
 === Dealing with Infinity in Nonce Aggregation ===
