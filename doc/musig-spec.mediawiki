@@ -75,7 +75,7 @@ If all signers behaved honestly, the result passes [https://github.com/bitcoin/b
 
 '''IMPORTANT''': The ''Sign'' algorithm must '''not''' be executed twice with the same ''secnonce''.
 Otherwise, it is possible to extract the secret signing key from the two partial signatures output by the two executions of ''Sign''.
-To avoid accidental reuse of ''secnonce'', an implementation may securely erase the ''secnonce'' argument by overwriting it with 32 zero bytes after it has been read by ''Sign'.
+To avoid accidental reuse of ''secnonce'', an implementation may securely erase the ''secnonce'' argument by overwriting it with 64 zero bytes after it has been read by ''Sign'.
 A ''secnonce'' consisting of only zero bytes is invalid for ''Sign'' and will cause it to fail.
 
 To simplify the specification, some intermediary values are unnecessarily recomputed from scratch, e.g., when executing ''GetSessionValues'' multiple times.
@@ -88,11 +88,11 @@ The output of ''KeyAgg'' is dependent on the order of the input public keys.
 If the application does not have a canonical order of the signers, the public keys can be sorted with the ''KeySort'' algorithm to ensure that the aggregate key is independent of the order of signers.
 
 The same public key is allowed to occur more than once in the input of ''KeyAgg'' and ''KeySort''.
-This is by design: All algorithms in this specification handle multiple signers who (claim to) have identical public keys properly, 
+This is by design: All algorithms in this specification handle multiple signers who (claim to) have identical public keys properly,
 and applications are not required to check for duplicate public keys.
-In fact, applications are recommended to omit checks for duplicates public keys in order to simplify error handling.
+In fact, applications are recommended to omit checks for duplicate public keys in order to simplify error handling.
 Moreover, it is often impossible to tell at key aggregation which signer is to blame for the duplicate, i.e., which signer came up with the public key honestly and which disruptive signer copied it.
-In constrast, MuSig2 is designed to identify disruptive signers at signing time: any signer who prevents a signing session from completing succesfully by sending incorrect contributions in the session can be identified and hold accountable (see below).
+In contrast, MuSig2 is designed to identify disruptive signers at signing time: any signer who prevents a signing session from completing successfully by sending incorrect contributions in the session can be identified and held accountable (see below).
 
 ==== Nonce Generation ====
 
@@ -104,7 +104,7 @@ If the value ''rand' '' was identical in two ''NonceGen'' invocations, but any o
 Therefore, it is recommended to provide the optional arguments ''sk'', ''aggpk'', and ''m'' if these session parameters are already determined during nonce generation.
 The auxiliary input ''in'' can contain additional contextual data that has a chance of changing between ''NonceGen'' runs,
 e.g., a supposedly unique session id (taken from the application), a session counter wide enough not to repeat in practice, any nonces by other signers (if already known), or the serialization of a data structure containing multiple of the above.
-However, the protection provided the optional arguments should only be viewed as a last resort.
+However, the protection provided by the optional arguments should only be viewed as a last resort.
 In most conceivable scenarios, the assumption that the arguments are different between two executions of ''NonceGen'' is relatively strong, particularly when facing an active attacker.
 
 In some applications, it is beneficial to generate and exchange ''pubnonces'' before the signer's secret key, the final set of signers, or the message to sign is known.
@@ -125,6 +125,7 @@ This signer waits until it receives the ''pubnonce'' of all the other signers an
 Then, the signer can run ''NonceGen'', ''NonceAgg'' and ''Sign'' in sequence and send out its ''pubnonce'' along with its partial signature.
 
 ==== Identifiying Disruptive Signers ====
+
 If any signer sends an incorrect partial signature, i.e., one that has not then been created with ''Sign'' and the right arguments for the session, the MuSig2 protocol may fail to output a valid Schnorr signature.
 This standard provides the method ''PartialSigVerify'' to verify the correctness of partial signatures.
 If partial signatures are received over authenticated channels, this method can be used to identify disruptive signers and hold them accountable.
@@ -133,6 +134,7 @@ An adversary can forge a partial signature, i.e., create a partial signature wit
 However, if ''PartialSigVerify'' succeeds for all partial signatures then ''PartialSigAgg'' will return a valid Schnorr signature.
 
 ==== Tweaking ====
+
 In addition to public keys, the ''KeyAgg'' algorithm accepts tweaks, which modify the aggregate public key as defined in the [[#tweaking-definition|Tweaking Definition]] subsection.
 For example, if ''KeyAgg'' is run with ''v = 2'', ''is_xonly_t<sub>1</sub> = false'', ''is_xonly_t<sub>2</sub> = true'', then the aggregate key is first ordinarily tweaked with ''tweak<sub>1</sub>'' and then X-only tweaked with ''tweak<sub>2</sub>''.
 
@@ -155,13 +157,14 @@ Instead of drawing ''rand' '' uniformly at random, ''rand' '' can be the value o
 With this modification, the secret signing key ''sk'' of the signer generating the nonce is '''not''' an optional argument and must be provided to ''NonceGen''.
 The security of the resulting scheme is then depending on the requirement that the counter must never return the same output in two ''NonceGen'' invocations with the same ''sk''.
 
-Second, if there is unique signer who is supposed to send the ''pubnonce'' last, it is possible to modify nonce generation for this single signer to be deterministic and not require randomness.
-To obtain a deterministic nonce generation algorithm ''NonceGenDeterministic'', the algorithm ''NonceGen'' should be modified as follows: The arguments ''sk'', ''aggpk'' and ''m'' are not optional and must be set precisely to the signer's secret key and the aggregate public key and message of the session.
-In addition, ''NonceGenDeterministic'' requires the ''pubnonce'' values of '''all''' other signers (concatenated in the order of signers), which can be provided via the ''in'' argument.
-Hence, using ''NonceGenDeterministic'' is only possible for the last signer to generate a nonce and makes the signer stateless, similar to the stateless signer described in the [[#nonce-generation|Nonce Generation]] section.
+Second, if there is a unique signer who is supposed to send the ''pubnonce'' last, it is possible to modify nonce generation for this single signer to not require high-quality randomness.
+If randomness is entirely unavailable, nonce generation for this signer can also be made deterministic.
+To obtain such a nonce generation algorithm ''NonceGen' '', the algorithm ''NonceGen'' should be modified as follows: The arguments ''sk'', ''aggpk'' and ''m'' are not optional and must be set precisely to the signer's secret key, the aggregate public key, and message of the session, respectively.
+In addition, ''NonceGen '' requires the ''pubnonce'' values of '''all''' other signers (concatenated in the order of signers), which can be provided via the ''in'' argument.
+Hence, using ''NonceGen' '' is only possible for the last signer to generate a nonce and makes the signer stateless, similar to the stateless signer described in the [[#nonce-generation|Nonce Generation]] section.
 Further inputs can be to added ''in'' as described in the [[#nonce-generation|Nonce Generation]] section.
-Lastly, to make ''NonceGenDeterministic'' deterministic, ''rand' '' is removed and ''rand'' is set to ''sk''.
-Failure to provide the correct arguments to ''NonceGenDeterministic'' will allow attackers to extract secret keys.
+Lastly, if no randomness, not even low-quality randomness, is available, ''NonceGen' '' can be made deterministic by removing ''rand' '' and setting ''rand'' to ''sk''.
+Failure to provide the correct arguments to ''NonceGen' '' will allow attackers to extract secret keys.
 
 === Notation ===
 
