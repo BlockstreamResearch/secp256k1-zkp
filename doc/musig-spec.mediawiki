@@ -405,8 +405,8 @@ Input:
 
 === Test Vectors and Reference Code ===
 
-There are some vectors in libsecp256k1's [https://github.com/ElementsProject/secp256k1-zkp/blob/master/src/modules/musig/tests_impl.h MuSig test file].
-Search for the ''musig_test_vectors_keyagg'' and ''musig_test_vectors_sign'' functions.
+We provide a naive, highly inefficient, and non-constant time [[musig-reference.py|pure Python 3 reference implementation of the key aggregation, partial signing, and partial signature verification algorithms, together with some test vectors]].
+The reference implementation is for demonstration purposes only and not to be used in production environments.
 
 == Remarks on Security and Correctness ==
 
