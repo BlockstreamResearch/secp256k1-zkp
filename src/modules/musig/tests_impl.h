@@ -656,10 +656,11 @@ void musig_nonce_test(void) {
     secp256k1_nonce_function_musig(k[2], args[0], args[1], NULL, args[3], args[4]);
     secp256k1_nonce_function_musig(k[3], args[0], args[1], args[2], NULL, args[4]);
     secp256k1_nonce_function_musig(k[4], args[0], args[1], args[2], args[3], NULL);
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 5; i++) {
+        CHECK(!secp256k1_scalar_eq(&k[i][0], &k[i][1]));
         for (j = i+1; j < 5; j++) {
-            CHECK(secp256k1_scalar_eq(&k[i][0], &k[j][0]) == 0);
-            CHECK(secp256k1_scalar_eq(&k[i][1], &k[j][1]) == 0);
+            CHECK(!secp256k1_scalar_eq(&k[i][0], &k[j][0]));
+            CHECK(!secp256k1_scalar_eq(&k[i][1], &k[j][1]));
         }
     }
 }

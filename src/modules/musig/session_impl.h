@@ -226,42 +226,54 @@ static int secp256k1_xonly_ge_serialize(unsigned char *output32, secp256k1_ge *g
     return 1;
 }
 
+/* Write optional inputs into the hash */
+static void secp256k1_nonce_function_musig_helper(secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data32) {
+    /* The spec requires length prefix to be 4 bytes for `extra_in`, 1 byte
+     * otherwise */
+    VERIFY_CHECK(prefix_size == 4 || prefix_size == 1);
+    if (prefix_size == 4) {
+        /* Four byte big-endian value, pad first three bytes with 0 */
+        unsigned char zero[3] = {0};
+        secp256k1_sha256_write(sha, zero, 3);
+    }
+    if (data32 != NULL) {
+        unsigned char len = 32;
+        secp256k1_sha256_write(sha, &len, 1);
+        secp256k1_sha256_write(sha, data32, 32);
+    } else {
+        unsigned char len = 0;
+        secp256k1_sha256_write(sha, &len, 1);
+    }
+}
+
 static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned char *session_id, const unsigned char *msg32, const unsigned char *key32, const unsigned char *agg_pk32, const unsigned char *extra_input32) {
     secp256k1_sha256 sha;
-    unsigned char seed[32];
+    unsigned char rand[32];
     unsigned char i;
-    enum { n_extra_in = 4 };
-    const unsigned char *extra_in[n_extra_in];
 
-    /* TODO: this doesn't have the same sidechannel resistance as the BIP340
-     * nonce function because the seckey feeds directly into SHA. */
+    if (key32 != NULL) {
+        secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/aux", sizeof("MuSig/aux") - 1);
+        secp256k1_sha256_write(&sha, session_id, 32);
+        secp256k1_sha256_finalize(&sha, rand);
+        for (i = 0; i < 32; i++) {
+            rand[i] ^= key32[i];
+        }
+    } else {
+        memcpy(rand, session_id, sizeof(rand));
+    }
 
     /* Subtract one from `sizeof` to avoid hashing the implicit null byte */
     secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/nonce", sizeof("MuSig/nonce") - 1);
-    secp256k1_sha256_write(&sha, session_id, 32);
-    extra_in[0] = msg32;
-    extra_in[1] = key32;
-    extra_in[2] = agg_pk32;
-    extra_in[3] = extra_input32;
-    for (i = 0; i < n_extra_in; i++) {
-        unsigned char len;
-        if (extra_in[i] != NULL) {
-            len = 32;
-            secp256k1_sha256_write(&sha, &len, 1);
-            secp256k1_sha256_write(&sha, extra_in[i], 32);
-        } else {
-            len = 0;
-            secp256k1_sha256_write(&sha, &len, 1);
-        }
-    }
-    secp256k1_sha256_finalize(&sha, seed);
+    secp256k1_sha256_write(&sha, rand, sizeof(rand));
+    secp256k1_nonce_function_musig_helper(&sha, 1, agg_pk32);
+    secp256k1_nonce_function_musig_helper(&sha, 1, msg32);
+    secp256k1_nonce_function_musig_helper(&sha, 4, extra_input32);
 
     for (i = 0; i < 2; i++) {
         unsigned char buf[32];
-        secp256k1_sha256_initialize(&sha);
-        secp256k1_sha256_write(&sha, seed, 32);
-        secp256k1_sha256_write(&sha, &i, sizeof(i));
-        secp256k1_sha256_finalize(&sha, buf);
+        secp256k1_sha256 sha_tmp = sha;
+        secp256k1_sha256_write(&sha_tmp, &i, 1);
+        secp256k1_sha256_finalize(&sha_tmp, buf);
         secp256k1_scalar_set_b32(&k[i], buf, NULL);
     }
 }
