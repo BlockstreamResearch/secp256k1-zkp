@@ -1899,6 +1899,14 @@ void scalar_test(void) {
     }
 
     {
+        /* Test square. */
+        secp256k1_scalar r1, r2;
+        secp256k1_scalar_sqr(&r1, &s1);
+        secp256k1_scalar_mul(&r2, &s1, &s1);
+        CHECK(secp256k1_scalar_eq(&r1, &r2));
+    }
+
+    {
         /* Test multiplicative identity. */
         secp256k1_scalar r1, v1;
         secp256k1_scalar_set_int(&v1,1);
@@ -2653,6 +2661,12 @@ void run_scalar_tests(void) {
                 CHECK(!secp256k1_scalar_check_overflow(&zz));
                 CHECK(secp256k1_scalar_eq(&one, &zz));
             }
+            secp256k1_scalar_mul(&z, &x, &x);
+            CHECK(!secp256k1_scalar_check_overflow(&z));
+            secp256k1_scalar_sqr(&zz, &x);
+            CHECK(!secp256k1_scalar_check_overflow(&zz));
+            CHECK(secp256k1_scalar_eq(&zz, &z));
+            CHECK(secp256k1_scalar_eq(&r2, &zz));
         }
     }
 }
