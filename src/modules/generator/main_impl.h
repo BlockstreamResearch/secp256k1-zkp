@@ -391,6 +391,7 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
     }
 
     secp256k1_scalar_set_int(&sum, 0);
+    secp256k1_scalar_set_int(&tmp, 0);
 
     /* Here, n_total > 0. Thus the loop runs at least once.
        Thus we may use a do-while loop, which checks the loop
