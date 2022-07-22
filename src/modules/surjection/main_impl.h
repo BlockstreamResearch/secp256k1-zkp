@@ -401,4 +401,74 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
     return secp256k1_borromean_verify(NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
+int secp256k1_surjectionproof_verify_single(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* input_tag, const secp256k1_generator* output_tag) {
+    secp256k1_ge inputp;
+    secp256k1_ge outputp;
+    secp256k1_gej tmpj;
+    secp256k1_gej xj;
+    secp256k1_ge rp;
+    secp256k1_scalar es;
+    secp256k1_scalar ss;
+    secp256k1_sha256 sha2;
+    unsigned char tmpch[33];
+    unsigned char pp_comm[32];
+    size_t sz;
+    int overflow;
+
+    /* Validate and decode surjectionproof data */
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(input_tag != NULL);
+    ARG_CHECK(output_tag != NULL);
+#ifdef VERIFY
+    CHECK(proof->initialized == 1);
+#endif
+
+    if (proof->n_inputs != 1 || proof->used_inputs[0] != 1) {
+        return 0;
+    }
+
+    secp256k1_generator_load(&inputp, input_tag);
+    secp256k1_generator_load(&outputp, output_tag);
+    secp256k1_ge_neg(&inputp, &inputp);
+    secp256k1_gej_set_ge(&xj, &inputp);
+    secp256k1_gej_add_ge(&xj, &xj, &outputp);
+
+    /* Now we just have a Schnorr signature in (e, s) form. The verification
+     * equation is e == H(sG - eX || proof params), where X is the difference
+     * between the output and input. */
+
+    /* 1. Compute slow/overwrought commitment to proof params */
+    secp256k1_surjection_genmessage(pp_comm, input_tag, 1, output_tag);
+    /* (past this point the code is identical to rangeproof_verify_value) */
+
+    /* ... feed this into our hash */
+    secp256k1_borromean_hash(tmpch, pp_comm, 32, &proof->data[0], 32, 0, 0);
+    secp256k1_scalar_set_b32(&es, tmpch, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&es)) {
+        return 0;
+    }
+
+    /* 1. Compute R = sG - eX */
+    secp256k1_scalar_set_b32(&ss, &proof->data[32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&ss)) {
+        return 0;
+    }
+    secp256k1_ecmult(&tmpj, &xj, &es, &ss);
+    if (secp256k1_gej_is_infinity(&tmpj)) {
+        return 0;
+    }
+    secp256k1_ge_set_gej(&rp, &tmpj);
+    secp256k1_eckey_pubkey_serialize(&rp, tmpch, &sz, 1);
+
+    /* 2. Compute e = H(R || proof params) */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_sha256_write(&sha2, tmpch, sz);
+    secp256k1_sha256_write(&sha2, pp_comm, sizeof(pp_comm));
+    secp256k1_sha256_finalize(&sha2, tmpch);
+
+    /* 3. Check computed e against original e */
+    return !secp256k1_memcmp_var(tmpch, &proof->data[0], 32);
+}
+
 #endif
