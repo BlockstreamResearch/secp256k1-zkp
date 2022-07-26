@@ -524,6 +524,33 @@ void test_bad_parse(void) {
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof2, sizeof(serialized_proof2)) == 0);
 }
 
+void test_input_eq_output(void) {
+    secp256k1_surjectionproof proof;
+    secp256k1_fixed_asset_tag fixed_tag;
+    secp256k1_generator ephemeral_tag;
+    unsigned char blinding_key[32];
+    unsigned char entropy[32];
+    size_t input_index;
+
+    secp256k1_testrand256(fixed_tag.data);
+    secp256k1_testrand256(blinding_key);
+    secp256k1_testrand256(entropy);
+
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 100, entropy) == 1);
+    CHECK(input_index == 0);
+
+    /* Generation should fail */
+    CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
+    CHECK(!secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
+
+    /* It succeeds when the blinding factor is 0... (will fix this in the next commit) */
+    memset(blinding_key, 0, 32);
+    CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
+    CHECK(secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
+    /* ...but verification doesn't */
+    CHECK(!secp256k1_surjectionproof_verify(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag));
+}
+
 void test_fixed_vectors(void) {
     const unsigned char tag0_ser[] = {
         0x0a,
@@ -672,6 +699,7 @@ void test_fixed_vectors(void) {
 
 void run_surjection_tests(void) {
     test_surjectionproof_api();
+    test_input_eq_output();
     test_fixed_vectors();
 
     test_input_selection(0);
