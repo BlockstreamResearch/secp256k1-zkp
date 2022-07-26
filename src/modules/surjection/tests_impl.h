@@ -543,12 +543,10 @@ void test_input_eq_output(void) {
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
     CHECK(!secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
 
-    /* It succeeds when the blinding factor is 0... (will fix this in the next commit) */
+    /* ...even when the blinding key is zero */
     memset(blinding_key, 0, 32);
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_tag, fixed_tag.data, blinding_key));
-    CHECK(secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
-    /* ...but verification doesn't */
-    CHECK(!secp256k1_surjectionproof_verify(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag));
+    CHECK(!secp256k1_surjectionproof_generate(ctx, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
 }
 
 void test_fixed_vectors(void) {
