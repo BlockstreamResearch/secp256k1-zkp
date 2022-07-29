@@ -312,7 +312,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
      * it is deployed on Liquid and cannot be fixed without a hardfork. We should review
      * this at the same time that we relax the max-256-inputs rule. */
     for (i = 0; i < n_ephemeral_input_tags; i++) {
-        if (memcmp(ephemeral_input_tags[i].data, ephemeral_output_tag->data, sizeof(ephemeral_output_tag->data)) == 0) {
+        if (secp256k1_memcmp_var(ephemeral_input_tags[i].data, ephemeral_output_tag->data, sizeof(ephemeral_output_tag->data)) == 0) {
             return 0;
         }
     }
