@@ -307,10 +307,14 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     if (overflow) {
         return 0;
     }
-    /* The only time the input may equal the output is if neither one was blinded in the first place,
-     * i.e. both blinding keys are zero. Otherwise this is a privacy leak. */
-    if (secp256k1_scalar_eq(&tmps, &blinding_key) && !secp256k1_scalar_is_zero(&blinding_key)) {
-        return 0;
+    /* If any input tag is equal to an output tag, verification will fail, because our ring
+     * signature logic would receive a zero-key, which is illegal. This is unfortunate but
+     * it is deployed on Liquid and cannot be fixed without a hardfork. We should review
+     * this at the same time that we relax the max-256-inputs rule. */
+    for (i = 0; i < n_ephemeral_input_tags; i++) {
+        if (secp256k1_memcmp_var(ephemeral_input_tags[i].data, ephemeral_output_tag->data, sizeof(ephemeral_output_tag->data)) == 0) {
+            return 0;
+        }
     }
     secp256k1_scalar_negate(&tmps, &tmps);
     secp256k1_scalar_add(&blinding_key, &blinding_key, &tmps);
