@@ -10,12 +10,12 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "group.h"
-#include "scalar.h"
-#include "testrand.h"
-#include "util.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../testrand.h"
+#include "../../util.h"
 
-#include "include/secp256k1_generator.h"
+#include "../../../include/secp256k1_generator.h"
 
 void test_generator_api(void) {
     unsigned char key[32];

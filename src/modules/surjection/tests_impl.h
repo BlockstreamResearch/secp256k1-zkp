@@ -7,11 +7,11 @@
 #ifndef SECP256K1_MODULE_SURJECTIONPROOF_TESTS
 #define SECP256K1_MODULE_SURJECTIONPROOF_TESTS
 
-#include "testrand.h"
-#include "group.h"
-#include "include/secp256k1_generator.h"
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
+#include "../../testrand.h"
+#include "../../group.h"
+#include "../../../include/secp256k1_generator.h"
+#include "../../../include/secp256k1_rangeproof.h"
+#include "../../../include/secp256k1_surjectionproof.h"
 
 static void test_surjectionproof_api(void) {
     unsigned char seed[32];

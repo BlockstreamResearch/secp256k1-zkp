@@ -8,13 +8,13 @@
 #ifndef _SECP256K1_BORROMEAN_IMPL_H_
 #define _SECP256K1_BORROMEAN_IMPL_H_
 
-#include "scalar.h"
-#include "field.h"
-#include "group.h"
-#include "hash.h"
-#include "eckey.h"
-#include "ecmult.h"
-#include "ecmult_gen.h"
+#include "../../scalar.h"
+#include "../../field.h"
+#include "../../group.h"
+#include "../../hash.h"
+#include "../../eckey.h"
+#include "../../ecmult.h"
+#include "../../ecmult_gen.h"
 #include "borromean.h"
 
 #include <limits.h>

@@ -9,12 +9,12 @@
 
 #include <string.h>
 
-#include "group.h"
-#include "scalar.h"
-#include "testrand.h"
-#include "util.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../testrand.h"
+#include "../../util.h"
 
-#include "include/secp256k1_rangeproof.h"
+#include "../../../include/secp256k1_rangeproof.h"
 
 static void test_pedersen_api(const secp256k1_context *none, const secp256k1_context *sign, const secp256k1_context *vrfy, const secp256k1_context *sttc, const int32_t *ecount) {
     secp256k1_pedersen_commitment commit;

@@ -7,7 +7,7 @@
 #ifndef SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 #define SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 
-#include "include/secp256k1_ecdsa_s2c.h"
+#include "../../../include/secp256k1_ecdsa_s2c.h"
 
 static void test_ecdsa_s2c_tagged_hash(void) {
     unsigned char tag_data[14] = "s2c/ecdsa/data";

@@ -9,10 +9,10 @@
 
 #include <stdio.h>
 
-#include "field.h"
-#include "group.h"
-#include "hash.h"
-#include "scalar.h"
+#include "../../field.h"
+#include "../../group.h"
+#include "../../hash.h"
+#include "../../scalar.h"
 
 static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator* gen) {
     int succeed;
