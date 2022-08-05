@@ -547,6 +547,58 @@ static void test_rangeproof(void) {
     }
 }
 
+static void test_rangeproof_null_blinder(void) {
+    unsigned char proof[5134];
+    const unsigned char blind[32] = { 0 };
+    const uint64_t v = 1111;
+    uint64_t minv, maxv;
+    secp256k1_pedersen_commitment commit;
+    size_t len;
+
+    CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, v, secp256k1_generator_h));
+
+    /* Try a 32-bit proof; should work */
+    len = 5134;
+    CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 1, &commit, blind, commit.data, 0, 32, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
+    CHECK(minv == 1);
+    CHECK(maxv == 1ULL << 32);
+
+    /* Try a 3-bit proof; should work */
+    len = 5134;
+    CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v - 1, &commit, blind, commit.data, 0, 3, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
+    CHECK(minv == 1110);
+    CHECK(maxv == 1117);
+
+    /* But a 2-bits will not because then it does not have any subcommitments (which rerandomize
+     * the blinding factors that get passed into the borromean logic ... passing 0s will fail) */
+    len = 5134;
+    CHECK(!secp256k1_rangeproof_sign(ctx, proof, &len, v - 1, &commit, blind, commit.data, 0, 2, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+
+    /* Rewinding with 3-bits works */
+    {
+        uint64_t value_out;
+        unsigned char msg[128];
+        unsigned char msg_out[128];
+        unsigned char blind_out[32];
+        size_t msg_len = sizeof(msg);
+
+        len = 1000;
+        secp256k1_testrand256(msg);
+        secp256k1_testrand256(&msg[32]);
+        secp256k1_testrand256(&msg[64]);
+        secp256k1_testrand256(&msg[96]);
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v, &commit, blind, commit.data, 0, 3, v, msg, sizeof(msg), NULL, 0, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_rewind(ctx, blind_out, &value_out, msg_out, &msg_len, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h) != 0);
+        CHECK(memcmp(blind, blind_out, sizeof(blind)) == 0);
+        CHECK(memcmp(msg, msg_out, sizeof(msg)) == 0);
+        CHECK(value_out == v);
+        CHECK(minv == v);
+        CHECK(maxv == v + 7);
+    }
+}
+
 #define MAX_N_GENS	30
 void test_multiple_generators(void) {
     const size_t n_inputs = (secp256k1_testrand32() % (MAX_N_GENS / 2)) + 1;
@@ -705,6 +757,7 @@ void run_rangeproof_tests(void) {
         test_borromean();
     }
     test_rangeproof();
+    test_rangeproof_null_blinder();
     test_multiple_generators();
 }
 

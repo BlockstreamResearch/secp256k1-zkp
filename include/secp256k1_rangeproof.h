@@ -227,7 +227,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
  *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
  *          commit: the commitment being proved.
- *          blind:  32-byte blinding factor used by commit.
+ *          blind:  32-byte blinding factor used by commit. The blinding factor may be all-zeros as long as min_bits is set to 3 or greater.
+ *                  This is a side-effect of the underlying crypto, not a deliberate API choice, but it may be useful when balancing CT transactions.
  *          nonce:  32-byte secret nonce used to initialize the proof (value can be reverse-engineered out of the proof if this secret is known.)
  *          exp:    Base-10 exponent. Digits below above will be made public, but the proof will be made smaller. Allowed range is -1 to 18.
  *                  (-1 is a special case that makes the value public. 0 is the most private.)
