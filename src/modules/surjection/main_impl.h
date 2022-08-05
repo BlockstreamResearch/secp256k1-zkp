@@ -13,11 +13,11 @@
 #include "libsecp256k1-config.h"
 #endif
 
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
-#include "modules/rangeproof/borromean.h"
-#include "modules/surjection/surjection_impl.h"
-#include "hash.h"
+#include "../../../include/secp256k1_rangeproof.h"
+#include "../../../include/secp256k1_surjectionproof.h"
+#include "../rangeproof/borromean.h"
+#include "surjection_impl.h"
+#include "../../hash.h"
 
 #ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
 #undef SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS

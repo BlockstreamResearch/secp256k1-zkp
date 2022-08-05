@@ -9,13 +9,13 @@
 
 #include <string.h>
 
-#include "eckey.h"
-#include "ecmult_const.h"
-#include "ecmult_gen.h"
-#include "group.h"
-#include "field.h"
-#include "scalar.h"
-#include "util.h"
+#include "../../eckey.h"
+#include "../../ecmult_const.h"
+#include "../../ecmult_gen.h"
+#include "../../group.h"
+#include "../../field.h"
+#include "../../scalar.h"
+#include "../../util.h"
 
 static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t value) {
     unsigned char data[32];

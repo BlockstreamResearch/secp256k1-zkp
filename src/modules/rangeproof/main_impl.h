@@ -7,11 +7,11 @@
 #ifndef SECP256K1_MODULE_RANGEPROOF_MAIN
 #define SECP256K1_MODULE_RANGEPROOF_MAIN
 
-#include "group.h"
+#include "../../group.h"
 
-#include "modules/rangeproof/pedersen_impl.h"
-#include "modules/rangeproof/borromean_impl.h"
-#include "modules/rangeproof/rangeproof_impl.h"
+#include "pedersen_impl.h"
+#include "borromean_impl.h"
+#include "rangeproof_impl.h"
 
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after standard encoding (without compression),
