@@ -454,13 +454,6 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([******])
   AC_MSG_NOTICE([WARNING: experimental build])
   AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
-  AC_MSG_NOTICE([Building NUMS generator module: $enable_module_generator])
-  AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
-  AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
-  AC_MSG_NOTICE([Building surjection proof module: $enable_module_surjectionproof])
-  AC_MSG_NOTICE([Building MuSig module: $enable_module_musig])
-  AC_MSG_NOTICE([Building ECDSA sign-to-contract module: $enable_module_ecdsa_s2c])
-  AC_MSG_NOTICE([Building ECDSA adaptor signatures module: $enable_module_ecdsa_adaptor])
   AC_MSG_NOTICE([******])
 else
   if test x"$enable_module_musig" = x"yes"; then
@@ -537,6 +530,10 @@ echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
+echo "  module generator        = $enable_module_generator"
+echo "  module rangeproof       = $enable_module_rangeproof"
+echo "  module surjectionproof  = $enable_module_surjectionproof"
+echo "  module whitelist        = $enable_module_whitelist"
 echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
