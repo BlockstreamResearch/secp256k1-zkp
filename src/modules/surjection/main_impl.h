@@ -243,7 +243,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
             while (1) {
                 size_t next_input_index;
                 next_input_index = secp256k1_surjectionproof_csprng_next(&csprng, n_input_tags);
-                if (memcmp(&fixed_input_tags[next_input_index], fixed_output_tag, sizeof(*fixed_output_tag)) == 0) {
+                if (secp256k1_memcmp_var(&fixed_input_tags[next_input_index], fixed_output_tag, sizeof(*fixed_output_tag)) == 0) {
                     *input_index = next_input_index;
                     has_output_tag = 1;
                 }
