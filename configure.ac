@@ -456,6 +456,22 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
   AC_MSG_NOTICE([******])
 else
+  # The order of the following tests matters. If the user enables a dependent
+  # module (which automatically enables the module dependencies) we want to
+  # print an error for the dependent module, not the module dependency. Hence,
+  # we first test dependent modules.
+  if test x"$enable_module_whitelist" = x"yes"; then
+    AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_surjectionproof" = x"yes"; then
+    AC_MSG_ERROR([Surjection proof module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_rangeproof" = x"yes"; then
+    AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_generator" = x"yes"; then
+    AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_musig" = x"yes"; then
     AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
   fi
@@ -467,18 +483,6 @@ else
   fi
   if test x"$set_asm" = x"arm"; then
     AC_MSG_ERROR([ARM assembly optimization is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_generator" = x"yes"; then
-    AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_rangeproof" = x"yes"; then
-    AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_whitelist" = x"yes"; then
-    AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_surjectionproof" = x"yes"; then
-    AC_MSG_ERROR([Surjection proof module is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
