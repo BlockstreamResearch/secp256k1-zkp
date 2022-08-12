@@ -105,7 +105,7 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
     secp256k1_sha256_finalize(&sha256_e0, tmp);
-    return memcmp(e0, tmp, 32) == 0;
+    return secp256k1_memcmp_var(e0, tmp, 32) == 0;
 }
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
