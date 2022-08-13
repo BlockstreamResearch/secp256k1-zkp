@@ -225,6 +225,11 @@ static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_c
         CHECK(secp256k1_rangeproof_rewind(both, blind_out, &value_out, NULL, 0, commit.data, &min_value, &max_value, &commit, proof, len, NULL, 0, NULL) == 0);
         CHECK(*ecount == 29);
     }
+
+    /* This constant is hardcoded in these tests and elsewhere, so we
+     * consider it to be part of the API and test it here. */
+    CHECK(secp256k1_rangeproof_max_size(none, 0, 64) == 5134);
+    CHECK(secp256k1_rangeproof_max_size(none, UINT64_MAX, 0) == 5134);
 }
 
 static void test_api(void) {
@@ -431,6 +436,7 @@ static void test_rangeproof(void) {
             len = 5134;
             CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, 0, 0, v, input_message, input_message_len, NULL, 0, secp256k1_generator_h));
             CHECK(len <= 5134);
+            CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, 0));
             mlen = 4096;
             CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, message, &mlen, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
             if (input_message != NULL) {
@@ -447,6 +453,7 @@ static void test_rangeproof(void) {
             len = 5134;
             CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v, &commit, blind, commit.data, -1, 64, v, NULL, 0, NULL, 0, secp256k1_generator_h));
             CHECK(len <= 73);
+            CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, 0));
             CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
             CHECK(secp256k1_memcmp_var(blindout, blind, 32) == 0);
             CHECK(vout == v);
@@ -457,6 +464,7 @@ static void test_rangeproof(void) {
             len = 5134;
             CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, v, &commit, blind, commit.data, -1, 64, v, NULL, 0, message_short, sizeof(message_short), secp256k1_generator_h));
             CHECK(len <= 73);
+            CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, 0));
             CHECK(!secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
             CHECK(!secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len, message_long, sizeof(message_long), secp256k1_generator_h));
             CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, NULL, NULL, commit.data, &minv, &maxv, &commit, proof, len, message_short, sizeof(message_short), secp256k1_generator_h));
@@ -472,6 +480,7 @@ static void test_rangeproof(void) {
     for (i = 0; i < 19; i++) {
         len = 5134;
         CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, i, 0, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+        CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, 0));
         CHECK(secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
         CHECK(minv <= v);
@@ -487,6 +496,7 @@ static void test_rangeproof(void) {
         len = 5134;
         CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, 0, &commit, blind, commit.data, 0, 3, v, NULL, 0, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
+        CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, 3));
         /* Test if trailing bytes are rejected. */
         proof[len] = v;
         CHECK(!secp256k1_rangeproof_verify(ctx, &minv, &maxv, &commit, proof, len + 1, NULL, 0, secp256k1_generator_h));
@@ -521,6 +531,7 @@ static void test_rangeproof(void) {
         }
         CHECK(secp256k1_rangeproof_sign(ctx, proof, &len, vmin, &commit, blind, commit.data, exp, min_bits, v, NULL, 0, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
+        CHECK(len <= secp256k1_rangeproof_max_size(ctx, v, min_bits));
         mlen = 4096;
         CHECK(secp256k1_rangeproof_rewind(ctx, blindout, &vout, message, &mlen, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
         for (j = 0; j < mlen; j++) {
