@@ -297,7 +297,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Verify a rangeproof with a single-value range. Useful as a "proof of value"
- *  of a Pedersen commitment. Such proofs can be created with `secp256k1_rangeproof_create_value`,
+ *  of a Pedersen commitment. Such proofs can be created with `secp256k1_rangeproof_create_exact`,
  *  or with `secp256k1_rangeproof_sign` by passing an `exp` parameter of -1 and the
  *  target value as both `value` and `min_value`. (In this case `min_bits` is ignored
  *  and may take any value, but for clarity it's best to pass zero.)
@@ -310,7 +310,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
  *        commit: the Pedersen commitment whose value is being verified
  *        gen: additional generator 'h'
  */
-SECP256K1_API int secp256k1_rangeproof_verify_value(
+SECP256K1_API int secp256k1_rangeproof_verify_exact(
   const secp256k1_context* ctx,
   const unsigned char* proof,
   size_t plen,
@@ -331,7 +331,7 @@ SECP256K1_API int secp256k1_rangeproof_verify_value(
  *        commit: the Pedersen commitment whose value is being proven
  *        gen: additional generator 'h'
  */
-SECP256K1_API int secp256k1_rangeproof_create_value(
+SECP256K1_API int secp256k1_rangeproof_create_exact(
   const secp256k1_context* ctx,
   unsigned char* proof,
   size_t* plen,

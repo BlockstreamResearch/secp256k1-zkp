@@ -304,7 +304,7 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
      proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
 }
 
-int secp256k1_rangeproof_verify_value(const secp256k1_context* ctx, const unsigned char* proof, size_t plen, uint64_t value, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
+int secp256k1_rangeproof_verify_exact(const secp256k1_context* ctx, const unsigned char* proof, size_t plen, uint64_t value, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
     secp256k1_ge commitp;
     secp256k1_ge genp;
     secp256k1_gej tmpj;
@@ -397,7 +397,7 @@ int secp256k1_rangeproof_verify_value(const secp256k1_context* ctx, const unsign
     return !secp256k1_memcmp_var(tmpch, &proof[offset], 32);
 }
 
-int secp256k1_rangeproof_create_value(const secp256k1_context* ctx, unsigned char* proof, size_t* plen, uint64_t value, const unsigned char* blind, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
+int secp256k1_rangeproof_create_exact(const secp256k1_context* ctx, unsigned char* proof, size_t* plen, uint64_t value, const unsigned char* blind, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
     secp256k1_ge commitp;
     secp256k1_ge genp;
     secp256k1_gej tmpj;

@@ -229,43 +229,43 @@ static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_c
     {
         *ecount = 0;
         len = sizeof(proof);
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
-        CHECK(secp256k1_rangeproof_create_value(none, NULL, &len, val, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_create_exact(none, NULL, &len, val, blind, &commit, secp256k1_generator_h) == 0);
         CHECK(*ecount == 1);
-        CHECK(secp256k1_rangeproof_create_value(none, proof, NULL, val, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, NULL, val, blind, &commit, secp256k1_generator_h) == 0);
         CHECK(*ecount == 2);
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, val, NULL, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, NULL, &commit, secp256k1_generator_h) == 0);
         CHECK(*ecount == 3);
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, val, blind, NULL, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, NULL, secp256k1_generator_h) == 0);
         CHECK(*ecount == 4);
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, val, blind, &commit, NULL) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, NULL) == 0);
         CHECK(*ecount == 5);
         len = 0;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
         len = 64;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
         len = 65;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 1);
         len = 65;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
         len = 72;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
         len = 73;
-        CHECK(secp256k1_rangeproof_create_value(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
         CHECK(*ecount == 5);
 
         *ecount = 0;
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, len, val, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, &commit, secp256k1_generator_h) == 1);
         CHECK(*ecount == 0);
-        CHECK(secp256k1_rangeproof_verify_value(none, NULL, len, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, NULL, len, val, &commit, secp256k1_generator_h) == 0);
         CHECK(*ecount == 1);
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, len, val, NULL, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, NULL, secp256k1_generator_h) == 0);
         CHECK(*ecount == 2);
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, len, val, &commit, NULL) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, &commit, NULL) == 0);
         CHECK(*ecount == 3);
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, 0, val, &commit, secp256k1_generator_h) == 0);
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, len - 1, val, &commit, secp256k1_generator_h) == 0);
-        CHECK(secp256k1_rangeproof_verify_value(none, proof, len, val ^ 1, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, 0, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len - 1, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val ^ 1, &commit, secp256k1_generator_h) == 0);
         CHECK(*ecount == 3);
     }
 
@@ -692,7 +692,7 @@ static void test_single_value_proof(uint64_t val) {
         plen = sizeof(proof);
     }
     if (using_exact_value) {
-        CHECK(secp256k1_rangeproof_create_value(ctx, proof, &plen, val, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_create_exact(ctx, proof, &plen, val, blind, &commit, secp256k1_generator_h) == 1);
     } else {
         CHECK(secp256k1_rangeproof_sign(
             ctx,
@@ -752,7 +752,7 @@ static void test_single_value_proof(uint64_t val) {
             CHECK(message_out[m_len_out] == 0);
         }
     }
-    CHECK(secp256k1_rangeproof_verify_value(ctx, proof, plen, val, &commit, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_verify_exact(ctx, proof, plen, val, &commit, secp256k1_generator_h));
 }
 
 #define MAX_N_GENS	30
@@ -1040,7 +1040,7 @@ void test_rangeproof_fixed_vectors(void) {
     CHECK(max_value == UINT64_MAX);
     CHECK(m_len == 0);
 
-    CHECK(secp256k1_rangeproof_verify_value(ctx, vector_3, sizeof(vector_3), UINT64_MAX, &pc, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_verify_exact(ctx, vector_3, sizeof(vector_3), UINT64_MAX, &pc, secp256k1_generator_h));
 }
 }
 
