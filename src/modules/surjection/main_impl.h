@@ -284,7 +284,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     size_t n_used_pubkeys;
     size_t ring_input_index = 0;
     secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
-    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
+    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS] = { 0 };
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
