@@ -298,6 +298,10 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     CHECK(proof->initialized == 1);
 #endif
 
+    n_used_pubkeys = secp256k1_surjectionproof_n_used_inputs(ctx, proof);
+    /* This must be true if the proof was created with surjectionproof_initialize */
+    ARG_CHECK(n_used_pubkeys > 0);
+
     /* Compute secret key */
     secp256k1_scalar_set_b32(&tmps, input_blinding_key, &overflow);
     if (overflow) {
@@ -321,7 +325,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
 
     /* Compute public keys */
     n_total_pubkeys = secp256k1_surjectionproof_n_total_inputs(ctx, proof);
-    n_used_pubkeys = secp256k1_surjectionproof_n_used_inputs(ctx, proof);
+
     if (n_used_pubkeys > n_total_pubkeys || n_total_pubkeys != n_ephemeral_input_tags) {
         return 0;
     }
