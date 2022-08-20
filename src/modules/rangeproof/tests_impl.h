@@ -655,6 +655,7 @@ static void test_single_value_proof(uint64_t val) {
         NULL, 0,
         secp256k1_generator_h
     ) == 1);
+    CHECK(plen <= secp256k1_rangeproof_max_size(ctx, val, 0));
 
     /* Different proof sizes are unfortunate but is caused by `min_value` of
      * zero being special-cased and encoded more efficiently. */
@@ -1068,16 +1069,11 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
         uint64_t min_value = 0;
         size_t m_len = sizeof(message); /* maximum message length */
 
-        /* Uncomment this to recreate test vector */
-        /* int min_bits = 64; */
-        /* int exp  = 18; */
-        /* unsigned char proof[5126]; */
-        /* size_t p_len = sizeof(proof); */
-        /* secp256k1_pedersen_commitment pc; */
-        /* CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h)); */
-        /* CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h)); */
-        /* CHECK(p_len == sizeof(proof)); */
-        /* print_vector(0, proof, p_len, &pc); */
+        int min_bits = 64;
+        int exp  = 18;
+        unsigned char proof[5126];
+        size_t p_len = sizeof(proof);
+        secp256k1_pedersen_commitment pc;
 
         unsigned char vector_0[] = {
             0x40, 0x3f, 0xd1, 0x77, 0x65, 0x05, 0x87, 0x88, 0xd0, 0x3d, 0xb2, 0x24, 0x60, 0x7a, 0x08, 0x76,
@@ -1408,6 +1404,15 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
             0xef,
         };
 
+        CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(ctx, value, min_bits));
+        CHECK(p_len == sizeof(proof));
+        /* Uncomment the next line to print the test vector */
+        /* print_vector(0, proof, p_len, &pc); */
+        CHECK(p_len == sizeof(vector_0));
+        CHECK(secp256k1_memcmp_var(proof, vector_0, p_len) == 0);
+
         test_rangeproof_fixed_vectors_reproducible_helper(vector_0, sizeof(vector_0), commit_0, &value_r, &min_value_r, &max_value_r, message_r, &m_len_r);
         CHECK(value_r == value);
         CHECK(m_len_r == m_len);
@@ -1422,17 +1427,12 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
         uint64_t value = 13;
         size_t m_len = 128; /* maximum message length with min_bits = 3 */
 
-        /* Uncomment this to recreate test vector */
-        /* uint64_t min_value = 1; */
-        /* int min_bits = 3; */
-        /* int exp  = 1; */
-        /* unsigned char proof[267]; */
-        /* size_t p_len = sizeof(proof); */
-        /* secp256k1_pedersen_commitment pc; */
-        /* CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h)); */
-        /* CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h)); */
-        /* CHECK(p_len == sizeof(proof)); */
-        /* print_vector(1, proof, p_len, &pc); */
+        uint64_t min_value = 1;
+        int min_bits = 3;
+        int exp  = 1;
+        unsigned char proof[267];
+        size_t p_len = sizeof(proof);
+        secp256k1_pedersen_commitment pc;
 
         unsigned char vector_1[] = {
             0x61, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x01, 0xcb, 0xdc, 0xbe, 0x42, 0xe6,
@@ -1458,6 +1458,14 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
             0x66, 0x16, 0x2e, 0x44, 0xc8, 0x65, 0x8e, 0xe6, 0x3a, 0x1a, 0x57, 0x2c, 0xb9, 0x6c, 0x07, 0x85,
             0xf0,
         };
+        CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(ctx, value, min_bits));
+        CHECK(p_len == sizeof(proof));
+        /* Uncomment the next line to print the test vector */
+        /* print_vector(1, proof, p_len, &pc); */
+        CHECK(p_len == sizeof(vector_1));
+        CHECK(secp256k1_memcmp_var(proof, vector_1, p_len) == 0);
 
         test_rangeproof_fixed_vectors_reproducible_helper(vector_1, sizeof(vector_1), commit_1, &value_r, &min_value_r, &max_value_r, message_r, &m_len_r);
         CHECK(value_r == value);
@@ -1474,16 +1482,12 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
         size_t m_len = 0; /* maximum message length with min_bits = 3 */
 
         /* Uncomment this to recreate test vector */
-        /* uint64_t min_value = INT64_MAX-1; */
-        /* int min_bits = 1; */
-        /* int exp  = 0; */
-        /* unsigned char proof[106]; */
-        /* size_t p_len = sizeof(proof); */
-        /* secp256k1_pedersen_commitment pc; */
-        /* CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h)); */
-        /* CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h)); */
-        /* CHECK(p_len == sizeof(proof)); */
-        /* print_vector(2, proof, p_len, &pc); */
+        uint64_t min_value = INT64_MAX-1;
+        int min_bits = 1;
+        int exp  = 0;
+        unsigned char proof[106];
+        size_t p_len = sizeof(proof);
+        secp256k1_pedersen_commitment pc;
 
         unsigned char vector_2[] = {
             0x60, 0x00, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x81, 0xd8, 0x21, 0x12, 0x4d, 0xa4,
@@ -1499,6 +1503,15 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
             0x90, 0x96, 0xc2, 0x5a, 0xe5, 0xfc, 0xed, 0x91, 0xff, 0x4c, 0x67, 0x07, 0x96, 0x1d, 0x2a, 0xb3,
             0x70,
         };
+
+        CHECK(secp256k1_pedersen_commit(ctx, &pc, vector_blind, value, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_sign(ctx, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(ctx, value, min_bits));
+        CHECK(p_len == sizeof(proof));
+        /* Uncomment the next line to print the test vector */
+        /* print_vector(2, proof, p_len, &pc); */
+        CHECK(p_len == sizeof(vector_2));
+        CHECK(secp256k1_memcmp_var(proof, vector_2, p_len) == 0);
 
         test_rangeproof_fixed_vectors_reproducible_helper(vector_2, sizeof(vector_2), commit_2, &value_r, &min_value_r, &max_value_r, message_r, &m_len_r);
         CHECK(value_r == value);
