@@ -385,6 +385,10 @@ SECP_CFLAGS="$SECP_CFLAGS $WERROR_CFLAGS"
 ### Handle module options
 ###
 
+# Besides testing whether modules are enabled, the following code also enables
+# module dependencies. The order of the tests matters: the dependency must be
+# tested first.
+
 if test x"$enable_module_ecdh" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_ECDH, 1, [Define this symbol to enable the ECDH module])
 fi
@@ -398,30 +402,30 @@ if test x"$enable_module_recovery" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RECOVERY, 1, [Define this symbol to enable the ECDSA pubkey recovery module])
 fi
 
-if test x"$enable_module_generator" = x"yes"; then
-  AC_DEFINE(ENABLE_MODULE_GENERATOR, 1, [Define this symbol to enable the NUMS generator module])
-fi
-
-if test x"$enable_module_rangeproof" = x"yes"; then
-  AC_DEFINE(ENABLE_MODULE_RANGEPROOF, 1, [Define this symbol to enable the Pedersen / zero knowledge range proof module])
-fi
-
 if test x"$enable_module_whitelist" = x"yes"; then
+  enable_module_rangeproof=yes
   AC_DEFINE(ENABLE_MODULE_WHITELIST, 1, [Define this symbol to enable the key whitelisting module])
 fi
 
 if test x"$enable_module_surjectionproof" = x"yes"; then
+  enable_module_rangeproof=yes
   AC_DEFINE(ENABLE_MODULE_SURJECTIONPROOF, 1, [Define this symbol to enable the surjection proof module])
 fi
-# Test if extrakeys is set _after_ the MuSig module to allow the MuSig
-# module to set enable_module_schnorrsig=yes
+
+if test x"$enable_module_rangeproof" = x"yes"; then
+  enable_module_generator=yes
+  AC_DEFINE(ENABLE_MODULE_RANGEPROOF, 1, [Define this symbol to enable the Pedersen / zero knowledge range proof module])
+fi
+
+if test x"$enable_module_generator" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_GENERATOR, 1, [Define this symbol to enable the NUMS generator module])
+fi
+
 if test x"$enable_module_schnorrsig" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SCHNORRSIG, 1, [Define this symbol to enable the schnorrsig module])
   enable_module_extrakeys=yes
 fi
 
-# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
-# module to set enable_module_extrakeys=yes
 if test x"$enable_module_extrakeys" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_EXTRAKEYS, 1, [Define this symbol to enable the extrakeys module])
 fi
@@ -450,37 +454,24 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([******])
   AC_MSG_NOTICE([WARNING: experimental build])
   AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
-  AC_MSG_NOTICE([Building NUMS generator module: $enable_module_generator])
-  AC_MSG_NOTICE([Building range proof module: $enable_module_rangeproof])
-  AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
-  AC_MSG_NOTICE([Building surjection proof module: $enable_module_surjectionproof])
-  AC_MSG_NOTICE([Building MuSig module: $enable_module_musig])
-  AC_MSG_NOTICE([Building ECDSA sign-to-contract module: $enable_module_ecdsa_s2c])
-  AC_MSG_NOTICE([Building ECDSA adaptor signatures module: $enable_module_ecdsa_adaptor])
   AC_MSG_NOTICE([******])
-
-
-  if test x"$enable_module_schnorrsig" != x"yes"; then
-    if test x"$enable_module_musig" = x"yes"; then
-      AC_MSG_ERROR([MuSig module requires the schnorrsig module. Use --enable-module-schnorrsig to allow.])
-    fi
-  fi
-
-  if test x"$enable_module_generator" != x"yes"; then
-    if test x"$enable_module_rangeproof" = x"yes"; then
-      AC_MSG_ERROR([Rangeproof module requires the generator module. Use --enable-module-generator to allow.])
-    fi
-  fi
-
-  if test x"$enable_module_rangeproof" != x"yes"; then
-    if test x"$enable_module_whitelist" = x"yes"; then
-      AC_MSG_ERROR([Whitelist module requires the rangeproof module. Use --enable-module-rangeproof to allow.])
-    fi
-    if test x"$enable_module_surjectionproof" = x"yes"; then
-      AC_MSG_ERROR([Surjection proof module requires the rangeproof module. Use --enable-module-rangeproof to allow.])
-    fi
-  fi
 else
+  # The order of the following tests matters. If the user enables a dependent
+  # module (which automatically enables the module dependencies) we want to
+  # print an error for the dependent module, not the module dependency. Hence,
+  # we first test dependent modules.
+  if test x"$enable_module_whitelist" = x"yes"; then
+    AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_surjectionproof" = x"yes"; then
+    AC_MSG_ERROR([Surjection proof module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_rangeproof" = x"yes"; then
+    AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_generator" = x"yes"; then
+    AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_musig" = x"yes"; then
     AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
   fi
@@ -492,18 +483,6 @@ else
   fi
   if test x"$set_asm" = x"arm"; then
     AC_MSG_ERROR([ARM assembly optimization is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_generator" = x"yes"; then
-    AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_rangeproof" = x"yes"; then
-    AC_MSG_ERROR([Range proof module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_whitelist" = x"yes"; then
-    AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_surjectionproof" = x"yes"; then
-    AC_MSG_ERROR([Surjection proof module is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
@@ -555,6 +534,10 @@ echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
+echo "  module generator        = $enable_module_generator"
+echo "  module rangeproof       = $enable_module_rangeproof"
+echo "  module surjectionproof  = $enable_module_surjectionproof"
+echo "  module whitelist        = $enable_module_whitelist"
 echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
