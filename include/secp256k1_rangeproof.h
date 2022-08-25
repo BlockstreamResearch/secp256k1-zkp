@@ -297,10 +297,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Verify a rangeproof with a single-value range. Useful as a "proof of value"
- *  of a Pedersen commitment. Such proofs can be created with `secp256k1_rangeproof_sign`
- *  by passing an `exp` parameter of -1 and the target value as both `value` and `min_value`.
- *  (In this case `min_bits` is ignored and may take any value, but for clarity it's best
- *  to pass zero.)
+ *  of a Pedersen commitment. Such proofs can be created with `secp256k1_rangeproof_create_value`,
+ *  or with `secp256k1_rangeproof_sign` by passing an `exp` parameter of -1 and the
+ *  target value as both `value` and `min_value`. (In this case `min_bits` is ignored
+ *  and may take any value, but for clarity it's best to pass zero.)
  *  Returns 1: Proof was valid and proved the given value
  *          0: Otherwise
  *  In:   ctx: pointer to a context object
@@ -318,6 +318,28 @@ SECP256K1_API int secp256k1_rangeproof_verify_value(
   const secp256k1_pedersen_commitment* commit,
   const secp256k1_generator* gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
+/** Create a rangeproof with a single-value range.
+ *  Returns 1: Proof was successfully generated
+ *          0: Otherwise. The contents of `proof` are unspecified in this case.
+ *  Args: ctx: pointer to a context object
+ *  Out:  proof: pointer to character array to populate the proof with. Must be at least 73
+ *               bytes unless `value` is 0, in which case it must be at least 65 bytes
+ *  In/Out: plen: length of the `proof` buffer; will be overwritten with the actual length
+ *  In:   value: value being claimed for the Pedersen commitment
+ *        blind: the blinding factor for the Pedersen commitment `commit`
+ *        commit: the Pedersen commitment whose value is being proven
+ *        gen: additional generator 'h'
+ */
+SECP256K1_API int secp256k1_rangeproof_create_value(
+  const secp256k1_context* ctx,
+  unsigned char* proof,
+  size_t* plen,
+  uint64_t value,
+  const unsigned char* blind,
+  const secp256k1_pedersen_commitment* commit,
+  const secp256k1_generator* gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
 
 /** Returns an upper bound on the size of a rangeproof with the given parameters
  *
