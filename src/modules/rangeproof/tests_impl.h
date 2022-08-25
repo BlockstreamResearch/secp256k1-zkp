@@ -983,6 +983,8 @@ void test_rangeproof_fixed_vectors(void) {
     CHECK(min_value == UINT64_MAX);
     CHECK(max_value == UINT64_MAX);
     CHECK(m_len == 0);
+
+    CHECK(secp256k1_rangeproof_verify_value(ctx, vector_3, sizeof(vector_3), UINT64_MAX, &pc, secp256k1_generator_h));
 }
 }
 
