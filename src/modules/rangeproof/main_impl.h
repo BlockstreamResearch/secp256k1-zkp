@@ -447,12 +447,20 @@ int secp256k1_rangeproof_create_exact(const secp256k1_context* ctx, unsigned cha
 
     /* Now we have to make a Schnorr signature in (e, s) form. */
 
-    /* 1. Compute random k */
+    /* 1. Compute slow/overwrought commitment to proof params */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_rangeproof_serialize_point(tmpch, &commitp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_rangeproof_serialize_point(tmpch, &genp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_sha256_write(&sha2, proof, offset);
+    secp256k1_sha256_finalize(&sha2, pp_comm);
+
+    /* 2. Compute random k */
     secp256k1_sha256_initialize(&sha2);
     secp256k1_sha256_write(&sha2, blind, 32);
     secp256k1_sha256_write(&sha2, proof, offset);
-    secp256k1_rangeproof_serialize_point(tmpch, &genp);
-    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_sha256_write(&sha2, pp_comm, 32);
     secp256k1_sha256_finalize(&sha2, tmpch);
     secp256k1_scalar_set_b32(&ks, tmpch, &overflow);
     if (overflow || secp256k1_scalar_is_zero(&ks)) {
@@ -461,18 +469,9 @@ int secp256k1_rangeproof_create_exact(const secp256k1_context* ctx, unsigned cha
         return 0;
     }
 
-    /* 2. Compute R = kG */
+    /* 3. Compute R = kG */
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &tmpj, &ks);
     secp256k1_ge_set_gej(&tmpp, &tmpj);
-
-    /* 3. Compute slow/overwrought commitment to proof params */
-    secp256k1_sha256_initialize(&sha2);
-    secp256k1_rangeproof_serialize_point(tmpch, &commitp);
-    secp256k1_sha256_write(&sha2, tmpch, 33);
-    secp256k1_rangeproof_serialize_point(tmpch, &genp);
-    secp256k1_sha256_write(&sha2, tmpch, 33);
-    secp256k1_sha256_write(&sha2, proof, offset);
-    secp256k1_sha256_finalize(&sha2, pp_comm);
 
     /* 4. Compute e0 = H(R || proof params) and serialize it into the proof */
     secp256k1_sha256_initialize(&sha2);
