@@ -140,6 +140,11 @@ AC_ARG_ENABLE(examples,
     AS_HELP_STRING([--enable-examples],[compile the examples [default=no]]), [],
     [SECP_SET_DEFAULT([enable_examples], [no], [yes])])
 
+AC_ARG_ENABLE(module_bulletproofs,
+    AS_HELP_STRING([--enable-module-bulletproofs],[enable Bulletproofs module (experimental)]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_bulletproofs], [no], [yes])])
+
 AC_ARG_ENABLE(module_ecdh,
     AS_HELP_STRING([--enable-module-ecdh],[enable ECDH module [default=no]]), [],
     [SECP_SET_DEFAULT([enable_module_ecdh], [no], [yes])])
@@ -417,6 +422,11 @@ if test x"$enable_module_rangeproof" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RANGEPROOF, 1, [Define this symbol to enable the Pedersen / zero knowledge range proof module])
 fi
 
+if test x"$enable_module_bulletproofs" = x"yes"; then
+  enable_module_generator=yes
+  AC_DEFINE(ENABLE_MODULE_BULLETPROOFS, 1, [Define this symbol to enable the Bulletproofs module])
+fi
+
 if test x"$enable_module_generator" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_GENERATOR, 1, [Define this symbol to enable the NUMS generator module])
 fi
@@ -460,6 +470,9 @@ else
   # module (which automatically enables the module dependencies) we want to
   # print an error for the dependent module, not the module dependency. Hence,
   # we first test dependent modules.
+  if test x"$enable_module_bulletproofs" = x"yes"; then
+    AC_MSG_ERROR([Bulletproofs module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_whitelist" = x"yes"; then
     AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
   fi
@@ -502,6 +515,7 @@ AM_CONDITIONAL([USE_TESTS], [test x"$enable_tests" != x"no"])
 AM_CONDITIONAL([USE_EXHAUSTIVE_TESTS], [test x"$enable_exhaustive_tests" != x"no"])
 AM_CONDITIONAL([USE_EXAMPLES], [test x"$enable_examples" != x"no"])
 AM_CONDITIONAL([USE_BENCHMARK], [test x"$enable_benchmark" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_BULLETPROOFS], [test x"$enable_module_bulletproofs" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
@@ -541,6 +555,7 @@ echo "  module whitelist        = $enable_module_whitelist"
 echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
+echo "  module bulletproofs     = $enable_module_bulletproofs"
 echo
 echo "  asm                     = $set_asm"
 echo "  ecmult window size      = $set_ecmult_window"
