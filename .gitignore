@@ -1,9 +1,12 @@
 bench
+bench_bulletproofs
 bench_ecmult
 bench_generator
 bench_rangeproof
 bench_internal
+bench_whitelist
 tests
+example_musig
 exhaustive_tests
 precompute_ecmult_gen
 precompute_ecmult

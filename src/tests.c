@@ -7132,6 +7132,10 @@ void run_ecdsa_edge_cases(void) {
     test_ecdsa_edge_cases();
 }
 
+#ifdef ENABLE_MODULE_BULLETPROOFS
+# include "modules/bulletproofs/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDH
 # include "modules/ecdh/tests_impl.h"
 #endif
@@ -7451,6 +7455,10 @@ int main(int argc, char **argv) {
 
     /* EC key arithmetic test */
     run_eckey_negate_test();
+
+#ifdef ENABLE_MODULE_BULLETPROOFS
+    run_bulletproofs_tests();
+#endif
 
 #ifdef ENABLE_MODULE_ECDH
     /* ecdh tests */
