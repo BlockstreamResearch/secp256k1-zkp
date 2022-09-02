@@ -76,7 +76,7 @@ static void test_pedersen_api(const secp256k1_context *none, const secp256k1_con
     CHECK(*ecount == 14);
 }
 
-static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_context *sign, const secp256k1_context *vrfy, const secp256k1_context *both, const secp256k1_context *sttc, const int32_t *ecount) {
+static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_context *sign, const secp256k1_context *vrfy, const secp256k1_context *both, const secp256k1_context *sttc, int32_t *ecount) {
     unsigned char proof[5134];
     unsigned char blind[32];
     secp256k1_pedersen_commitment commit;
@@ -224,6 +224,49 @@ static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_c
         CHECK(*ecount == 28);
         CHECK(secp256k1_rangeproof_rewind(both, blind_out, &value_out, NULL, 0, commit.data, &min_value, &max_value, &commit, proof, len, NULL, 0, NULL) == 0);
         CHECK(*ecount == 29);
+    }
+
+    {
+        *ecount = 0;
+        len = sizeof(proof);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(secp256k1_rangeproof_create_exact(none, NULL, &len, val, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 1);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, NULL, val, blind, &commit, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 2);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, NULL, &commit, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 3);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, NULL, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 4);
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, NULL) == 0);
+        CHECK(*ecount == 5);
+        len = 0;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
+        len = 64;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 0);
+        len = 65;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 0, blind, &commit, secp256k1_generator_h) == 1);
+        len = 65;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
+        len = 72;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, 1, blind, &commit, secp256k1_generator_h) == 0);
+        len = 73;
+        CHECK(secp256k1_rangeproof_create_exact(none, proof, &len, val, blind, &commit, secp256k1_generator_h) == 1);
+        CHECK(*ecount == 5);
+
+        *ecount = 0;
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, &commit, secp256k1_generator_h) == 1);
+        CHECK(*ecount == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, NULL, len, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 1);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, NULL, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 2);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val, &commit, NULL) == 0);
+        CHECK(*ecount == 3);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, 0, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len - 1, val, &commit, secp256k1_generator_h) == 0);
+        CHECK(secp256k1_rangeproof_verify_exact(none, proof, len, val ^ 1, &commit, secp256k1_generator_h) == 0);
+        CHECK(*ecount == 3);
     }
 
     /* This constant is hardcoded in these tests and elsewhere, so we
@@ -624,6 +667,7 @@ static void test_single_value_proof(uint64_t val) {
 
     uint64_t val_out = 0;
     size_t m_len_out = 0;
+    const int using_exact_value = secp256k1_testrand32() & 1;
 
     secp256k1_testrand256(blind);
     secp256k1_testrand256(nonce);
@@ -642,19 +686,27 @@ static void test_single_value_proof(uint64_t val) {
         secp256k1_generator_h
     ) == 0);
 
-    plen = sizeof(proof);
-    CHECK(secp256k1_rangeproof_sign(
-        ctx,
-        proof, &plen,
-        val, /* min_val */
-        &commit, blind, nonce,
-        -1, /* exp: -1 is magic value to indicate a single-value proof */
-        0, /* min_bits */
-        val, /* val */
-        NULL, 0,
-        NULL, 0,
-        secp256k1_generator_h
-    ) == 1);
+    if (using_exact_value && val == 0) {
+        plen = 70; /* sanity-check that plen can be <73 for 0-value proofs */
+    } else {
+        plen = sizeof(proof);
+    }
+    if (using_exact_value) {
+        CHECK(secp256k1_rangeproof_create_exact(ctx, proof, &plen, val, blind, &commit, secp256k1_generator_h) == 1);
+    } else {
+        CHECK(secp256k1_rangeproof_sign(
+            ctx,
+            proof, &plen,
+            val, /* min_val */
+            &commit, blind, nonce,
+            -1, /* exp: -1 is magic value to indicate a single-value proof */
+            0, /* min_bits */
+            val, /* val */
+            NULL, 0,
+            NULL, 0,
+            secp256k1_generator_h
+        ) == 1);
+    }
     CHECK(plen <= secp256k1_rangeproof_max_size(ctx, val, 0));
 
     /* Different proof sizes are unfortunate but is caused by `min_value` of
@@ -678,25 +730,29 @@ static void test_single_value_proof(uint64_t val) {
 
     memset(message_out, 0, sizeof(message_out));
     m_len_out = sizeof(message_out);
-    CHECK(secp256k1_rangeproof_rewind(
-        ctx,
-        blind_out, &val_out,
-        message_out, &m_len_out,
-        nonce,
-        &min_val_out, &max_val_out,
-        &commit,
-        proof, plen,
-        NULL, 0,
-        secp256k1_generator_h
-    ));
-    CHECK(val_out == val);
-    CHECK(min_val_out == val);
-    CHECK(max_val_out == val);
-    CHECK(m_len_out == 0);
-    CHECK(secp256k1_memcmp_var(blind, blind_out, 32) == 0);
-    for (m_len_out = 0; m_len_out < sizeof(message_out); m_len_out++) {
-        CHECK(message_out[m_len_out] == 0);
+    /* exact-value proofs cannot be rewound */
+    if (!using_exact_value) {
+        CHECK(secp256k1_rangeproof_rewind(
+            ctx,
+            blind_out, &val_out,
+            message_out, &m_len_out,
+            nonce,
+            &min_val_out, &max_val_out,
+            &commit,
+            proof, plen,
+            NULL, 0,
+            secp256k1_generator_h
+        ) == 1);
+        CHECK(val_out == val);
+        CHECK(min_val_out == val);
+        CHECK(max_val_out == val);
+        CHECK(m_len_out == 0);
+        CHECK(secp256k1_memcmp_var(blind, blind_out, 32) == 0);
+        for (m_len_out = 0; m_len_out < sizeof(message_out); m_len_out++) {
+            CHECK(message_out[m_len_out] == 0);
+        }
     }
+    CHECK(secp256k1_rangeproof_verify_exact(ctx, proof, plen, val, &commit, secp256k1_generator_h));
 }
 
 #define MAX_N_GENS	30
@@ -983,6 +1039,8 @@ void test_rangeproof_fixed_vectors(void) {
     CHECK(min_value == UINT64_MAX);
     CHECK(max_value == UINT64_MAX);
     CHECK(m_len == 0);
+
+    CHECK(secp256k1_rangeproof_verify_exact(ctx, vector_3, sizeof(vector_3), UINT64_MAX, &pc, secp256k1_generator_h));
 }
 }
 
@@ -1549,6 +1607,10 @@ void run_rangeproof_tests(void) {
     test_single_value_proof(0);
     test_single_value_proof(12345678);
     test_single_value_proof(UINT64_MAX);
+    for (i = 0; i < count / 2; i++) {
+        test_single_value_proof(secp256k1_testrand32());
+        test_single_value_proof(((uint64_t) secp256k1_testrand32() << 32) + secp256k1_testrand32());
+    }
 
     test_rangeproof_fixed_vectors();
     test_rangeproof_fixed_vectors_reproducible();

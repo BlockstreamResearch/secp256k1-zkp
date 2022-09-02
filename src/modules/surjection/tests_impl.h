@@ -445,6 +445,10 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len));
     result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
     CHECK(result == 1);
+    if (n_inputs == 1) {
+        result = secp256k1_surjectionproof_verify_single(ctx, &proof, ephemeral_input_tags, &ephemeral_input_tags[n_inputs]);
+        CHECK(result == 1);
+    }
 
     /* various fail cases */
     if (n_inputs > 1) {
@@ -720,6 +724,7 @@ void run_surjection_tests(void) {
     test_input_selection(SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
 
     test_input_selection_distribution();
+    test_gen_verify(1, 1);
     test_gen_verify(10, 3);
     test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
     test_no_used_inputs_verify();

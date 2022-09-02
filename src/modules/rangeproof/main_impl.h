@@ -304,6 +304,209 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
      proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
 }
 
+int secp256k1_rangeproof_verify_exact(const secp256k1_context* ctx, const unsigned char* proof, size_t plen, uint64_t value, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
+    secp256k1_ge commitp;
+    secp256k1_ge genp;
+    secp256k1_gej tmpj;
+    secp256k1_gej xj;
+    secp256k1_ge rp;
+    secp256k1_scalar es;
+    secp256k1_scalar ss;
+    secp256k1_sha256 sha2;
+    unsigned char tmpch[33];
+    unsigned char pp_comm[32];
+    size_t offset;
+    size_t sz;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(gen != NULL);
+
+    if (plen != 73 && plen != 65) {
+        return 0;
+    }
+    /* 0x80 must be unset for any rangeproof; 0x40 indicates "has nonzero range"
+     * so must also be unset for single-value proofs */
+    if ((proof[0] & 0xC0) != 0x00) {
+        return 0;
+    }
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&genp, gen);
+    /* Verify that value in the header is what we expect; 0x20 is "has nonzero min-value" */
+    if ((proof[0] & 0x20) == 0x00) {
+        if (value != 0) {
+            return 0;
+        }
+        offset = 1;
+    } else {
+        uint64_t claimed = 0;
+        /* Iterate from 0 to 8, setting `offset` to 9 as a side-effect */
+        for (offset = 1; offset < 9; offset++) {
+            claimed = (claimed << 8) | proof[offset];
+        }
+        if (value != claimed) {
+            return 0;
+        }
+    }
+    /* Subtract value from commitment; store modified commitment in xj */
+    secp256k1_pedersen_ecmult_small(&tmpj, value, &genp);
+    secp256k1_gej_neg(&tmpj, &tmpj);
+    secp256k1_gej_add_ge_var(&xj, &tmpj, &commitp, NULL);
+
+    /* Now we just have a Schnorr signature in (e, s) form. The verification
+     * equation is e == H(sG - eX || proof params) */
+
+    /* 0. Compute slow/overwrought commitment to proof params */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_rangeproof_serialize_point(tmpch, &commitp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_rangeproof_serialize_point(tmpch, &genp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_sha256_write(&sha2, proof, offset);
+    secp256k1_sha256_finalize(&sha2, pp_comm);
+
+    /* ... feed this into our hash */
+    secp256k1_borromean_hash(tmpch, pp_comm, 32, &proof[offset], 32, 0, 0);
+    secp256k1_scalar_set_b32(&es, tmpch, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&es)) {
+        return 0;
+    }
+
+    /* 1. Compute R = sG + eX */
+    secp256k1_scalar_set_b32(&ss, &proof[offset + 32], &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&ss)) {
+        return 0;
+    }
+    secp256k1_ecmult(&tmpj, &xj, &es, &ss);
+    if (secp256k1_gej_is_infinity(&tmpj)) {
+        return 0;
+    }
+    secp256k1_ge_set_gej(&rp, &tmpj);
+    secp256k1_eckey_pubkey_serialize(&rp, tmpch, &sz, 1);
+
+    /* 2. Compute e = H(R || proof params) */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_sha256_write(&sha2, tmpch, sz);
+    secp256k1_sha256_write(&sha2, pp_comm, sizeof(pp_comm));
+    secp256k1_sha256_finalize(&sha2, tmpch);
+
+    /* 3. Check computed e against original e */
+    return !secp256k1_memcmp_var(tmpch, &proof[offset], 32);
+}
+
+int secp256k1_rangeproof_create_exact(const secp256k1_context* ctx, unsigned char* proof, size_t* plen, uint64_t value, const unsigned char* blind, const secp256k1_pedersen_commitment* commit, const secp256k1_generator* gen) {
+    secp256k1_ge commitp;
+    secp256k1_ge genp;
+    secp256k1_gej tmpj;
+    secp256k1_ge tmpp;
+    secp256k1_scalar es;
+    secp256k1_scalar ks;
+    secp256k1_scalar xs;
+    secp256k1_sha256 sha2;
+    unsigned char tmpch[33];
+    unsigned char pp_comm[32];
+    size_t offset;
+    size_t sz;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(plen != NULL);
+    ARG_CHECK(blind != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(gen != NULL);
+
+    if (*plen < (value == 0 ? 65 : 73)) {
+        return 0;
+    }
+    *plen = value == 0 ? 65 : 73;
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&genp, gen);
+
+    /* Encode header */
+    if (value > 0) {
+        proof[0] = 0x20;
+        proof[1] = value >> 56;
+        proof[2] = value >> 48;
+        proof[3] = value >> 40;
+        proof[4] = value >> 32;
+        proof[5] = value >> 24;
+        proof[6] = value >> 16;
+        proof[7] = value >> 8;
+        proof[8] = value;
+        offset = 9;
+    } else {
+        proof[0] = 0x00;
+        offset = 1;
+    }
+
+    /* Now we have to make a Schnorr signature in (e, s) form. */
+
+    /* 1. Compute slow/overwrought commitment to proof params */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_rangeproof_serialize_point(tmpch, &commitp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_rangeproof_serialize_point(tmpch, &genp);
+    secp256k1_sha256_write(&sha2, tmpch, 33);
+    secp256k1_sha256_write(&sha2, proof, offset);
+    secp256k1_sha256_finalize(&sha2, pp_comm);
+
+    /* 2. Compute random k */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_sha256_write(&sha2, blind, 32);
+    secp256k1_sha256_write(&sha2, proof, offset);
+    secp256k1_sha256_write(&sha2, pp_comm, 32);
+    secp256k1_sha256_finalize(&sha2, tmpch);
+    secp256k1_scalar_set_b32(&ks, tmpch, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&ks)) {
+        secp256k1_scalar_clear(&ks);
+        memset(tmpch, 0, sizeof(tmpch));
+        return 0;
+    }
+
+    /* 3. Compute R = kG */
+    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &tmpj, &ks);
+    secp256k1_ge_set_gej(&tmpp, &tmpj);
+
+    /* 4. Compute e0 = H(R || proof params) and serialize it into the proof */
+    secp256k1_sha256_initialize(&sha2);
+    secp256k1_eckey_pubkey_serialize(&tmpp, tmpch, &sz, 1);
+    secp256k1_sha256_write(&sha2, tmpch, sz);
+    secp256k1_sha256_write(&sha2, pp_comm, sizeof(pp_comm));
+    secp256k1_sha256_finalize(&sha2, &proof[offset]);
+
+    /* ... feed this into our hash e, along with e0 */
+    secp256k1_borromean_hash(tmpch, pp_comm, 32, &proof[offset], 32, 0, 0);
+    secp256k1_scalar_set_b32(&es, tmpch, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&es)) {
+        secp256k1_scalar_clear(&ks);
+        secp256k1_scalar_clear(&es);
+        return 0;
+    }
+
+    /* 5. Compute k - ex from this, and serialize it */
+    secp256k1_scalar_set_b32(&xs, blind, &overflow);
+    if (overflow || secp256k1_scalar_is_zero(&xs)) {
+        secp256k1_scalar_clear(&ks);
+        secp256k1_scalar_clear(&xs);
+        secp256k1_scalar_clear(&es);
+        return 0;
+    }
+    secp256k1_scalar_mul(&es, &es, &xs);
+    secp256k1_scalar_negate(&es, &es);
+    secp256k1_scalar_add(&es, &es, &ks);
+    secp256k1_scalar_get_b32(&proof[offset + 32], &es);
+
+    secp256k1_scalar_clear(&ks);
+    secp256k1_scalar_clear(&xs);
+    return 1;
+}
+
 size_t secp256k1_rangeproof_max_size(const secp256k1_context* ctx, uint64_t max_value, int min_bits) {
     const int val_mantissa = max_value > 0 ? 64 - secp256k1_clz64_var(max_value) : 1;
     const int mantissa = min_bits > val_mantissa ? min_bits : val_mantissa;

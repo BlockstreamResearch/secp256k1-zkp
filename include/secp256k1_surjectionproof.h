@@ -263,6 +263,24 @@ SECP256K1_API int secp256k1_surjectionproof_verify(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 #endif
 
+/** Verify a single-input surjectionproof. Such proofs are sometimes useful to
+ *  prove in zero knowledge that a given commitment commits to a specific asset.
+ *  They can be verified with much less memory than general proofs.
+ * Returns 0: proof was invalid
+ *         1: proof was valid
+ *
+ * In:     ctx: pointer to a context object, initialized for signing and verification
+ *       proof: proof to be verified
+ *   input_tag: the ephemeral asset tag of the sole input
+ *  output_tag: the ephemeral asset tag of the output
+ */
+SECP256K1_API int secp256k1_surjectionproof_verify_single(
+  const secp256k1_context* ctx,
+  const secp256k1_surjectionproof* proof,
+  const secp256k1_generator* input_tag,
+  const secp256k1_generator* output_tag
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
 #ifdef __cplusplus
 }
 #endif
