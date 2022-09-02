@@ -42,10 +42,10 @@ Essentially, the protocol proceeds in the following steps:
 
 The aggregate signature can be verified with `secp256k1_schnorrsig_verify`.
 
-Note that steps 1 to 6 can happen before the message to be signed is known to the signers.
+Note that steps 1 to 5 can happen before the message to be signed is known to the signers.
 Therefore, the communication round to exchange nonces can be viewed as a pre-processing step that is run whenever convenient to the signers.
 This disables some of the defense-in-depth measures that may protect against API misuse in some cases.
-Similarly, the API supports an alternative protocol flow where generating the aggregate key (steps 1 to 3) is allowed to happen after exchanging nonces (steps 4 to 6).
+Similarly, the API supports an alternative protocol flow where generating the aggregate key (steps 1 to 3) is allowed to happen after exchanging nonces (steps 4 to 5).
 
 # Verification
 
