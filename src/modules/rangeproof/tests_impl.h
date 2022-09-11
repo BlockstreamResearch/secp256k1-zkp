@@ -232,6 +232,81 @@ static void test_rangeproof_api(const secp256k1_context *none, const secp256k1_c
     CHECK(secp256k1_rangeproof_max_size(none, UINT64_MAX, 0) == 5134);
 }
 
+#define N_COMMITS 8
+static void test_nbf(const secp256k1_context *none, const int32_t *ecount) {
+    unsigned char abf[N_COMMITS][32];
+    unsigned char vbf[N_COMMITS][32];
+    unsigned char nbf[N_COMMITS][32];
+    uint64_t val[N_COMMITS];
+
+    unsigned char acc_p[32];
+    unsigned char acc_n[32];
+    secp256k1_scalar target;
+
+    size_t i;
+    VERIFY_CHECK(N_COMMITS >= 2); /* better to trigger this than to trigger UB */
+
+    /* Check that zeros are ok; check NULL checks */
+    memset(abf[0], 0x00, sizeof(abf[0]));
+    memset(vbf[0], 0x00, sizeof(abf[0]));
+    val[0] = 0;
+
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], vbf[0], abf[0]));
+    CHECK(secp256k1_memcmp_var(nbf[0], vbf[0], sizeof(nbf[0])) == 0);
+    CHECK(*ecount == 0);
+    CHECK(secp256k1_netbf_compute(none, NULL, val[0], vbf[0], abf[0]) == 0);
+    CHECK(*ecount == 1);
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], NULL, abf[0]) == 0);
+    CHECK(*ecount == 2);
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], vbf[0], NULL) == 0);
+    CHECK(*ecount == 3);
+
+    memset(vbf[1], 0xff, sizeof(vbf[1])); /* out of range */
+    memset(abf[1], 0xff, sizeof(abf[1])); /* out of range */
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], vbf[0], abf[1]) == 0);
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], vbf[1], abf[0]) == 0);
+    CHECK(secp256k1_netbf_compute(none, nbf[0], val[0], vbf[1], abf[1]) == 0);
+    CHECK(*ecount == 3); /* not API errors */
+
+    memset(acc_p, 0x00, sizeof(acc_p)); /* FIXME should we expose a nbf_clear method for this? */
+    memset(acc_n, 0x00, sizeof(acc_n));
+    secp256k1_scalar_clear(&target);
+    for (i = 0; i < N_COMMITS; i++) {
+        val[i] = secp256k1_testrand64();
+        /* nb these theoretically could go out of range but not in this universe's lifetime */
+        secp256k1_testrand256(abf[i]);
+        secp256k1_testrand256(vbf[i]);
+        CHECK(secp256k1_netbf_compute(none, nbf[i], val[i], vbf[i], abf[i]));
+
+        if (secp256k1_testrand32() & 1) {
+            int overflow;
+            secp256k1_scalar tmps;
+            /* positive */
+            CHECK(secp256k1_netbf_acc(none, acc_p, nbf[i]));
+
+            secp256k1_scalar_set_b32(&tmps, nbf[i], &overflow);
+            CHECK(overflow == 0); /* actually unreachable, not just cryptographically */
+            secp256k1_scalar_add(&target, &target, &tmps);
+        } else {
+            int overflow;
+            secp256k1_scalar tmps;
+            /* negative */
+            CHECK(secp256k1_netbf_acc(none, acc_n, nbf[i]));
+
+            secp256k1_scalar_set_b32(&tmps, nbf[i], &overflow);
+            CHECK(overflow == 0); /* actually unreachable, not just cryptographically */
+            secp256k1_scalar_negate(&tmps, &tmps);
+            secp256k1_scalar_add(&target, &target, &tmps);
+        }
+    }
+    CHECK(secp256k1_netbf_neg(none, acc_n));
+    CHECK(secp256k1_netbf_acc(none, acc_p, acc_n));
+
+    secp256k1_scalar_get_b32(acc_n, &target);
+    CHECK(secp256k1_memcmp_var(acc_p, acc_n, sizeof(acc_p)) == 0);
+}
+#undef N_COMMITS
+
 static void test_api(void) {
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -257,6 +332,8 @@ static void test_api(void) {
         test_pedersen_api(none, sign, vrfy, sttc, &ecount);
         ecount = 0;
         test_rangeproof_api(none, sign, vrfy, both, sttc, &ecount);
+        ecount = 0;
+        test_nbf(none, &ecount);
     }
 
     secp256k1_context_destroy(none);
