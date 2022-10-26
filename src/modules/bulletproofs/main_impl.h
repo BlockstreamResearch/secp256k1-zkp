@@ -7,18 +7,13 @@
 #ifndef _SECP256K1_MODULE_BULLETPROOFS_MAIN_
 #define _SECP256K1_MODULE_BULLETPROOFS_MAIN_
 
-/* this type must be completed before any of the modules/bulletproofs includes */
-struct secp256k1_bulletproofs_generators {
-    size_t n;
-    /* n total generators; includes both G_i and H_i */
-    secp256k1_ge* gens;
-};
-
 #include "include/secp256k1_bulletproofs.h"
 #include "include/secp256k1_generator.h"
 #include "modules/generator/main_impl.h" /* for generator_{load, save} */
 #include "hash.h"
 #include "util.h"
+#include "modules/bulletproofs/main.h"
+#include "modules/bulletproofs/bulletproofs_pp_norm_product_impl.h"
 
 secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(const secp256k1_context *ctx, size_t n) {
     secp256k1_bulletproofs_generators *ret;

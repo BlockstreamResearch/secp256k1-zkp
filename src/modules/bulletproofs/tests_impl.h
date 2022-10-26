@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "include/secp256k1_bulletproofs.h"
+#include "bulletproofs_pp_norm_product_impl.h"
 #include "bulletproofs_util.h"
 #include "bulletproofs_pp_transcript_impl.h"
 
@@ -149,8 +150,46 @@ void test_log_exp(void) {
     CHECK(secp256k1_bulletproofs_pp_log2(257) == 8);
 }
 
+void test_norm_util_helpers(void) {
+    secp256k1_scalar a_vec[4], b_vec[4], r_pows[4], res, res2, q, r;
+    int i;
+    /* a = {1, 2, 3, 4} b = {5, 6, 7, 8}, q = 4, r = 2 */
+    for (i = 0; i < 4; i++) {
+        secp256k1_scalar_set_int(&a_vec[i], i + 1);
+        secp256k1_scalar_set_int(&b_vec[i], i + 5);
+    }
+    secp256k1_scalar_set_int(&q, 4);
+    secp256k1_scalar_set_int(&r, 2);
+    secp256k1_scalar_inner_product(&res, a_vec, 0, b_vec, 0, 1, 4);
+    secp256k1_scalar_set_int(&res2, 70);
+    CHECK(secp256k1_scalar_eq(&res2, &res) == 1);
+
+    secp256k1_scalar_inner_product(&res, a_vec, 0, b_vec, 1, 2, 2);
+    secp256k1_scalar_set_int(&res2, 30);
+    CHECK(secp256k1_scalar_eq(&res2, &res) == 1);
+
+    secp256k1_scalar_inner_product(&res, a_vec, 1, b_vec, 0, 2, 2);
+    secp256k1_scalar_set_int(&res2, 38);
+    CHECK(secp256k1_scalar_eq(&res2, &res) == 1);
+
+    secp256k1_scalar_inner_product(&res, a_vec, 1, b_vec, 1, 2, 2);
+    secp256k1_scalar_set_int(&res2, 44);
+    CHECK(secp256k1_scalar_eq(&res2, &res) == 1);
+
+    secp256k1_weighted_scalar_inner_product(&res, a_vec, 0, a_vec, 0, 1, 4, &q);
+    secp256k1_scalar_set_int(&res2, 4740); /*i*i*4^(i+1) */
+    CHECK(secp256k1_scalar_eq(&res2, &res) == 1);
+
+    secp256k1_bulletproofs_powers_of_r(r_pows, &r, 4);
+    secp256k1_scalar_set_int(&res, 2); CHECK(secp256k1_scalar_eq(&res, &r_pows[0]));
+    secp256k1_scalar_set_int(&res, 4); CHECK(secp256k1_scalar_eq(&res, &r_pows[1]));
+    secp256k1_scalar_set_int(&res, 16); CHECK(secp256k1_scalar_eq(&res, &r_pows[2]));
+    secp256k1_scalar_set_int(&res, 256); CHECK(secp256k1_scalar_eq(&res, &r_pows[3]));
+}
+
 void run_bulletproofs_tests(void) {
     test_log_exp();
+    test_norm_util_helpers();
     test_bulletproofs_generators_api();
     test_bulletproofs_generators_fixed();
     test_bulletproofs_pp_tagged_hash();
