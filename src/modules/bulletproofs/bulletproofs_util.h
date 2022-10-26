@@ -10,6 +10,7 @@
 #include "field.h"
 #include "group.h"
 #include "hash.h"
+#include "eckey.h"
 
 /* Outputs a pair of points, amortizing the parity byte between them
  * Assumes both points' coordinates have been normalized.
