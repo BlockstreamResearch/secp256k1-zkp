@@ -14,6 +14,7 @@
 #include "util.h"
 #include "modules/bppp/main.h"
 #include "modules/bppp/bppp_norm_product_impl.h"
+#include "modules/bppp/bppp_rangeproof_impl.h"
 
 secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_context *ctx, size_t n) {
     secp256k1_bppp_generators *ret;
