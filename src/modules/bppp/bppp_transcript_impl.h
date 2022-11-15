@@ -27,6 +27,33 @@ static void secp256k1_bppp_sha256_tagged_commitment_init(secp256k1_sha256 *sha) 
     sha->bytes = 64;
 }
 
+static void secp256k1_bppp_commit_initial_data(
+    secp256k1_sha256* transcript,
+    const uint64_t num_digits,
+    const uint64_t digits_base,
+    const uint64_t min_value,
+    const secp256k1_ge* commitp,
+    const secp256k1_ge* asset_genp,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    unsigned char scratch[65];
+    secp256k1_bppp_sha256_tagged_commitment_init(transcript);
+    secp256k1_bppp_le64(scratch, num_digits);
+    secp256k1_sha256_write(transcript, scratch, 8);
+    secp256k1_bppp_le64(scratch, digits_base);
+    secp256k1_sha256_write(transcript, scratch, 8);
+    secp256k1_bppp_le64(scratch, min_value);
+    secp256k1_sha256_write(transcript, scratch, 8);
+    secp256k1_bppp_serialize_points(scratch, commitp, asset_genp);
+    secp256k1_sha256_write(transcript, scratch, 65);
+    if (extra_commit != NULL) {
+        secp256k1_bppp_le64(scratch, (uint64_t) extra_commit_len);
+        secp256k1_sha256_write(transcript, scratch, 8);
+        secp256k1_sha256_write(transcript, extra_commit, extra_commit_len);
+    }
+}
+
 /* Obtain a challenge scalar from the current transcript.*/
 static void secp256k1_bppp_challenge_scalar(secp256k1_scalar* ch, const secp256k1_sha256 *transcript, uint64_t idx) {
     unsigned char buf[32];
