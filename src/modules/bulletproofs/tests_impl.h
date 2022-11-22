@@ -7,6 +7,8 @@
 #ifndef _SECP256K1_MODULE_BULLETPROOFS_TEST_
 #define _SECP256K1_MODULE_BULLETPROOFS_TEST_
 
+#include "bulletproofs_pp_transcript_impl.h"
+
 static void test_bulletproofs_generators_api(void) {
     /* The BP generator API requires no precomp */
     secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
@@ -114,9 +116,24 @@ static void test_bulletproofs_generators_fixed(void) {
     secp256k1_bulletproofs_generators_destroy(ctx, gens);
 }
 
+static void test_bulletproofs_pp_tagged_hash(void) {
+    unsigned char tag_data[29] = "Bulletproofs_pp/v0/commitment";
+    secp256k1_sha256 sha;
+    secp256k1_sha256 sha_cached;
+    unsigned char output[32];
+    unsigned char output_cached[32];
+
+    secp256k1_sha256_initialize_tagged(&sha, tag_data, sizeof(tag_data));
+    secp256k1_bulletproofs_pp_sha256_tagged_commitment_init(&sha_cached);
+    secp256k1_sha256_finalize(&sha, output);
+    secp256k1_sha256_finalize(&sha_cached, output_cached);
+    CHECK(secp256k1_memcmp_var(output, output_cached, 32) == 0);
+}
+
 void run_bulletproofs_tests(void) {
     test_bulletproofs_generators_api();
     test_bulletproofs_generators_fixed();
+    test_bulletproofs_pp_tagged_hash();
 }
 
 #endif
