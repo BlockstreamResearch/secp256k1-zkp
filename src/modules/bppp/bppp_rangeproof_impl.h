@@ -8,16 +8,16 @@
 #define SECP256K1_MODULE_BPP_RANGEPROOF_IMPL_
 
 
-#include "group.h"
-#include "scalar.h"
-#include "secp256k1.h"
-#include "ecmult_const.h"
-#include "field.h"
-#include "include/secp256k1_bppp.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../../include/secp256k1.h"
+#include "../../ecmult_const.h"
+#include "../../field.h"
+#include "../../../include/secp256k1_bppp.h"
 
-#include "modules/bppp/bppp_util.h"
-#include "modules/bppp/bppp_transcript_impl.h"
-#include "modules/bppp/bppp_norm_product_impl.h"
+#include "../bppp/bppp_util.h"
+#include "../bppp/bppp_transcript_impl.h"
+#include "../bppp/bppp_norm_product_impl.h"
 
 struct secp256k1_bppp_rangeproof_prover_context {
 
@@ -72,7 +72,6 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
 ) {
     size_t log_base = secp256k1_bppp_log2(digit_base);
     size_t i, j;
-    size_t log_num_digits = secp256k1_bppp_log2(num_digits);
     size_t g_offset = digit_base > num_digits ? digit_base : num_digits;
     secp256k1_gej d_commj, m_commj;
     uint16_t multiplicities[64]; /* SECP256K1_BPP_MAX_BASE = 64. TODO: Check this in high level API */
@@ -91,7 +90,7 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
     }
 
     /* Commit to the vector d in gens */
-    secp256k1_ecmult_const(&d_commj, asset_genp, &prover_ctx->r_d_0, 256);
+    secp256k1_ecmult_const(&d_commj, asset_genp, &prover_ctx->r_d_0);
 
     for (i = 0; i < num_digits; i++) {
         secp256k1_gej resj;
@@ -103,7 +102,7 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
             multiplicities[j] += (j == digit);
         }
         secp256k1_scalar_set_int(&prover_ctx->d[i], digit);
-        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->d[i], log_base + 1); /* (I think ) there should there be +1 here? */
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->d[i]); /* should be = log_base + 1 bits here */
         secp256k1_ge_set_gej(&d_comm, &d_commj);
         secp256k1_gej_add_ge(&d_commj, &resj, &d_comm); /* d_comm cannot be zero */
     }
@@ -119,21 +118,21 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
 
         secp256k1_scalar_clear(&prover_ctx->r_m_1_vec[3]); /* r_m_1_vec[3] = 0 */
         secp256k1_scalar_clear(&prover_ctx->r_m_1_vec[6]); /* r_m_1_vec[6] = 0 */
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 2], &prover_ctx->r_d_1_vec_2, 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 2], &prover_ctx->r_d_1_vec_2);
         secp256k1_ge_set_gej(&d_comm, &d_commj);
         secp256k1_gej_add_ge(&d_commj, &resj, &d_comm);
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 5], &prover_ctx->r_d_1_vec_5, 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 5], &prover_ctx->r_d_1_vec_5);
         secp256k1_ge_set_gej(&d_comm, &d_commj);
         secp256k1_gej_add_ge(&d_commj, &resj, &d_comm);
     }
 
     /* Compute the m vector as multiplicity of each digit */
-    secp256k1_ecmult_const(&m_commj, asset_genp, &prover_ctx->r_m_0, 256);
+    secp256k1_ecmult_const(&m_commj, asset_genp, &prover_ctx->r_m_0);
     for (i = 0; i < digit_base; i++) {
         secp256k1_gej resj;
         secp256k1_ge m_comm;
         secp256k1_scalar_set_int(&prover_ctx->m[i], multiplicities[i]);
-        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->m[i], log_num_digits + 1); /* (I think ) there should there be +1 here? */
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->m[i]); /* , log_num_digits + 1 (I think ) there should there be +1 here? */
         secp256k1_ge_set_gej(&m_comm, &m_commj);
         secp256k1_gej_add_ge(&m_commj, &resj, &m_comm); /* m_comm cannot be zero*/
     }
@@ -141,7 +140,7 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
     for (i = 0; i < 8; i++) {
         secp256k1_gej resj;
         secp256k1_ge m_comm;
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + i], &prover_ctx->r_m_1_vec[i], 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + i], &prover_ctx->r_m_1_vec[i]);
         secp256k1_ge_set_gej(&m_comm, &m_commj);
         secp256k1_gej_add_ge(&m_commj, &resj, &m_comm); /* m_comm cannot be zero */
     }
@@ -191,13 +190,13 @@ static void secp256k1_bppp_rangeproof_prove_round2_impl(
     secp256k1_scalar_chacha20(&prover_ctx->r_r_0, &prover_ctx->r_r_0, nonce, 5);
 
     /* Commit to the vector d in gens */
-    secp256k1_ecmult_const(&r_commj, asset_genp, &prover_ctx->r_r_0, 256);
+    secp256k1_ecmult_const(&r_commj, asset_genp, &prover_ctx->r_r_0);
     for (i = 0; i < num_digits; i++) {
         secp256k1_gej resj;
         secp256k1_ge r_comm;
         secp256k1_scalar_add(&prover_ctx->r[i], &prover_ctx->d[i], &prover_ctx->alpha);
         secp256k1_scalar_inverse(&prover_ctx->r[i], &prover_ctx->r[i]); /* r_i cannot be zero as it added by random value `alpha`*/
-        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->r[i], 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->r[i]);
         secp256k1_ge_set_gej(&r_comm, &r_commj);
         secp256k1_gej_add_ge(&r_commj, &resj, &r_comm); /* r_comm cannot be zero */
     }
@@ -211,12 +210,12 @@ static void secp256k1_bppp_rangeproof_prove_round2_impl(
         secp256k1_scalar tmp;
 
         secp256k1_scalar_negate(&tmp, &prover_ctx->r_d_1_vec_2);
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 1], &tmp, 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 1], &tmp);
         secp256k1_ge_set_gej(&r_comm, &r_commj);
         secp256k1_gej_add_ge(&r_commj, &resj, &r_comm);
 
         secp256k1_scalar_negate(&tmp, &prover_ctx->r_d_1_vec_5);
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 4], &tmp, 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 4], &tmp);
         secp256k1_ge_set_gej(&r_comm, &r_commj);
         secp256k1_gej_add_ge(&r_commj, &resj, &r_comm);
     }
@@ -457,11 +456,11 @@ static void secp256k1_bppp_rangeproof_prove_round3_impl(
         secp256k1_scalar_negate(&prover_ctx->r_s_1_vec[6], &w_w_q[TPOW(6)]); /* T^7 */
     }
     /* Commit to the vector s in gens, with r_s_0 along asset and l in H_vec */
-    secp256k1_ecmult_const(&s_commj, asset_genp, &prover_ctx->r_s_0, 256);
+    secp256k1_ecmult_const(&s_commj, asset_genp, &prover_ctx->r_s_0);
     for (i = 0; i < g_offset; i++) {
         secp256k1_gej resj;
         secp256k1_ge s_comm;
-        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->s[i], 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->s[i]);
         secp256k1_ge_set_gej(&s_comm, &s_commj);
         secp256k1_gej_add_ge(&s_commj, &resj, &s_comm); /* s_comm cannot be 0 */
     }
@@ -469,7 +468,7 @@ static void secp256k1_bppp_rangeproof_prove_round3_impl(
     for (i = 0; i < 7; i++) {
         secp256k1_gej resj;
         secp256k1_ge s_comm;
-        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + i], &prover_ctx->r_s_1_vec[i], 256);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + i], &prover_ctx->r_s_1_vec[i]);
         secp256k1_ge_set_gej(&s_comm, &s_commj);
         secp256k1_gej_add_ge(&s_commj, &resj, &s_comm); /* s_comm cannot be 0 */
     }
@@ -614,14 +613,14 @@ static int secp256k1_bppp_rangeproof_prove_impl(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const secp256k1_bppp_generators* gens,
-    const secp256k1_ge* asset_genp,
+    secp256k1_ge* asset_genp,
     unsigned char* proof,
     size_t* proof_len,
     const size_t n_bits,
     const size_t digit_base,
     const uint64_t value,
     const uint64_t min_value,
-    const secp256k1_ge* commitp,
+    secp256k1_ge* commitp,
     const secp256k1_scalar* gamma,
     const unsigned char* nonce,
     const unsigned char* extra_commit,
@@ -817,13 +816,13 @@ static int secp256k1_bppp_rangeproof_verify_impl(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const secp256k1_bppp_generators* gens,
-    const secp256k1_ge* asset_genp,
+    secp256k1_ge* asset_genp,
     const unsigned char* proof,
     const size_t proof_len,
     const size_t n_bits,
     const size_t digit_base,
     const uint64_t min_value,
-    const secp256k1_ge* commitp,
+    secp256k1_ge* commitp,
     const unsigned char* extra_commit,
     size_t extra_commit_len
 ) {
