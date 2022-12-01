@@ -167,4 +167,88 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
     }
 }
 
+
+/* Round 2 of the proof. Computes the reciprocals of the digits.
+ * Serialized as 33 byte compressed point.
+ * Always succeeds.
+ */
+static void secp256k1_bppp_rangeproof_prove_round2_impl(
+    secp256k1_bppp_rangeproof_prover_context* prover_ctx,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_ge* asset_genp,
+    unsigned char* output,
+    secp256k1_sha256* transcript,
+    const size_t num_digits,
+    const size_t digit_base,
+    const unsigned char* nonce
+) {
+    size_t i;
+    size_t g_offset = digit_base > num_digits ? digit_base : num_digits;
+    secp256k1_gej r_commj;
+    secp256k1_scalar mu_inv;
+
+    /* We need only one value in this round, ignore the second value. */
+    secp256k1_scalar_chacha20(&prover_ctx->r_r_0, &prover_ctx->r_r_0, nonce, 5);
+
+    /* Commit to the vector d in gens */
+    secp256k1_ecmult_const(&r_commj, asset_genp, &prover_ctx->r_r_0, 256);
+    for (i = 0; i < num_digits; i++) {
+        secp256k1_gej resj;
+        secp256k1_ge r_comm;
+        secp256k1_scalar_add(&prover_ctx->r[i], &prover_ctx->d[i], &prover_ctx->alpha);
+        secp256k1_scalar_inverse(&prover_ctx->r[i], &prover_ctx->r[i]); /* r_i cannot be zero as it added by random value `alpha`*/
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->r[i], 256);
+        secp256k1_ge_set_gej(&r_comm, &r_commj);
+        secp256k1_gej_add_ge(&r_commj, &resj, &r_comm); /* r_comm cannot be zero */
+    }
+
+    /* Additional t**7 term which cannot be cancelled out:
+       delta*lm_v[0, 6] + ld_v[0, 5] + lr_v[0, 4] => lm_v[6] = 0 && ld_v[5] = -lr_v[4].
+       t^3 term:  delta*lm_v[0, 3] + ld_v[0, 2] + lr_v[0, 1] => lm_v[3] = 0 && ld_v[2] = -lr_v[1] */
+    {
+        secp256k1_gej resj;
+        secp256k1_ge r_comm;
+        secp256k1_scalar tmp;
+
+        secp256k1_scalar_negate(&tmp, &prover_ctx->r_d_1_vec_2);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 1], &tmp, 256);
+        secp256k1_ge_set_gej(&r_comm, &r_commj);
+        secp256k1_gej_add_ge(&r_commj, &resj, &r_comm);
+
+        secp256k1_scalar_negate(&tmp, &prover_ctx->r_d_1_vec_5);
+        secp256k1_ecmult_const(&resj, &gens->gens[g_offset + 4], &tmp, 256);
+        secp256k1_ge_set_gej(&r_comm, &r_commj);
+        secp256k1_gej_add_ge(&r_commj, &resj, &r_comm);
+    }
+
+    {
+        secp256k1_ge r_comm;
+        /* All r values are non-zero(computed by inverse), rcommj must be non-zero */
+        VERIFY_CHECK(secp256k1_gej_is_infinity(&r_commj) == 0);
+        secp256k1_ge_set_gej_var(&r_comm, &r_commj);
+        secp256k1_fe_normalize_var(&r_comm.x);
+        secp256k1_fe_normalize_var(&r_comm.y);
+        secp256k1_bppp_serialize_pt(&output[0], &r_comm);
+
+        secp256k1_sha256_write(transcript, output, 33);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->rho, transcript, 0);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->x, transcript, 1);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->beta, transcript, 2);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->delta, transcript, 3);
+        secp256k1_scalar_sqr(&prover_ctx->mu, &prover_ctx->rho);
+    }
+    /* Pre-compute powers of mu and mu_inv. We will need them in future rounds. */
+    secp256k1_bppp_rangeproof_powers_of_mu(prover_ctx->mu_pows, &prover_ctx->mu, g_offset);
+    secp256k1_scalar_inverse_var(&mu_inv, &prover_ctx->mu); /* mu cannot be zero */
+    secp256k1_bppp_rangeproof_powers_of_mu(prover_ctx->mu_inv_pows, &mu_inv, g_offset);
+    /* Compute the values of c_m = (x/(alpha+i)*mu_inv[i]) */
+    for (i = 0; i < digit_base; i++) {
+        secp256k1_scalar_set_int(&prover_ctx->c_m[i], i); /* digit base is less than 2^32, can directly set*/
+        secp256k1_scalar_add(&prover_ctx->c_m[i], &prover_ctx->c_m[i], &prover_ctx->alpha);
+        secp256k1_scalar_inverse_var(&prover_ctx->c_m[i], &prover_ctx->c_m[i]);
+        secp256k1_scalar_mul(&prover_ctx->c_m[i], &prover_ctx->c_m[i], &prover_ctx->x);
+        secp256k1_scalar_mul(&prover_ctx->c_m[i], &prover_ctx->c_m[i], &prover_ctx->mu_inv_pows[i]);
+    }
+}
+
 #endif
