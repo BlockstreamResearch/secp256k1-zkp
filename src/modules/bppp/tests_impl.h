@@ -285,6 +285,7 @@ static int secp256k1_norm_arg_prove(
     size_t *proof_len,
     const secp256k1_scalar* r,
     const secp256k1_bppp_generators* gens_vec,
+    const secp256k1_ge* asset_genp,
     const secp256k1_scalar* n_vec,
     size_t n_vec_len,
     const secp256k1_scalar* l_vec,
@@ -316,6 +317,7 @@ static int secp256k1_norm_arg_prove(
         r,
         gs,
         gens_vec->n,
+        asset_genp,
         ns,
         n_vec_len,
         ls,
@@ -334,6 +336,7 @@ static int secp256k1_norm_arg_verify(
     size_t proof_len,
     const secp256k1_scalar* r,
     const secp256k1_bppp_generators* gens_vec,
+    const secp256k1_ge* asset_genp,
     size_t g_len,
     const secp256k1_scalar* c_vec,
     size_t c_vec_len,
@@ -354,6 +357,7 @@ static int secp256k1_norm_arg_verify(
         &transcript,
         r,
         gens_vec,
+        asset_genp,
         g_len,
         c_vec,
         c_vec_len,
@@ -365,12 +369,13 @@ static int secp256k1_norm_arg_verify(
 void norm_arg_zero(void) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar r, q;
-    secp256k1_ge commit;
+    secp256k1_ge commit, asset_genp;
     size_t i;
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*10); /* shouldn't need much */
     unsigned char proof[1000];
     secp256k1_sha256 transcript;
 
+    secp256k1_generator_load(&asset_genp, secp256k1_generator_h);
     random_scalar_order(&r);
     secp256k1_scalar_sqr(&q, &r);
 
@@ -386,17 +391,17 @@ void norm_arg_zero(void) {
         random_scalar_order(&c_vec[0]);
 
         secp256k1_sha256_initialize(&transcript); /* No challenges used in n = 1, l = 1, but we set transcript as a good practice*/
-        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gens, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &q));
+        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gens, &asset_genp, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &q));
         {
             secp256k1_scalar *ns, *ls, *cs;
             secp256k1_ge *gs;
             size_t scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
             copy_vectors_into_scratch(scratch, &ns, &ls, &cs, &gs, n_vec, l_vec, c_vec, gens->gens, n_vec_len, c_vec_len);
-            CHECK(secp256k1_bppp_rangeproof_norm_product_prove(ctx, scratch, proof, &plen, &transcript, &r, gs, gens->n, ns, n_vec_len, ls, c_vec_len, cs, c_vec_len));
+            CHECK(secp256k1_bppp_rangeproof_norm_product_prove(ctx, scratch, proof, &plen, &transcript, &r, gs, gens->n, &asset_genp, ns, n_vec_len, ls, c_vec_len, cs, c_vec_len));
             secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
         }
         secp256k1_sha256_initialize(&transcript);
-        CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &r, gens, c_vec_len, c_vec, c_vec_len, &commit));
+        CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &r, gens, &asset_genp, c_vec_len, c_vec, c_vec_len, &commit));
 
         secp256k1_bppp_generators_destroy(ctx, gens);
     }
@@ -415,8 +420,8 @@ void norm_arg_zero(void) {
             secp256k1_scalar_set_int(&l_vec[i], 0);
             random_scalar_order(&c_vec[i]);
         }
-        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &q));
-        CHECK(!secp256k1_norm_arg_prove(scratch, proof, &plen, &r, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
+        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, &asset_genp, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &q));
+        CHECK(!secp256k1_norm_arg_prove(scratch, proof, &plen, &r, gs, &asset_genp, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
         secp256k1_bppp_generators_destroy(ctx, gs);
     }
 
@@ -426,7 +431,7 @@ void norm_arg_zero(void) {
 void norm_arg_test(unsigned int n, unsigned int m) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar r, q;
-    secp256k1_ge commit;
+    secp256k1_ge commit, asset_genp;
     size_t i, plen;
     int res;
     secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n + m);
@@ -435,6 +440,8 @@ void norm_arg_test(unsigned int n, unsigned int m) {
     plen = 1000;
     random_scalar_order(&r);
     secp256k1_scalar_sqr(&q, &r);
+    secp256k1_generator_load(&asset_genp, secp256k1_generator_h);
+
 
     for (i = 0; i < n; i++) {
         random_scalar_order(&n_vec[i]);
@@ -445,20 +452,20 @@ void norm_arg_test(unsigned int n, unsigned int m) {
         random_scalar_order(&c_vec[i]);
     }
 
-    res = secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n, l_vec, m, c_vec, m, &q);
+    res = secp256k1_bppp_commit(ctx, scratch, &commit, gs, &asset_genp, n_vec, n, l_vec, m, c_vec, m, &q);
     CHECK(res == 1);
-    res = secp256k1_norm_arg_prove(scratch, proof, &plen, &r, gs, n_vec, n, l_vec, m, c_vec, m, &commit);
+    res = secp256k1_norm_arg_prove(scratch, proof, &plen, &r, gs, &asset_genp, n_vec, n, l_vec, m, c_vec, m, &commit);
     CHECK(res == 1);
 
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, n, c_vec, m, &commit);
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, &asset_genp, n, c_vec, m, &commit);
     CHECK(res == 1);
 
     /* Changing any of last two scalars should break the proof */
     proof[plen - 1] ^= 1;
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, n, c_vec, m, &commit);
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, &asset_genp, n, c_vec, m, &commit);
     CHECK(res == 0);
     proof[plen - 1 - 32] ^= 1;
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, n, c_vec, m, &commit);
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, &asset_genp, n, c_vec, m, &commit);
     CHECK(res == 0);
 
     secp256k1_scratch_space_destroy(ctx, scratch);
@@ -503,6 +510,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
     secp256k1_bppp_generators *gs = bppp_generators_parse_regular(gens, 33*(n_vec_len + c_vec_len));
     secp256k1_scalar r;
     secp256k1_ge commit;
+    secp256k1_ge g_asset_gen = secp256k1_ge_const_g; /* For fixed tests in norm-arg, we generate them using asset-gen as G */
     int overflow;
     int i;
     int ret;
@@ -518,7 +526,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         CHECK(!overflow);
     }
     CHECK(secp256k1_eckey_pubkey_parse(&commit, commit33, 33));
-    ret = secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &r, gs, n_vec_len, c_vec, c_vec_len, &commit);
+    ret = secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &r, gs, &g_asset_gen, n_vec_len, c_vec, c_vec_len, &commit);
 
     secp256k1_bppp_generators_destroy(ctx, gs);
     return ret;

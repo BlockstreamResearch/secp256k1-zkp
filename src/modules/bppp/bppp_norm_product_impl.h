@@ -84,11 +84,19 @@ typedef struct ecmult_bp_commit_cb_data {
     const secp256k1_scalar *n;
     const secp256k1_ge *g;
     const secp256k1_scalar *l;
+    const secp256k1_ge *asset_genp;
+    secp256k1_scalar v;
     size_t g_len;
 } ecmult_bp_commit_cb_data;
 
 static int ecmult_bp_commit_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
     ecmult_bp_commit_cb_data *data = (ecmult_bp_commit_cb_data*) cbdata;
+    if (idx == 0) {
+        *pt = *data->asset_genp;
+        *sc = data->v;
+        return 1;
+    }
+    idx -= 1;
     *pt = data->g[idx];
     if (idx < data->g_len) {
         *sc = data->n[idx];
@@ -107,6 +115,7 @@ static int secp256k1_bppp_commit(
     secp256k1_scratch_space* scratch,
     secp256k1_ge* commit,
     const secp256k1_bppp_generators* g_vec,
+    const secp256k1_ge* asset_genp,
     const secp256k1_scalar* n_vec,
     size_t n_vec_len,
     const secp256k1_scalar* l_vec,
@@ -137,8 +146,10 @@ static int secp256k1_bppp_commit(
         data.n = n_vec;
         data.l = l_vec;
         data.g_len = n_vec_len;
+        data.asset_genp = asset_genp;
+        data.v = v;
 
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &commitj, &v, ecmult_bp_commit_cb, (void*) &data, n_vec_len + l_vec_len)) {
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &commitj, NULL, ecmult_bp_commit_cb, (void*) &data, n_vec_len + l_vec_len + 1)) {
             return 0;
         }
         secp256k1_ge_set_gej_var(commit, &commitj);
@@ -148,16 +159,25 @@ static int secp256k1_bppp_commit(
 
 typedef struct ecmult_x_cb_data {
     const secp256k1_scalar *n;
+    const secp256k1_ge *asset_genp;
     const secp256k1_ge *g;
     const secp256k1_scalar *l;
     const secp256k1_scalar *r;
     const secp256k1_scalar *r_inv;
+    secp256k1_scalar *v;
     size_t G_GENS_LEN; /* Figure out initialization syntax so that this can also be const */
     size_t n_len;
 } ecmult_x_cb_data;
 
 static int ecmult_x_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
     ecmult_x_cb_data *data = (ecmult_x_cb_data*) cbdata;
+    /* idx = 0 with asset_genp */
+    if (idx == 0) {
+        *pt = *data->asset_genp;
+        *sc = *data->v;
+        return 1;
+    }
+    idx -= 1;
     if (idx < data->n_len) {
         if (idx % 2 == 0) {
             secp256k1_scalar_mul(sc, &data->n[idx + 1], data->r);
@@ -182,13 +202,22 @@ static int ecmult_x_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void 
 typedef struct ecmult_r_cb_data {
     const secp256k1_scalar *n1;
     const secp256k1_ge *g1;
+    const secp256k1_ge *asset_genp;
     const secp256k1_scalar *l1;
+    secp256k1_scalar *v;
     size_t G_GENS_LEN;
     size_t n_len;
 } ecmult_r_cb_data;
 
 static int ecmult_r_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
     ecmult_r_cb_data *data = (ecmult_r_cb_data*) cbdata;
+    /* idx = 0 with asset_genp */
+    if (idx == 0) {
+        *pt = *data->asset_genp;
+        *sc = *data->v;
+        return 1;
+    }
+    idx -= 1;
     if (idx < data->n_len) {
         *sc = data->n1[2*idx + 1];
         *pt = data->g1[2*idx + 1];
@@ -225,6 +254,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     const secp256k1_scalar* r,
     secp256k1_ge* g_vec,
     size_t g_vec_len,
+    const secp256k1_ge* asset_genp,
     secp256k1_scalar* n_vec,
     size_t n_vec_len,
     secp256k1_scalar* l_vec,
@@ -250,13 +280,14 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     x_cb_data.g = g_vec;
     x_cb_data.l = l_vec;
     x_cb_data.G_GENS_LEN = G_GENS_LEN;
+    x_cb_data.asset_genp = asset_genp;
 
     r_cb_data.n1 = n_vec;
     r_cb_data.g1 = g_vec;
     r_cb_data.l1 = l_vec;
     r_cb_data.G_GENS_LEN = G_GENS_LEN;
+    r_cb_data.asset_genp = asset_genp;
     secp256k1_scalar_sqr(&q_f, &r_f);
-
 
     while (g_len > 1 || h_len > 1) {
         size_t i, num_points;
@@ -280,9 +311,10 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         x_cb_data.r = &r_f;
         x_cb_data.r_inv = &r_inv;
         x_cb_data.n_len = g_len >= 2 ? g_len : 0;
+        x_cb_data.v = &x_v;
         num_points = x_cb_data.n_len + (h_len >= 2 ? h_len : 0);
 
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &xj, &x_v, ecmult_x_cb, (void*)&x_cb_data, num_points)) {
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &xj, NULL, ecmult_x_cb, (void*)&x_cb_data, num_points + 1)) {
             return 0;
         }
 
@@ -291,8 +323,9 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         secp256k1_scalar_add(&r_v, &r_v, &c1_l1);
 
         r_cb_data.n_len = g_len/2;
+        r_cb_data.v = &r_v;
         num_points = r_cb_data.n_len + h_len/2;
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &rj, &r_v, ecmult_r_cb, (void*)&r_cb_data, num_points)) {
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &rj, NULL, ecmult_r_cb, (void*)&r_cb_data, num_points + 1)) {
             return 0;
         }
 
@@ -360,14 +393,14 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     return 1;
 }
 
-typedef struct ec_mult_verify_cb_data1 {
+typedef struct ecmult_verify_cb_data1 {
     const unsigned char *proof;
     const secp256k1_ge *commit;
     const secp256k1_scalar *challenges;
-} ec_mult_verify_cb_data1;
+} ecmult_verify_cb_data1;
 
-static int ec_mult_verify_cb1(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
-    ec_mult_verify_cb_data1 *data = (ec_mult_verify_cb_data1*) cbdata;
+static int ecmult_verify_cb1(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
+    ecmult_verify_cb_data1 *data = (ecmult_verify_cb_data1*) cbdata;
     if (idx == 0) {
         *pt = *data->commit;
         secp256k1_scalar_set_int(sc, 1);
@@ -401,15 +434,23 @@ static int ec_mult_verify_cb1(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx
     return 1;
 }
 
-typedef struct ec_mult_verify_cb_data2 {
+typedef struct ecmult_verify_cb_data2 {
     const secp256k1_scalar *s_g;
     const secp256k1_scalar *s_h;
     const secp256k1_ge *g_vec;
+    const secp256k1_ge *asset_genp;
+    const secp256k1_scalar *v;
     size_t g_vec_len;
-} ec_mult_verify_cb_data2;
+} ecmult_verify_cb_data2;
 
-static int ec_mult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
-    ec_mult_verify_cb_data2 *data = (ec_mult_verify_cb_data2*) cbdata;
+static int ecmult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
+    ecmult_verify_cb_data2 *data = (ecmult_verify_cb_data2*) cbdata;
+    if (idx == 0) {
+        *pt = *data->asset_genp;
+        *sc = *data->v;
+        return 1;
+    }
+    idx -= 1;
     if (idx < data->g_vec_len) {
         *sc = data->s_g[idx];
     } else {
@@ -430,6 +471,7 @@ int secp256k1_bppp_rangeproof_norm_product_verify(
     secp256k1_sha256* transcript,
     const secp256k1_scalar* r,
     const secp256k1_bppp_generators* g_vec,
+    const secp256k1_ge *asset_genp,
     size_t g_len,
     const secp256k1_scalar* c_vec,
     size_t c_vec_len,
@@ -515,25 +557,26 @@ int secp256k1_bppp_rangeproof_norm_product_verify(
     secp256k1_scalar_add(&v, &v, &h_c);
 
     {
-        ec_mult_verify_cb_data1 data;
+        ecmult_verify_cb_data1 data;
         data.proof = proof;
         data.commit = commit;
         data.challenges = es;
 
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res1, NULL, ec_mult_verify_cb1, &data, 2*n_rounds + 1)) {
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res1, NULL, ecmult_verify_cb1, &data, 2*n_rounds + 1)) {
             secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
             return 0;
         }
     }
     {
-        ec_mult_verify_cb_data2 data;
+        ecmult_verify_cb_data2 data;
         data.g_vec = g_vec->gens;
         data.g_vec_len = g_len;
         data.s_g = s_g;
         data.s_h = s_h;
+        data.v = &v;
+        data.asset_genp = asset_genp;
 
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res2, &v, ec_mult_verify_cb2, &data, g_len + h_len)) {
-            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res2, NULL, ecmult_verify_cb2, &data, g_len + h_len + 1)) {
             return 0;
         }
     }
