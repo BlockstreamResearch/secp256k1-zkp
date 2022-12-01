@@ -12,6 +12,9 @@ extern "C" {
 /** Opaque structure representing a large number of NUMS generators */
 typedef struct secp256k1_bppp_generators secp256k1_bppp_generators;
 
+/** Opaque structure representing a prover context used in bulletproofs++ prover */
+typedef struct secp256k1_bppp_rangeproof_prover_context secp256k1_bppp_rangeproof_prover_context;
+
 /** Allocates and initializes a list of NUMS generators.
  *  Returns a list of generators, or calls the error callback if the allocation fails.
  *  Args:          ctx: pointer to a context object
