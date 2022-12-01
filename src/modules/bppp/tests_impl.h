@@ -381,7 +381,7 @@ static void norm_arg_verify_zero_len(void) {
     unsigned char proof[1000];
     unsigned int n_vec_len = 1;
     unsigned int c_vec_len = 1;
-    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n_vec_len + c_vec_len);
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 9); /* requires e generators, but the API needs 8.*/
     size_t plen = sizeof(proof);
 
     secp256k1_generator_load(&asset_genp, secp256k1_generator_h);
@@ -599,9 +599,9 @@ static void run_bppp_tests(void) {
     test_bppp_tagged_hash();
 
     norm_arg_verify_zero_len();
-    norm_arg_test(1, 1);
+    norm_arg_test(1, 8);
     norm_arg_test(1, 64);
-    norm_arg_test(64, 1);
+    norm_arg_test(64, 8);
     norm_arg_test(32, 32);
     norm_arg_test(32, 64);
     norm_arg_test(64, 32);
