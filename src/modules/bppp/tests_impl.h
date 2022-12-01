@@ -552,8 +552,41 @@ void norm_arg_verify_vectors(void) {
 }
 #undef IDX_TO_TEST
 
+void rangeproof_test(size_t digit_base, size_t num_bits, uint64_t value, uint64_t min_value) {
+    secp256k1_generator asset_genp;
+    size_t plen;
+    size_t num_digits = num_bits/secp256k1_bppp_log2(digit_base);
+    size_t n = num_digits > digit_base ? num_digits : digit_base;
+    size_t res;
+    secp256k1_pedersen_commitment commit;
+    secp256k1_context* secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    const unsigned char blind[32] = "help me! i'm bliiiiiiiiiiiiiiind";
+    const unsigned char nonce[32] = "nonce? non ce n'est vrai amirite";
+    /* Extra commit is a Joan Shelley lyric */
+    const unsigned char extra_commit[] = "Shock of teal blue beneath clouds gathering, and the light of empty black on the waves at the horizon";
+    const size_t extra_commit_len = sizeof(extra_commit);
+    secp256k1_sha256 transcript;
+    const secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(secp_ctx, n + 8);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(secp_ctx, 1000*1000); /* shouldn't need much */
+    unsigned char proof[1000];
+    plen = 1000;
+    asset_genp = *secp256k1_generator_h;
+    CHECK(secp256k1_pedersen_commit(secp_ctx, &commit, blind, value, &asset_genp));
+    secp256k1_bppp_generators_serialize(secp_ctx, gs, proof, &plen);
+    plen = 1000;
+    secp256k1_sha256_initialize(&transcript);
+
+
+    res = secp256k1_bppp_rangeproof_prove(secp_ctx, scratch, gs, &asset_genp, proof, &plen, num_bits, digit_base, value, min_value, &commit, blind, nonce, extra_commit, extra_commit_len);
+    CHECK(res == 1);
+
+    res = secp256k1_bppp_rangeproof_verify(secp_ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
+    CHECK(res == 1);
+}
+
 void run_bppp_tests(void) {
     /* Update the global context for all bppp tests*/
+    size_t i;
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     test_log_exp();
     test_norm_util_helpers();
@@ -570,6 +603,19 @@ void run_bppp_tests(void) {
     norm_arg_test(64, 32);
     norm_arg_test(64, 64);
     norm_arg_verify_vectors();
+
+    for (i = 0; i < 16; i++) {
+        rangeproof_test(2, 4, i, i/2);
+    }
+
+    rangeproof_test(16, 4, 7, 3);
+    rangeproof_test(16, 8, 243, 129);
+    rangeproof_test(16, 16, 12431, 6332);
+    rangeproof_test(16, 32, 134132, 57251);
+    for (i = 0; i < 100; i++) {
+        uint64_t v = secp256k1_testrand64();
+        rangeproof_test(16, 64, v, 0);
+    }
 }
 
 #endif
