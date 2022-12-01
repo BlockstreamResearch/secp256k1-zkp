@@ -164,4 +164,114 @@ size_t secp256k1_bppp_rangeproof_proof_length(
     return 33 * 4 + 65*n_rounds + 64;
 }
 
+int secp256k1_bppp_rangeproof_prove(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space *scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_generator* asset_gen,
+    unsigned char* proof,
+    size_t* plen,
+    const size_t n_bits,
+    const size_t base,
+    const uint64_t value,
+    const uint64_t min_value,
+    const secp256k1_pedersen_commitment* commit,
+    const unsigned char* blind,
+    const unsigned char* nonce,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    secp256k1_ge commitp, asset_genp;
+    secp256k1_scalar blinds;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    VERIFY_CHECK(scratch != NULL);
+    ARG_CHECK(gens != NULL);
+    ARG_CHECK(asset_gen != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(plen != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(blind != NULL);
+    ARG_CHECK(nonce != NULL);
+    ARG_CHECK(extra_commit != NULL || extra_commit_len == 0);
+
+    secp256k1_scalar_set_b32(&blinds, blind, &overflow);
+    if (overflow) {
+        return 0;
+    }
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&asset_genp, asset_gen);
+    secp256k1_fe_normalize_var(&commitp.x);
+    secp256k1_fe_normalize_var(&commitp.y);
+    secp256k1_fe_normalize_var(&asset_genp.x);
+    secp256k1_fe_normalize_var(&asset_genp.y);
+
+    return secp256k1_bppp_rangeproof_prove_impl(
+        ctx,
+        scratch,
+        gens,
+        &asset_genp,
+        proof,
+        plen,
+        n_bits,
+        base,
+        value,
+        min_value,
+        &commitp,
+        &blinds,
+        nonce,
+        extra_commit,
+        extra_commit_len
+    );
+}
+
+int secp256k1_bppp_rangeproof_verify(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space *scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_generator* asset_gen,
+    const unsigned char* proof,
+    const size_t plen,
+    const uint64_t n_bits,
+    const uint64_t base,
+    const uint64_t min_value,
+    const secp256k1_pedersen_commitment* commit,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    secp256k1_ge commitp, asset_genp;
+
+    VERIFY_CHECK(ctx != NULL);
+    VERIFY_CHECK(scratch != NULL);
+    ARG_CHECK(gens != NULL);
+    ARG_CHECK(asset_gen != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(extra_commit != NULL || extra_commit_len == 0);
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&asset_genp, asset_gen);
+    secp256k1_fe_normalize_var(&commitp.x);
+    secp256k1_fe_normalize_var(&commitp.y);
+    secp256k1_fe_normalize_var(&asset_genp.x);
+    secp256k1_fe_normalize_var(&asset_genp.y);
+
+    return secp256k1_bppp_rangeproof_verify_impl(
+        ctx,
+        scratch,
+        gens,
+        &asset_genp,
+        proof,
+        plen,
+        n_bits,
+        base,
+        min_value,
+        &commitp,
+        extra_commit,
+        extra_commit_len
+    );
+}
+
 #endif
