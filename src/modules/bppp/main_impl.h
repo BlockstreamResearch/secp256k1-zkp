@@ -140,7 +140,7 @@ void secp256k1_bppp_generators_destroy(const secp256k1_context* ctx, secp256k1_b
     }
 }
 
-size_t secp256k1_bulletproofs_pp_rangeproof_proof_length(
+size_t secp256k1_bppp_rangeproof_proof_length(
     const secp256k1_context* ctx,
     size_t n_bits,
     size_t base
