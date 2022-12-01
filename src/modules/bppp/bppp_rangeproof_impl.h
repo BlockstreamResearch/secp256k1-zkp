@@ -160,4 +160,68 @@ static void secp256k1_bppp_rangeproof_prove_round1_impl(
     }
 }
 
+
+/* Round 2 of the proof. Computes the reciprocals of the digits.
+ * Serialized as 33 byte compressed point.
+ * Always succeeds.
+ */
+static void secp256k1_bppp_rangeproof_prove_round2_impl(
+    secp256k1_bppp_rangeproof_prover_context* prover_ctx,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_ge* asset_genp,
+    unsigned char* output,
+    secp256k1_sha256* transcript,
+    const size_t num_digits,
+    const size_t digit_base,
+    const unsigned char* nonce
+) {
+    size_t i;
+    size_t g_offset = digit_base > num_digits ? digit_base : num_digits;
+    secp256k1_gej r_commj;
+    secp256k1_scalar q_inv;
+
+    /* We need only one value in this round, ignore the second value. */
+    secp256k1_scalar_chacha20(&prover_ctx->b_r, &prover_ctx->b_r, nonce, 4);
+
+    /* Commit to the vector d in gens */
+    secp256k1_ecmult_const(&r_commj, asset_genp, &prover_ctx->b_r, 256);
+    for (i = 0; i < num_digits; i++) {
+        secp256k1_gej resj;
+        secp256k1_ge r_comm;
+        secp256k1_scalar_add(&prover_ctx->r[i], &prover_ctx->d[i], &prover_ctx->e);
+        secp256k1_scalar_inverse(&prover_ctx->r[i], &prover_ctx->r[i]); /* r_i cannot be zero as it added by random value `e`*/
+        secp256k1_ecmult_const(&resj, &gens->gens[i], &prover_ctx->r[i], 256);
+        secp256k1_ge_set_gej(&r_comm, &r_commj);
+        secp256k1_gej_add_ge(&r_commj, &resj, &r_comm); /* r_comm cannot be zero */
+    }
+
+    {
+        secp256k1_ge r_comm;
+        /* All r values are non-zero(computed by inverse), rcommj must be non-zero */
+        VERIFY_CHECK(secp256k1_gej_is_infinity(&r_commj) == 0);
+        secp256k1_ge_set_gej_var(&r_comm, &r_commj);
+        secp256k1_fe_normalize_var(&r_comm.x);
+        secp256k1_fe_normalize_var(&r_comm.y);
+        secp256k1_bppp_serialize_pt(&output[0], &r_comm);
+
+        secp256k1_sha256_write(transcript, output, 33);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->q_sqrt, transcript, 0);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->x, transcript, 1);
+        secp256k1_bppp_challenge_scalar(&prover_ctx->y, transcript, 2);
+        secp256k1_scalar_sqr(&prover_ctx->q, &prover_ctx->q_sqrt);
+    }
+    /* Pre-compute powers of q and q_inv. We will need them in future rounds. */
+    secp256k1_bppp_rangeproof_powers_of_q(prover_ctx->q_pows, &prover_ctx->q, g_offset);
+    secp256k1_scalar_inverse_var(&q_inv, &prover_ctx->q); /* q cannot be zero */
+    secp256k1_bppp_rangeproof_powers_of_q(prover_ctx->q_inv_pows, &q_inv, g_offset);
+    /* Compute the values of alpha_m = (x/(e+i)*q_inv[i]) */
+    for (i = 0; i < digit_base; i++) {
+        secp256k1_scalar_set_int(&prover_ctx->alpha_m[i], i); /* digit base is less than 2^32, can directly set*/
+        secp256k1_scalar_add(&prover_ctx->alpha_m[i], &prover_ctx->alpha_m[i], &prover_ctx->e);
+        secp256k1_scalar_inverse_var(&prover_ctx->alpha_m[i], &prover_ctx->alpha_m[i]);
+        secp256k1_scalar_mul(&prover_ctx->alpha_m[i], &prover_ctx->alpha_m[i], &prover_ctx->x);
+        secp256k1_scalar_mul(&prover_ctx->alpha_m[i], &prover_ctx->alpha_m[i], &prover_ctx->q_inv_pows[i]);
+    }
+}
+
 #endif
