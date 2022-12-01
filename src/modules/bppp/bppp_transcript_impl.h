@@ -32,8 +32,8 @@ static void secp256k1_bppp_commit_initial_data(
     const uint64_t num_digits,
     const uint64_t digits_base,
     const uint64_t min_value,
-    const secp256k1_ge* commitp,
-    const secp256k1_ge* asset_genp,
+    secp256k1_ge* commitp,
+    secp256k1_ge* asset_genp,
     const unsigned char* extra_commit,
     size_t extra_commit_len
 ) {
