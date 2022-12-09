@@ -997,6 +997,176 @@ void frost_tweak_test(void) {
     }
 }
 
+/* Performs a FROST DKG */
+void frost_dkg_test_helper(secp256k1_frost_share *agg_share, secp256k1_xonly_pubkey *agg_pk, const secp256k1_xonly_pubkey *pk, const secp256k1_keypair *keypair) {
+    secp256k1_pubkey vss_commitment[5][3];
+    const secp256k1_pubkey *vss_ptr[5];
+    unsigned char vss_hash[32];
+    unsigned char session_id[5][32];
+    secp256k1_frost_share share[5][5];
+    const secp256k1_frost_share *share_ptr[5];
+    int i, j;
+
+    for (i = 0; i < 5; i++) {
+        secp256k1_testrand256(session_id[i]);
+        vss_ptr[i] = vss_commitment[i];
+    }
+    for (i = 0; i < 5; i++) {
+        for (j = 0; j < 5; j++) {
+            CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[i], &share[i][j], session_id[i], &keypair[i], &pk[j], 3) == 1);
+        }
+    }
+    for (i = 0; i < 5; i++) {
+        for (j = 0; j < 5; j++) {
+            share_ptr[j] = &share[j][i];
+        }
+        CHECK(secp256k1_frost_share_agg(ctx, &agg_share[i], agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, &pk[i]) == 1);
+    }
+}
+
+/* Signs a message with a FROST keypair */
+int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_share *agg_share, const secp256k1_xonly_pubkey *agg_pk, const secp256k1_xonly_pubkey * const* pubkeys, const unsigned char *msg, const secp256k1_pubkey *adaptor) {
+    unsigned char session_id[3][32];
+    secp256k1_frost_secnonce secnonce[3];
+    secp256k1_frost_pubnonce pubnonce[3];
+    const secp256k1_frost_pubnonce *pubnonce_ptr[3];
+    secp256k1_frost_partial_sig partial_sig[5];
+    const secp256k1_frost_partial_sig *partial_sig_ptr[5];
+    secp256k1_frost_session session;
+    int i;
+    int nonce_parity;
+    secp256k1_frost_session_internal session_i;
+
+    for (i = 0; i < 3; i++) {
+        pubnonce_ptr[i] = &pubnonce[i];
+        partial_sig_ptr[i] = &partial_sig[i];
+    }
+
+    for (i = 0; i < 3; i++) {
+        secp256k1_testrand256(session_id[i]);
+
+        CHECK(secp256k1_frost_nonce_gen(ctx, &secnonce[i], &pubnonce[i], session_id[i], agg_share, NULL, NULL, NULL) == 1);
+    }
+    for (i = 0; i < 3; i++) {
+        CHECK(secp256k1_frost_nonce_process(ctx, &session, pubnonce_ptr, 3, msg, agg_pk, pubkeys[i], pubkeys, NULL, adaptor) == 1);
+        CHECK(secp256k1_frost_partial_sign(ctx, &partial_sig[i], &secnonce[i], &agg_share[i], &session, NULL) == 1);
+    }
+    CHECK(secp256k1_frost_partial_sig_agg(ctx, final_sig, &session, partial_sig_ptr, 3) == 1);
+
+    CHECK(secp256k1_frost_nonce_parity(ctx, &nonce_parity, &session));
+
+    secp256k1_frost_session_load(ctx, &session_i, &session);
+
+    return nonce_parity;
+}
+
+void frost_rand_scalar(secp256k1_scalar *scalar) {
+    unsigned char buf32[32];
+    secp256k1_testrand256(buf32);
+    secp256k1_scalar_set_b32(scalar, buf32, NULL);
+}
+
+void frost_multi_hop_lock_tests(void) {
+    secp256k1_frost_share agg_share_a[5];
+    secp256k1_frost_share agg_share_b[5];
+    secp256k1_xonly_pubkey agg_pk_a;
+    secp256k1_xonly_pubkey agg_pk_b;
+    secp256k1_xonly_pubkey pk_a[5];
+    secp256k1_xonly_pubkey pk_b[5];
+    const secp256k1_xonly_pubkey *pk_ptr_a[5];
+    const secp256k1_xonly_pubkey *pk_ptr_b[5];
+    secp256k1_keypair keypair_a[5];
+    secp256k1_keypair keypair_b[5];
+    unsigned char sk_a[5][32];
+    unsigned char sk_b[5][32];
+    unsigned char asig_ab[64];
+    unsigned char asig_bc[64];
+    unsigned char pop[32];
+    secp256k1_pubkey pubkey_pop;
+    unsigned char tx_ab[32];
+    unsigned char tx_bc[32];
+    unsigned char buf[32];
+    secp256k1_scalar t1, t2, tp;
+    secp256k1_pubkey l, r;
+    secp256k1_ge l_ge, r_ge;
+    secp256k1_scalar deckey;
+    unsigned char sig_ab[64];
+    unsigned char sig_bc[64];
+    int nonce_parity_ab;
+    int nonce_parity_bc;
+    int i;
+
+    /* Alice DKG */
+    for (i = 0; i < 5; i++) {
+        secp256k1_testrand256(sk_a[i]);
+        pk_ptr_a[i] = &pk_a[i];
+
+        CHECK(frost_create_keypair_and_pk(&keypair_a[i], &pk_a[i], sk_a[i]));
+    }
+    frost_dkg_test_helper(agg_share_a, &agg_pk_a, pk_a, keypair_a);
+
+    /* Bob DKG */
+    for (i = 0; i < 5; i++) {
+        secp256k1_testrand256(sk_b[i]);
+        pk_ptr_b[i] = &pk_b[i];
+
+        CHECK(frost_create_keypair_and_pk(&keypair_b[i], &pk_b[i], sk_b[i]));
+    }
+    frost_dkg_test_helper(agg_share_b, &agg_pk_b, pk_b, keypair_b);
+
+    /* Carol setup */
+    /* Proof of payment */
+    secp256k1_testrand256(pop);
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkey_pop, pop));
+
+    /* Alice setup */
+    secp256k1_testrand256(tx_ab);
+    frost_rand_scalar(&t1);
+    frost_rand_scalar(&t2);
+    secp256k1_scalar_add(&tp, &t1, &t2);
+    /* Left lock */
+    secp256k1_pubkey_load(ctx, &l_ge, &pubkey_pop);
+    CHECK(secp256k1_eckey_pubkey_tweak_add(&l_ge, &t1));
+    secp256k1_pubkey_save(&l, &l_ge);
+    /* Right lock */
+    secp256k1_pubkey_load(ctx, &r_ge, &pubkey_pop);
+    CHECK(secp256k1_eckey_pubkey_tweak_add(&r_ge, &tp));
+    secp256k1_pubkey_save(&r, &r_ge);
+    /* Encrypt Alice's signature with the left lock as the encryption key */
+    nonce_parity_ab = frost_sign_test_helper(asig_ab, agg_share_a, &agg_pk_a, pk_ptr_a, tx_ab, &l);
+
+    /* Bob setup */
+    CHECK(secp256k1_frost_verify_adaptor(ctx, asig_ab, tx_ab, &agg_pk_a, &l, nonce_parity_ab) == 1);
+    secp256k1_testrand256(tx_bc);
+    /* Encrypt Bob's signature with the right lock as the encryption key */
+    nonce_parity_bc = frost_sign_test_helper(asig_bc, agg_share_b, &agg_pk_b, pk_ptr_b, tx_bc, &r);
+
+    /* Carol decrypt */
+    CHECK(secp256k1_frost_verify_adaptor(ctx, asig_bc, tx_bc, &agg_pk_b, &r, nonce_parity_bc) == 1);
+    secp256k1_scalar_set_b32(&deckey, pop, NULL);
+    secp256k1_scalar_add(&deckey, &deckey, &tp);
+    secp256k1_scalar_get_b32(buf, &deckey);
+    CHECK(secp256k1_frost_adapt(ctx, sig_bc, asig_bc, buf, nonce_parity_bc));
+    CHECK(secp256k1_schnorrsig_verify(ctx, sig_bc, tx_bc, sizeof(tx_bc), &agg_pk_b) == 1);
+
+    /* Bob recover and decrypt */
+    CHECK(secp256k1_frost_extract_adaptor(ctx, buf, sig_bc, asig_bc, nonce_parity_bc));
+    secp256k1_scalar_set_b32(&deckey, buf, NULL);
+    secp256k1_scalar_negate(&t2, &t2);
+    secp256k1_scalar_add(&deckey, &deckey, &t2);
+    secp256k1_scalar_get_b32(buf, &deckey);
+    CHECK(secp256k1_frost_adapt(ctx, sig_ab, asig_ab, buf, nonce_parity_ab));
+    CHECK(secp256k1_schnorrsig_verify(ctx, sig_ab, tx_ab, sizeof(tx_ab), &agg_pk_a) == 1);
+
+    /* Alice recover and derive proof of payment */
+    CHECK(secp256k1_frost_extract_adaptor(ctx, buf, sig_ab, asig_ab, nonce_parity_ab));
+    secp256k1_scalar_set_b32(&deckey, buf, NULL);
+    secp256k1_scalar_negate(&t1, &t1);
+    secp256k1_scalar_add(&deckey, &deckey, &t1);
+    secp256k1_scalar_get_b32(buf, &deckey);
+    CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
+}
+
 void run_frost_tests(void) {
     int i;
 
@@ -1011,6 +1181,9 @@ void run_frost_tests(void) {
         frost_tweak_test();
     }
     frost_sha256_tag_test();
+    for (i = 0; i < count; i++) {
+        frost_multi_hop_lock_tests();
+    }
 }
 
 #endif
