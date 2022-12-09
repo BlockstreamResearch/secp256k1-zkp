@@ -569,11 +569,7 @@ SECP256K1_API int secp256k1_frost_partial_sign(
  *    3. The `pubnonce` argument must be identical to the one sent by the
  *       signer and used to create the `session` with `frost_nonce_process`.
  *
- *  This function is essential when using protocols with adaptor signatures.
- *  However, it is not essential for regular FROST sessions, in the sense that if any
- *  partial signature does not verify, the full signature will not verify either, so the
- *  problem will be caught. But this function allows determining the specific party
- *  who produced an invalid signature.
+ *  This function can be used to assign blame for a failed signature.
  *
  *  Returns: 0 if the arguments are invalid or the partial signature does not
  *           verify, 1 otherwise
@@ -634,6 +630,28 @@ SECP256K1_API int secp256k1_frost_nonce_parity(
     int *nonce_parity,
     const secp256k1_frost_session *session
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Verifies that the adaptor can be extracted by combining the adaptor
+ *  pre-signature and the completed signature.
+ *
+ *  Returns: 0 if the arguments are invalid or the adaptor signature does not
+ *           verify, 1 otherwise
+ *  Args:         ctx: pointer to a context object
+ *  In:     pre_sig64: 64-byte pre-signature
+ *              msg32: the 32-byte message being verified
+ *             pubkey: pointer to an x-only public key to verify with
+ *            adaptor: pointer to the adaptor point being verified
+ *       nonce_parity: the output of `frost_nonce_parity` called with the
+ *                     session used for producing the pre-signature
+ */
+SECP256K1_API int secp256k1_frost_verify_adaptor(
+    const secp256k1_context* ctx,
+    const unsigned char *pre_sig64,
+    const unsigned char *msg32,
+    const secp256k1_xonly_pubkey *pubkey,
+    const secp256k1_pubkey *adaptor,
+    int nonce_parity
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Creates a signature from a pre-signature and an adaptor.
  *

@@ -28,6 +28,73 @@ int secp256k1_frost_nonce_parity(const secp256k1_context* ctx, int *nonce_parity
     return 1;
 }
 
+int secp256k1_frost_verify_adaptor(const secp256k1_context* ctx, const unsigned char *pre_sig64, const unsigned char *msg32, const secp256k1_xonly_pubkey *pubkey, const secp256k1_pubkey *adaptor, int nonce_parity) {
+    secp256k1_scalar s;
+    secp256k1_scalar e;
+    secp256k1_gej rj;
+    secp256k1_ge pk;
+    secp256k1_gej pkj;
+    secp256k1_ge r;
+    unsigned char buf[32];
+    int overflow;
+    secp256k1_ge adaptorp;
+    secp256k1_xonly_pubkey noncepk;
+    secp256k1_gej fin_nonce_ptj;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pre_sig64 != NULL);
+    ARG_CHECK(msg32 != NULL);
+    ARG_CHECK(pubkey != NULL);
+    ARG_CHECK(adaptor != NULL);
+    ARG_CHECK(nonce_parity == 0 || nonce_parity == 1);
+
+    if (!secp256k1_xonly_pubkey_parse(ctx, &noncepk, &pre_sig64[0])) {
+        return 0;
+    }
+    if (!secp256k1_xonly_pubkey_load(ctx, &r, &noncepk)) {
+        return 0;
+    }
+    if (!secp256k1_pubkey_load(ctx, &adaptorp, adaptor)) {
+        return 0;
+    }
+    if (!nonce_parity) {
+        secp256k1_ge_neg(&adaptorp, &adaptorp);
+    }
+    secp256k1_gej_set_ge(&fin_nonce_ptj, &adaptorp);
+    secp256k1_gej_add_ge_var(&fin_nonce_ptj, &fin_nonce_ptj, &r, NULL);
+    if (secp256k1_gej_is_infinity(&fin_nonce_ptj)) {
+        /* unreachable with overwhelming probability */
+        return 0;
+    }
+
+    secp256k1_scalar_set_b32(&s, &pre_sig64[32], &overflow);
+    if (overflow) {
+        return 0;
+    }
+
+    if (!secp256k1_xonly_pubkey_load(ctx, &pk, pubkey)) {
+        return 0;
+    }
+
+    /* Compute e. */
+    secp256k1_fe_get_b32(buf, &pk.x);
+    secp256k1_schnorrsig_challenge(&e, &pre_sig64[0], msg32, 32, buf);
+
+    /* Compute rj =  s*G + (-e)*pkj */
+    secp256k1_scalar_negate(&e, &e);
+    secp256k1_gej_set_ge(&pkj, &pk);
+    secp256k1_ecmult(&rj, &pkj, &e, &s);
+
+    /* secp256k1_ge_set_gej_var(&r, &rj); */
+    if (secp256k1_gej_is_infinity(&rj)) {
+        return 0;
+    }
+
+    secp256k1_gej_neg(&rj, &rj);
+    secp256k1_gej_add_var(&rj, &rj, &fin_nonce_ptj, NULL);
+    return secp256k1_gej_is_infinity(&rj);
+}
+
 int secp256k1_frost_adapt(const secp256k1_context* ctx, unsigned char *sig64, const unsigned char *pre_sig64, const unsigned char *sec_adaptor32, int nonce_parity) {
     secp256k1_scalar s;
     secp256k1_scalar t;
