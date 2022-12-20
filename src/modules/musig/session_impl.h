@@ -291,36 +291,35 @@ static int secp256k1_xonly_ge_serialize(unsigned char *output32, secp256k1_ge *g
 }
 
 /* Write optional inputs into the hash */
-static void secp256k1_nonce_function_musig_helper(secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data32) {
+static void secp256k1_nonce_function_musig_helper(secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data, unsigned char len) {
     unsigned char zero[7] = { 0 };
     /* The spec requires length prefixes to be between 1 and 8 bytes
      * (inclusive) */
     VERIFY_CHECK(prefix_size <= 8);
-    /* Since the length of all input data is <= 32, we can always pad the length
-     * prefix with prefix_size - 1 zero bytes. */
+    /* Since the length of all input data fits in a byte, we can always pad the
+     * length prefix with prefix_size - 1 zero bytes. */
     secp256k1_sha256_write(sha, zero, prefix_size - 1);
-    if (data32 != NULL) {
-        unsigned char len = 32;
+    if (data != NULL) {
         secp256k1_sha256_write(sha, &len, 1);
-        secp256k1_sha256_write(sha, data32, 32);
+        secp256k1_sha256_write(sha, data, len);
     } else {
-        unsigned char len = 0;
+        len = 0;
         secp256k1_sha256_write(sha, &len, 1);
     }
 }
 
-static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned char *session_id, const unsigned char *msg32, const unsigned char *key32, const unsigned char *agg_pk32, const unsigned char *extra_input32) {
+static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned char *session_id, const unsigned char *msg32, const unsigned char *seckey32, const unsigned char *pk33, const unsigned char *agg_pk32, const unsigned char *extra_input32) {
     secp256k1_sha256 sha;
     unsigned char rand[32];
     unsigned char i;
     unsigned char msg_present;
 
-    if (key32 != NULL) {
+    if (seckey32 != NULL) {
         secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/aux", sizeof("MuSig/aux") - 1);
         secp256k1_sha256_write(&sha, session_id, 32);
         secp256k1_sha256_finalize(&sha, rand);
         for (i = 0; i < 32; i++) {
-            rand[i] ^= key32[i];
+            rand[i] ^= seckey32[i];
         }
     } else {
         memcpy(rand, session_id, sizeof(rand));
@@ -329,13 +328,14 @@ static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned c
     /* Subtract one from `sizeof` to avoid hashing the implicit null byte */
     secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/nonce", sizeof("MuSig/nonce") - 1);
     secp256k1_sha256_write(&sha, rand, sizeof(rand));
-    secp256k1_nonce_function_musig_helper(&sha, 1, agg_pk32);
+    secp256k1_nonce_function_musig_helper(&sha, 1, pk33, 33);
+    secp256k1_nonce_function_musig_helper(&sha, 1, agg_pk32, 32);
     msg_present = msg32 != NULL;
     secp256k1_sha256_write(&sha, &msg_present, 1);
     if (msg_present) {
-        secp256k1_nonce_function_musig_helper(&sha, 8, msg32);
+        secp256k1_nonce_function_musig_helper(&sha, 8, msg32, 32);
     }
-    secp256k1_nonce_function_musig_helper(&sha, 4, extra_input32);
+    secp256k1_nonce_function_musig_helper(&sha, 4, extra_input32, 32);
 
     for (i = 0; i < 2; i++) {
         unsigned char buf[32];
@@ -346,13 +346,15 @@ static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned c
     }
 }
 
-int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secnonce *secnonce, secp256k1_musig_pubnonce *pubnonce, const unsigned char *session_id32, const unsigned char *seckey, const unsigned char *msg32, const secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *extra_input32) {
+int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secnonce *secnonce, secp256k1_musig_pubnonce *pubnonce, const unsigned char *session_id32, const unsigned char *seckey, const secp256k1_pubkey *pubkey, const unsigned char *msg32, const secp256k1_musig_keyagg_cache *keyagg_cache, const unsigned char *extra_input32) {
     secp256k1_keyagg_cache_internal cache_i;
     secp256k1_scalar k[2];
     secp256k1_ge nonce_pt[2];
     int i;
-    unsigned char pk_ser[32];
-    unsigned char *pk_ser_ptr = NULL;
+    unsigned char pk_ser[33];
+    size_t pk_ser_len = sizeof(pk_ser);
+    unsigned char aggpk_ser[32];
+    unsigned char *aggpk_ser_ptr = NULL;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -361,6 +363,7 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
     ARG_CHECK(pubnonce != NULL);
     memset(pubnonce, 0, sizeof(*pubnonce));
     ARG_CHECK(session_id32 != NULL);
+    ARG_CHECK(pubkey != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     if (seckey == NULL) {
         /* Check in constant time that the session_id is not 0 as a
@@ -385,12 +388,17 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
         if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
             return 0;
         }
-        ret_tmp = secp256k1_xonly_ge_serialize(pk_ser, &cache_i.pk);
+        ret_tmp = secp256k1_xonly_ge_serialize(aggpk_ser, &cache_i.pk);
         /* Serialization can not fail because the loaded point can not be infinity. */
         VERIFY_CHECK(ret_tmp);
-        pk_ser_ptr = pk_ser;
+        aggpk_ser_ptr = aggpk_ser;
     }
-    secp256k1_nonce_function_musig(k, session_id32, msg32, seckey, pk_ser_ptr, extra_input32);
+    if (!secp256k1_ec_pubkey_serialize(ctx, pk_ser, &pk_ser_len, pubkey, SECP256K1_EC_COMPRESSED)) {
+        return 0;
+    }
+    VERIFY_CHECK(pk_ser_len == sizeof(pk_ser));
+
+    secp256k1_nonce_function_musig(k, session_id32, msg32, seckey, pk_ser, aggpk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
     VERIFY_CHECK(!secp256k1_scalar_eq(&k[0], &k[1]));

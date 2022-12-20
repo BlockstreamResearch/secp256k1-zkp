@@ -357,6 +357,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_xonly_twea
  *                     unless you really know what you are doing.
  *             seckey: the 32-byte secret key that will later be used for signing, if
  *                     already known (can be NULL)
+ *             pubkey: public key of the signer creating the nonce
  *              msg32: the 32-byte message that will later be signed, if already known
  *                     (can be NULL)
  *       keyagg_cache: pointer to the keyagg_cache that was used to create the aggregate
@@ -371,10 +372,11 @@ SECP256K1_API int secp256k1_musig_nonce_gen(
     secp256k1_musig_pubnonce *pubnonce,
     const unsigned char *session_id32,
     const unsigned char *seckey,
+    const secp256k1_pubkey *pubkey,
     const unsigned char *msg32,
     const secp256k1_musig_keyagg_cache *keyagg_cache,
     const unsigned char *extra_input32
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6);
 
 /** Aggregates the nonces of all signers into a single nonce
  *
