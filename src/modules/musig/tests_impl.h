@@ -376,11 +376,11 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(ecount == 4);
     CHECK(secp256k1_musig_nonce_agg(none, &aggnonce, inf_pubnonce_ptr, 2) == 1);
     {
-        /* Check that the aggnonce is set to G */
+        /* Check that the aggnonce encodes two points at infinity */
         secp256k1_ge aggnonce_pt[2];
-        secp256k1_musig_pubnonce_load(ctx, aggnonce_pt, (secp256k1_musig_pubnonce*)&aggnonce);
+        secp256k1_musig_aggnonce_load(ctx, aggnonce_pt, &aggnonce);
         for (i = 0; i < 2; i++) {
-            ge_equals_ge(&aggnonce_pt[i], &secp256k1_ge_const_g);
+            secp256k1_ge_is_infinity(&aggnonce_pt[i]);
         }
     }
     CHECK(ecount == 4);
@@ -405,8 +405,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(ecount == 1);
     CHECK(secp256k1_musig_aggnonce_parse(none, &aggnonce, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_musig_aggnonce_parse(none, &aggnonce, zeros68) == 0);
-    CHECK(ecount == 2);
+    CHECK(secp256k1_musig_aggnonce_parse(none, &aggnonce, zeros68) == 1);
     CHECK(secp256k1_musig_aggnonce_parse(none, &aggnonce, aggnonce_ser) == 1);
 
     {
