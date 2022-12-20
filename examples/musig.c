@@ -26,7 +26,7 @@ struct signer_secrets {
 };
 
 struct signer {
-    secp256k1_xonly_pubkey pubkey;
+    secp256k1_pubkey pubkey;
     secp256k1_musig_pubnonce pubnonce;
     secp256k1_musig_partial_sig partial_sig;
 };
@@ -45,7 +45,7 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
             break;
         }
     }
-    if (!secp256k1_keypair_xonly_pub(ctx, &signer->pubkey, NULL, &signer_secrets->keypair)) {
+    if (!secp256k1_keypair_pub(ctx, &signer->pubkey, &signer_secrets->keypair)) {
         return 0;
     }
     return 1;
@@ -164,7 +164,7 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     int i;
     struct signer_secrets signer_secrets[N_SIGNERS];
     struct signer signers[N_SIGNERS];
-    const secp256k1_xonly_pubkey *pubkeys_ptr[N_SIGNERS];
+    const secp256k1_pubkey *pubkeys_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey agg_pk;
     secp256k1_musig_keyagg_cache cache;
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";

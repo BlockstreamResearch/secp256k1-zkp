@@ -40,11 +40,11 @@ extern "C" {
 
 /** Opaque data structure that caches information about public key aggregation.
  *
- *  Guaranteed to be 165 bytes in size. It can be safely copied/moved. No
+ *  Guaranteed to be 197 bytes in size. It can be safely copied/moved. No
  *  serialization and parsing functions (yet).
  */
 typedef struct {
-    unsigned char data[165];
+    unsigned char data[197];
 } secp256k1_musig_keyagg_cache;
 
 /** Opaque data structure that holds a signer's _secret_ nonce.
@@ -190,8 +190,8 @@ SECP256K1_API int secp256k1_musig_partial_sig_parse(
  *
  *  Different orders of `pubkeys` result in different `agg_pk`s.
  *
- *  The pubkeys can be sorted before combining with `secp256k1_xonly_sort` which
- *  ensures the same `agg_pk` result for the same multiset of pubkeys.
+ *  Before aggregating, the pubkeys can be sorted with `secp256k1_pubkey_sort`
+ *  which ensures the same `agg_pk` result for the same multiset of pubkeys.
  *  This is useful to do before `pubkey_agg`, such that the order of pubkeys
  *  does not affect the aggregate public key.
  *
@@ -219,7 +219,7 @@ SECP256K1_API int secp256k1_musig_pubkey_agg(
     secp256k1_scratch_space *scratch,
     secp256k1_xonly_pubkey *agg_pk,
     secp256k1_musig_keyagg_cache *keyagg_cache,
-    const secp256k1_xonly_pubkey * const* pubkeys,
+    const secp256k1_pubkey * const* pubkeys,
     size_t n_pubkeys
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(5);
 
@@ -494,7 +494,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_verif
     const secp256k1_context* ctx,
     const secp256k1_musig_partial_sig *partial_sig,
     const secp256k1_musig_pubnonce *pubnonce,
-    const secp256k1_xonly_pubkey *pubkey,
+    const secp256k1_pubkey *pubkey,
     const secp256k1_musig_keyagg_cache *keyagg_cache,
     const secp256k1_musig_session *session
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);

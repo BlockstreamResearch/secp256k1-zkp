@@ -23,11 +23,11 @@
 #include "../../hash.h"
 #include "../../util.h"
 
-static int create_keypair_and_pk(secp256k1_keypair *keypair, secp256k1_xonly_pubkey *pk, const unsigned char *sk) {
+static int create_keypair_and_pk(secp256k1_keypair *keypair, secp256k1_pubkey *pk, const unsigned char *sk) {
     int ret;
     secp256k1_keypair keypair_tmp;
     ret = secp256k1_keypair_create(ctx, &keypair_tmp, sk);
-    ret &= secp256k1_keypair_xonly_pub(ctx, pk, NULL, &keypair_tmp);
+    ret &= secp256k1_keypair_pub(ctx, pk, &keypair_tmp);
     if (keypair != NULL) {
         *keypair = keypair_tmp;
     }
@@ -47,8 +47,8 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     secp256k1_musig_keyagg_cache keyagg_cache;
     unsigned char session_id[2][32];
     secp256k1_musig_secnonce secnonce[2];
-    secp256k1_xonly_pubkey pk[2];
-    const secp256k1_xonly_pubkey *pk_ptr[2];
+    secp256k1_pubkey pk[2];
+    const secp256k1_pubkey *pk_ptr[2];
     secp256k1_musig_partial_sig partial_sig[2];
     const secp256k1_musig_partial_sig *partial_sig_ptr[2];
     unsigned char final_sig[64];
@@ -145,11 +145,11 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_musig_keyagg_cache invalid_keyagg_cache;
     secp256k1_musig_session session;
     secp256k1_musig_session invalid_session;
-    secp256k1_xonly_pubkey pk[2];
-    const secp256k1_xonly_pubkey *pk_ptr[2];
-    secp256k1_xonly_pubkey invalid_pk;
-    const secp256k1_xonly_pubkey *invalid_pk_ptr2[2];
-    const secp256k1_xonly_pubkey *invalid_pk_ptr3[3];
+    secp256k1_pubkey pk[2];
+    const secp256k1_pubkey *pk_ptr[2];
+    secp256k1_pubkey invalid_pk;
+    const secp256k1_pubkey *invalid_pk_ptr2[2];
+    const secp256k1_pubkey *invalid_pk_ptr3[3];
     unsigned char tweak[32];
     int nonce_parity;
     unsigned char sec_adaptor[32];
@@ -684,10 +684,10 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     unsigned char sk_b[2][32];
     secp256k1_keypair keypair_a[2];
     secp256k1_keypair keypair_b[2];
-    secp256k1_xonly_pubkey pk_a[2];
-    const secp256k1_xonly_pubkey *pk_a_ptr[2];
-    secp256k1_xonly_pubkey pk_b[2];
-    const secp256k1_xonly_pubkey *pk_b_ptr[2];
+    secp256k1_pubkey pk_a[2];
+    const secp256k1_pubkey *pk_a_ptr[2];
+    secp256k1_pubkey pk_b[2];
+    const secp256k1_pubkey *pk_b_ptr[2];
     secp256k1_musig_keyagg_cache keyagg_cache_a;
     secp256k1_musig_keyagg_cache keyagg_cache_b;
     secp256k1_xonly_pubkey agg_pk_a;
@@ -816,7 +816,7 @@ void sha256_tag_test(void) {
 /* Attempts to create a signature for the aggregate public key using given secret
  * keys and keyagg_cache. */
 void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigned char *sk0, const unsigned char *sk1, secp256k1_musig_keyagg_cache *keyagg_cache) {
-    secp256k1_xonly_pubkey pk[2];
+    secp256k1_pubkey pk[2];
     unsigned char session_id[2][32];
     unsigned char msg[32];
     secp256k1_musig_secnonce secnonce[2];
@@ -860,8 +860,8 @@ void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigne
  * plain tweaking) and test signing. */
 void musig_tweak_test(secp256k1_scratch_space *scratch) {
     unsigned char sk[2][32];
-    secp256k1_xonly_pubkey pk[2];
-    const secp256k1_xonly_pubkey *pk_ptr[2];
+    secp256k1_pubkey pk[2];
+    const secp256k1_pubkey *pk_ptr[2];
     secp256k1_musig_keyagg_cache keyagg_cache;
     enum { N_TWEAKS = 8 };
     secp256k1_pubkey P[N_TWEAKS + 1];

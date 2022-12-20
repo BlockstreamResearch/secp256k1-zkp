@@ -20,25 +20,6 @@
 #include "../../scalar.h"
 #include "../../util.h"
 
-/* point_save_ext and point_load_ext are identical to point_save and point_load
- * except that they allow saving and loading the point at infinity */
-static void secp256k1_point_save_ext(unsigned char *data, secp256k1_ge *ge) {
-    if (secp256k1_ge_is_infinity(ge)) {
-        memset(data, 0, 64);
-    } else {
-        secp256k1_point_save(data, ge);
-    }
-}
-
-static void secp256k1_point_load_ext(secp256k1_ge *ge, const unsigned char *data) {
-    unsigned char zeros[64] = { 0 };
-    if (secp256k1_memcmp_var(data, zeros, sizeof(zeros)) == 0) {
-        secp256k1_ge_set_infinity(ge);
-    } else {
-        secp256k1_point_load(ge, data);
-    }
-}
-
 static const unsigned char secp256k1_musig_secnonce_magic[4] = { 0x22, 0x0e, 0xdc, 0xf1 };
 
 static void secp256k1_musig_secnonce_save(secp256k1_musig_secnonce *secnonce, secp256k1_scalar *k) {
@@ -608,25 +589,18 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
     }
     secp256k1_fe_normalize_var(&pk.y);
 
-    /* The specification requires that the secret key is multiplied by
-     * g[v]*g*gp. All factors are -1 or 1. The value g[v] is -1 iff
-     * secp256k1_fe_is_odd(&cache_i.pk.y)), g is is -1 iff parity_acc is 1 and
-     * gp is -1 if secp256k1_fe_is_odd(&pk.y). Therefore, multiplying by
-     * g[v]*g*gp is equivalent to negating if
-     *     secp256k1_fe_is_odd(&cache_i.pk.y))
-     *       XOR cache_i.parity_acc
-     *       XOR secp256k1_fe_is_odd(&pk.y).
-     */
+    /* Negate sk if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let d = g⋅gacc⋅d' mod n" in the
+     * specification. */
     if ((secp256k1_fe_is_odd(&cache_i.pk.y)
-         != cache_i.parity_acc)
-         != secp256k1_fe_is_odd(&pk.y)) {
+         != cache_i.parity_acc)) {
         secp256k1_scalar_negate(&sk, &sk);
     }
 
     /* Multiply KeyAgg coefficient */
     secp256k1_fe_normalize_var(&pk.x);
     /* TODO Cache mu */
-    secp256k1_musig_keyaggcoef(&mu, &cache_i, &pk.x);
+    secp256k1_musig_keyaggcoef(&mu, &cache_i, &pk);
     secp256k1_scalar_mul(&sk, &sk, &mu);
 
     if (!secp256k1_musig_session_load(ctx, &session_i, session)) {
@@ -649,7 +623,7 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
     return 1;
 }
 
-int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp256k1_musig_partial_sig *partial_sig, const secp256k1_musig_pubnonce *pubnonce, const secp256k1_xonly_pubkey *pubkey, const secp256k1_musig_keyagg_cache *keyagg_cache, const secp256k1_musig_session *session) {
+int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp256k1_musig_partial_sig *partial_sig, const secp256k1_musig_pubnonce *pubnonce, const secp256k1_pubkey *pubkey, const secp256k1_musig_keyagg_cache *keyagg_cache, const secp256k1_musig_session *session) {
     secp256k1_keyagg_cache_internal cache_i;
     secp256k1_musig_session_internal session_i;
     secp256k1_scalar mu, e, s;
@@ -679,7 +653,7 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     secp256k1_ecmult(&rj, &rj, &session_i.noncecoef, NULL);
     secp256k1_gej_add_ge_var(&rj, &rj, &nonce_pt[0], NULL);
 
-    if (!secp256k1_xonly_pubkey_load(ctx, &pkp, pubkey)) {
+    if (!secp256k1_pubkey_load(ctx, &pkp, pubkey)) {
         return 0;
     }
     if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
@@ -688,14 +662,12 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     /* Multiplying the challenge by the KeyAgg coefficient is equivalent
      * to multiplying the signer's public key by the coefficient, except
      * much easier to do. */
-    secp256k1_musig_keyaggcoef(&mu, &cache_i, &pkp.x);
+    secp256k1_musig_keyaggcoef(&mu, &cache_i, &pkp);
     secp256k1_scalar_mul(&e, &session_i.challenge, &mu);
 
-    /* The specification requires that the public key is multiplied by g[v]*g.
-     * All factors are -1 or 1. The value g[v] is -1 iff
-     * secp256k1_fe_is_odd(&cache_i.pk.y)) and g is is -1 iff parity_acc is 1.
-     * Therefore, multiplying by g[v]*g is equivalent to negating if
-     * fe_is_odd(&cache_i.pk.y) XOR parity_acc. */
+    /* Negate e if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let g' = g⋅gacc mod n" and the multiplication "g'⋅e"
+     * in the specification. */
     if (secp256k1_fe_is_odd(&cache_i.pk.y)
             != cache_i.parity_acc) {
         secp256k1_scalar_negate(&e, &e);

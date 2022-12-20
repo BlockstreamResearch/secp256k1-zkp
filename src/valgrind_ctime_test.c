@@ -249,8 +249,8 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
 
 #ifdef ENABLE_MODULE_MUSIG
     {
-        secp256k1_xonly_pubkey pk;
-        const secp256k1_xonly_pubkey *pk_ptr[1];
+        secp256k1_pubkey pk;
+        const secp256k1_pubkey *pk_ptr[1];
         secp256k1_xonly_pubkey agg_pk;
         unsigned char session_id[32];
         secp256k1_musig_secnonce secnonce;
@@ -279,7 +279,7 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         partial_sig_ptr[0] = &partial_sig;
 
         CHECK(secp256k1_keypair_create(ctx, &keypair, key));
-        CHECK(secp256k1_keypair_xonly_pub(ctx, &pk, NULL, &keypair));
+        CHECK(secp256k1_keypair_pub(ctx, &pk, &keypair));
         CHECK(secp256k1_musig_pubkey_agg(ctx, NULL, &agg_pk, &cache, pk_ptr, 1));
         CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor));
         VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
