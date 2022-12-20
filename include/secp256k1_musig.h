@@ -226,7 +226,7 @@ SECP256K1_API int secp256k1_musig_pubkey_agg(
 /** Obtain the aggregate public key from a keyagg_cache.
  *
  *  This is only useful if you need the non-xonly public key, in particular for
- *  ordinary (non-xonly) tweaking or batch-verifying multiple key aggregations
+ *  plain (non-xonly) tweaking or batch-verifying multiple key aggregations
  *  (not implemented).
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
@@ -241,7 +241,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_get(
     secp256k1_musig_keyagg_cache *keyagg_cache
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Apply ordinary "EC" tweaking to a public key in a given keyagg_cache by
+/** Apply plain "EC" tweaking to a public key in a given keyagg_cache by
  *  adding the generator multiplied with `tweak32` to it. This is useful for
  *  deriving child keys from an aggregate public key via BIP32.
  *

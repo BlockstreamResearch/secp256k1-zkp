@@ -55,13 +55,13 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
  * and return the tweaked aggregate pk. */
 int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, secp256k1_musig_keyagg_cache *cache) {
     secp256k1_pubkey output_pk;
-    unsigned char ordinary_tweak[32] = "this could be a BIP32 tweak....";
+    unsigned char plain_tweak[32] = "this could be a BIP32 tweak....";
     unsigned char xonly_tweak[32] = "this could be a taproot tweak..";
 
 
-    /* Ordinary tweaking which, for example, allows deriving multiple child
+    /* Plain tweaking which, for example, allows deriving multiple child
      * public keys from a single aggregate key using BIP32 */
-    if (!secp256k1_musig_pubkey_ec_tweak_add(ctx, NULL, cache, ordinary_tweak)) {
+    if (!secp256k1_musig_pubkey_ec_tweak_add(ctx, NULL, cache, plain_tweak)) {
         return 0;
     }
     /* Note that we did not provided an output_pk argument, because the

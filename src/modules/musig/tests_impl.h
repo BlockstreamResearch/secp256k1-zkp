@@ -857,7 +857,7 @@ void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigne
 }
 
 /* Create aggregate public key P[0], tweak multiple times (using xonly and
- * ordinary tweaking) and test signing. */
+ * plain tweaking) and test signing. */
 void musig_tweak_test(secp256k1_scratch_space *scratch) {
     unsigned char sk[2][32];
     secp256k1_xonly_pubkey pk[2];
