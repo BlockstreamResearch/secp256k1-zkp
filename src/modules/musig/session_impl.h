@@ -311,14 +311,13 @@ static int secp256k1_xonly_ge_serialize(unsigned char *output32, secp256k1_ge *g
 
 /* Write optional inputs into the hash */
 static void secp256k1_nonce_function_musig_helper(secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data32) {
-    /* The spec requires length prefix to be 4 bytes for `extra_in`, 1 byte
-     * otherwise */
-    VERIFY_CHECK(prefix_size == 4 || prefix_size == 1);
-    if (prefix_size == 4) {
-        /* Four byte big-endian value, pad first three bytes with 0 */
-        unsigned char zero[3] = {0};
-        secp256k1_sha256_write(sha, zero, 3);
-    }
+    unsigned char zero[7] = { 0 };
+    /* The spec requires length prefixes to be between 1 and 8 bytes
+     * (inclusive) */
+    VERIFY_CHECK(prefix_size <= 8);
+    /* Since the length of all input data is <= 32, we can always pad the length
+     * prefix with prefix_size - 1 zero bytes. */
+    secp256k1_sha256_write(sha, zero, prefix_size - 1);
     if (data32 != NULL) {
         unsigned char len = 32;
         secp256k1_sha256_write(sha, &len, 1);
@@ -333,6 +332,7 @@ static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned c
     secp256k1_sha256 sha;
     unsigned char rand[32];
     unsigned char i;
+    unsigned char msg_present;
 
     if (key32 != NULL) {
         secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/aux", sizeof("MuSig/aux") - 1);
@@ -349,7 +349,11 @@ static void secp256k1_nonce_function_musig(secp256k1_scalar *k, const unsigned c
     secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"MuSig/nonce", sizeof("MuSig/nonce") - 1);
     secp256k1_sha256_write(&sha, rand, sizeof(rand));
     secp256k1_nonce_function_musig_helper(&sha, 1, agg_pk32);
-    secp256k1_nonce_function_musig_helper(&sha, 1, msg32);
+    msg_present = msg32 != NULL;
+    secp256k1_sha256_write(&sha, &msg_present, 1);
+    if (msg_present) {
+        secp256k1_nonce_function_musig_helper(&sha, 8, msg32);
+    }
     secp256k1_nonce_function_musig_helper(&sha, 4, extra_input32);
 
     for (i = 0; i < 2; i++) {
