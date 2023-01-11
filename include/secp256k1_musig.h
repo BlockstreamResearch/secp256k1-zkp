@@ -9,11 +9,9 @@ extern "C" {
 
 #include <stddef.h>
 
-/** This module implements a Schnorr-based multi-signature scheme called MuSig2
- * (https://eprint.iacr.org/2020/1261, see Appendix B for the exact variant).
- * Signatures are compatible with BIP-340 ("Schnorr").
- * There's an example C source file in the module's directory
- * (examples/musig.c) that demonstrates how it can be used.
+/** This module implements BIP MuSig2 v1.0.0-rc.3, a multi-signature scheme
+ * compatible with BIP-340 ("Schnorr"). You can find an example demonstrating
+ * the musig module in examples/musig.c.
  *
  * The module also supports BIP-341 ("Taproot") public key tweaking and adaptor
  * signatures as described in
@@ -22,12 +20,8 @@ extern "C" {
  * It is recommended to read the documentation in this include file carefully.
  * Further notes on API usage can be found in src/modules/musig/musig.md
  *
- * You may know that the MuSig2 scheme uses two "nonces" instead of one. This
- * is not wrong, but only a technical detail we don't want to bother the user
- * with. Therefore, the API only uses the singular term "nonce".
- *
- * Since the first version of MuSig is essentially replaced by MuSig2, when
- * writing MuSig or musig here we mean MuSig2.
+ * Since the first version of MuSig is essentially replaced by MuSig2, we use
+ * MuSig, musig and MuSig2 synonymously unless noted otherwise.
  */
 
 /** Opaque data structures
