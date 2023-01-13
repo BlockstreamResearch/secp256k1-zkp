@@ -155,20 +155,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_xonly_pubkey_tweak_add_
     const unsigned char *tweak32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
-/** Sorts xonly public keys according to secp256k1_xonly_pubkey_cmp
- *
- *  Returns: 0 if the arguments are invalid. 1 otherwise.
- *
- *  Args:     ctx: pointer to a context object
- *  In:   pubkeys: array of pointers to pubkeys to sort
- *      n_pubkeys: number of elements in the pubkeys array
- */
-SECP256K1_API int secp256k1_xonly_sort(
-    const secp256k1_context* ctx,
-    const secp256k1_xonly_pubkey **pubkeys,
-    size_t n_pubkeys
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
-
 /** Compute the keypair for a secret key.
  *
  *  Returns: 1: secret was valid, keypair is ready to use
@@ -270,6 +256,20 @@ SECP256K1_API int secp256k1_pubkey_cmp(
     const secp256k1_pubkey* pk1,
     const secp256k1_pubkey* pk2
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Sorts public keys using lexicographic order
+ *
+ *  Returns: 0 if the arguments are invalid. 1 otherwise.
+ *
+ *  Args:     ctx: pointer to a context object
+ *  In:   pubkeys: array of pointers to pubkeys to sort
+ *      n_pubkeys: number of elements in the pubkeys array
+ */
+SECP256K1_API int secp256k1_pubkey_sort(
+    const secp256k1_context* ctx,
+    const secp256k1_pubkey **pubkeys,
+    size_t n_pubkeys
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 #ifdef __cplusplus
 }

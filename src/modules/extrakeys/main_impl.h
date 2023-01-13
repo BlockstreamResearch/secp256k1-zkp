@@ -153,28 +153,6 @@ int secp256k1_xonly_pubkey_tweak_add_check(const secp256k1_context* ctx, const u
             && secp256k1_fe_is_odd(&pk.y) == tweaked_pk_parity;
 }
 
-/* This struct wraps a const context pointer to satisfy the secp256k1_hsort api
- * which expects a non-const cmp_data pointer. */
-typedef struct {
-    const secp256k1_context *ctx;
-} secp256k1_xonly_sort_cmp_data;
-
-static int secp256k1_xonly_sort_cmp(const void* pk1, const void* pk2, void *cmp_data) {
-    return secp256k1_xonly_pubkey_cmp(((secp256k1_xonly_sort_cmp_data*)cmp_data)->ctx,
-                                      *(secp256k1_xonly_pubkey **)pk1,
-                                      *(secp256k1_xonly_pubkey **)pk2);
-}
-
-int secp256k1_xonly_sort(const secp256k1_context* ctx, const secp256k1_xonly_pubkey **pubkeys, size_t n_pubkeys) {
-    secp256k1_xonly_sort_cmp_data cmp_data;
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(pubkeys != NULL);
-
-    cmp_data.ctx = ctx;
-    secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_xonly_sort_cmp, &cmp_data);
-    return 1;
-}
-
 static void secp256k1_keypair_save(secp256k1_keypair *keypair, const secp256k1_scalar *sk, secp256k1_ge *pk) {
     secp256k1_scalar_get_b32(&keypair->data[0], sk);
     secp256k1_pubkey_save((secp256k1_pubkey *)&keypair->data[32], pk);
@@ -329,6 +307,28 @@ int secp256k1_pubkey_cmp(const secp256k1_context* ctx, const secp256k1_pubkey* p
         }
     }
     return secp256k1_memcmp_var(out[0], out[1], sizeof(out[1]));
+}
+
+/* This struct wraps a const context pointer to satisfy the secp256k1_hsort api
+ * which expects a non-const cmp_data pointer. */
+typedef struct {
+    const secp256k1_context *ctx;
+} secp256k1_pubkey_sort_cmp_data;
+
+static int secp256k1_pubkey_sort_cmp(const void* pk1, const void* pk2, void *cmp_data) {
+    return secp256k1_pubkey_cmp(((secp256k1_pubkey_sort_cmp_data*)cmp_data)->ctx,
+                                  *(secp256k1_pubkey **)pk1,
+                                  *(secp256k1_pubkey **)pk2);
+}
+
+int secp256k1_pubkey_sort(const secp256k1_context* ctx, const secp256k1_pubkey **pubkeys, size_t n_pubkeys) {
+    secp256k1_pubkey_sort_cmp_data cmp_data;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pubkeys != NULL);
+
+    cmp_data.ctx = ctx;
+    secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_pubkey_sort_cmp, &cmp_data);
+    return 1;
 }
 
 #endif
