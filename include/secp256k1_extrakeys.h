@@ -256,6 +256,21 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_keypair_xonly_tweak_add
     const unsigned char *tweak32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
+/** Compare two public keys using lexicographic order
+ *
+ *  Returns: <0 if the first public key is less than the second
+ *           >0 if the first public key is greater than the second
+ *           0 if the two public keys are equal
+ *  Args: ctx:      a secp256k1 context object.
+ *  In:   pubkey1:  first public key to compare
+ *        pubkey2:  second public key to compare
+ */
+SECP256K1_API int secp256k1_pubkey_cmp(
+    const secp256k1_context* ctx,
+    const secp256k1_pubkey* pk1,
+    const secp256k1_pubkey* pk2
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
 #ifdef __cplusplus
 }
 #endif
