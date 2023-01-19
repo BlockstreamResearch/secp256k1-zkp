@@ -582,6 +582,10 @@ void rangeproof_test(size_t digit_base, size_t num_bits, uint64_t value, uint64_
 
     res = secp256k1_bppp_rangeproof_verify(secp_ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
     CHECK(res == 1);
+
+    proof[plen - 1] ^= 1;
+    res = secp256k1_bppp_rangeproof_verify(secp_ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
+    CHECK(res == 0);
 }
 
 void run_bppp_tests(void) {
