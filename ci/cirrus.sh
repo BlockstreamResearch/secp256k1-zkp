@@ -52,6 +52,10 @@ then
         $EXEC ./bench_ecmult
         $EXEC ./bench_internal
         $EXEC ./bench
+        if [ "$BULLETPROOFS" = "yes" ]
+        then
+            $EXEC ./bench_bulletproofs
+        fi
     } >> bench.log 2>&1
 fi
 
