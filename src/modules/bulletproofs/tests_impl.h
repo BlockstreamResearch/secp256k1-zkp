@@ -128,12 +128,36 @@ static void test_bulletproofs_pp_tagged_hash(void) {
     secp256k1_sha256 sha_cached;
     unsigned char output[32];
     unsigned char output_cached[32];
+    secp256k1_scalar s;
 
     secp256k1_sha256_initialize_tagged(&sha, tag_data, sizeof(tag_data));
     secp256k1_bulletproofs_pp_sha256_tagged_commitment_init(&sha_cached);
     secp256k1_sha256_finalize(&sha, output);
     secp256k1_sha256_finalize(&sha_cached, output_cached);
     CHECK(secp256k1_memcmp_var(output, output_cached, 32) == 0);
+
+    {
+        unsigned char expected[32] = { 0x21, 0x2F, 0xB6, 0x4F, 0x9D, 0x8C, 0x3B, 0xC5,
+                                       0xF6, 0x91, 0x15, 0xEE, 0x74, 0xF5, 0x12, 0x67,
+                                       0x8A, 0x41, 0xC6, 0x85, 0x1A, 0x79, 0x14, 0xFC,
+                                       0x48, 0x15, 0xC7, 0x2D, 0xF8, 0x63, 0x8F, 0x1B };
+        secp256k1_bulletproofs_pp_sha256_tagged_commitment_init(&sha);
+        secp256k1_bulletproofs_challenge_scalar(&s, &sha, 0);
+        secp256k1_scalar_get_b32(output, &s);
+        CHECK(memcmp(output, expected, sizeof(output)) == 0);
+    }
+
+    {
+        unsigned char tmp[3] = {0, 1, 2};
+        unsigned char expected[32] = { 0x8D, 0xAA, 0xB7, 0x7E, 0x3C, 0x6A, 0x9E, 0xEC,
+                                       0x72, 0x7E, 0x3E, 0xB7, 0x10, 0x03, 0xF0, 0xE9,
+                                       0x69, 0x4D, 0xAA, 0x96, 0xCE, 0x98, 0xBB, 0x39,
+                                       0x1C, 0x2F, 0x7C, 0x2E, 0x1C, 0x17, 0x78, 0x6D };
+        secp256k1_sha256_write(&sha, tmp, sizeof(tmp));
+        secp256k1_bulletproofs_challenge_scalar(&s, &sha, 0);
+        secp256k1_scalar_get_b32(output, &s);
+        CHECK(memcmp(output, expected, sizeof(output)) == 0);
+    }
 }
 
 void test_log_exp(void) {
