@@ -13,6 +13,7 @@
 #include "bulletproofs_pp_norm_product_impl.h"
 #include "bulletproofs_util.h"
 #include "bulletproofs_pp_transcript_impl.h"
+#include "test_vectors/verify.h"
 
 static void test_bulletproofs_generators_api(void) {
     /* The BP generator API requires no precomp */
@@ -440,6 +441,86 @@ void norm_arg_test(unsigned int n, unsigned int m) {
     secp256k1_bulletproofs_generators_destroy(ctx, gs);
 }
 
+/* Parses generators from points compressed as pubkeys */
+secp256k1_bulletproofs_generators* bulletproofs_generators_parse_regular(const unsigned char* data, size_t data_len) {
+    size_t n = data_len / 33;
+    secp256k1_bulletproofs_generators* ret;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(data != NULL);
+
+    if (data_len % 33 != 0) {
+        return NULL;
+    }
+
+    ret = (secp256k1_bulletproofs_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    if (ret == NULL) {
+        return NULL;
+    }
+    ret->n = n;
+    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
+    if (ret->gens == NULL) {
+        free(ret);
+        return NULL;
+    }
+
+    while (n--) {
+        if (!secp256k1_eckey_pubkey_parse(&ret->gens[n], &data[33 * n], 33)) {
+            free(ret->gens);
+            free(ret);
+            return NULL;
+        }
+    }
+    return ret;
+}
+
+int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned char *gens, const unsigned char *proof, size_t plen, const unsigned char *r32, size_t n_vec_len, const unsigned char c_vec32[][32], secp256k1_scalar *c_vec, size_t c_vec_len, const unsigned char *commit33) {
+    secp256k1_sha256 transcript;
+    secp256k1_bulletproofs_generators *gs = bulletproofs_generators_parse_regular(gens, 33*(n_vec_len + c_vec_len));
+    secp256k1_scalar r;
+    secp256k1_ge commit;
+    int overflow;
+    int i;
+    int ret;
+
+    CHECK(gs != NULL);
+    secp256k1_sha256_initialize(&transcript);
+
+    secp256k1_scalar_set_b32(&r, r32, &overflow);
+    CHECK(!overflow);
+
+    for (i = 0; i < (int)c_vec_len; i++) {
+        secp256k1_scalar_set_b32(&c_vec[i], c_vec32[i], &overflow);
+        CHECK(!overflow);
+    }
+    CHECK(secp256k1_eckey_pubkey_parse(&commit, commit33, 33));
+    ret = secp256k1_bulletproofs_pp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &r, gs, n_vec_len, c_vec, c_vec_len, &commit);
+
+    secp256k1_bulletproofs_generators_destroy(ctx, gs);
+    return ret;
+}
+
+#define IDX_TO_TEST(i) (norm_arg_verify_vectors_helper(scratch, verify_vector_gens, verify_vector_##i##_proof, sizeof(verify_vector_##i##_proof), verify_vector_##i##_r32, verify_vector_##i##_n_vec_len, verify_vector_##i##_c_vec32, verify_vector_##i##_c_vec, sizeof(verify_vector_##i##_c_vec)/sizeof(secp256k1_scalar), verify_vector_##i##_commit33) == verify_vector_##i##_result)
+
+void norm_arg_verify_vectors(void) {
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
+    size_t alloc = scratch->alloc_size;
+
+    CHECK(IDX_TO_TEST(0));
+    CHECK(IDX_TO_TEST(1));
+    CHECK(IDX_TO_TEST(2));
+    CHECK(IDX_TO_TEST(3));
+    CHECK(IDX_TO_TEST(4));
+    CHECK(IDX_TO_TEST(5));
+    CHECK(IDX_TO_TEST(6));
+    CHECK(IDX_TO_TEST(7));
+    CHECK(IDX_TO_TEST(8));
+
+    CHECK(alloc == scratch->alloc_size);
+    secp256k1_scratch_space_destroy(ctx, scratch);
+}
+#undef IDX_TO_TEST
+
 void run_bulletproofs_tests(void) {
     test_log_exp();
     test_norm_util_helpers();
@@ -455,6 +536,7 @@ void run_bulletproofs_tests(void) {
     norm_arg_test(32, 64);
     norm_arg_test(64, 32);
     norm_arg_test(64, 64);
+    norm_arg_verify_vectors();
 }
 
 #endif
