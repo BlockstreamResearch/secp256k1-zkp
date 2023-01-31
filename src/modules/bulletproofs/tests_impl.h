@@ -7,6 +7,10 @@
 #ifndef _SECP256K1_MODULE_BULLETPROOFS_TEST_
 #define _SECP256K1_MODULE_BULLETPROOFS_TEST_
 
+#include <stdint.h>
+
+#include "include/secp256k1_bulletproofs.h"
+#include "bulletproofs_util.h"
 #include "bulletproofs_pp_transcript_impl.h"
 
 static void test_bulletproofs_generators_api(void) {
@@ -130,7 +134,23 @@ static void test_bulletproofs_pp_tagged_hash(void) {
     CHECK(secp256k1_memcmp_var(output, output_cached, 32) == 0);
 }
 
+void test_log_exp(void) {
+    CHECK(secp256k1_is_power_of_two(0) == 0);
+    CHECK(secp256k1_is_power_of_two(1) == 1);
+    CHECK(secp256k1_is_power_of_two(2) == 1);
+    CHECK(secp256k1_is_power_of_two(64) == 1);
+    CHECK(secp256k1_is_power_of_two(63) == 0);
+    CHECK(secp256k1_is_power_of_two(256) == 1);
+
+    CHECK(secp256k1_bulletproofs_pp_log2(1) == 0);
+    CHECK(secp256k1_bulletproofs_pp_log2(2) == 1);
+    CHECK(secp256k1_bulletproofs_pp_log2(255) == 7);
+    CHECK(secp256k1_bulletproofs_pp_log2(256) == 8);
+    CHECK(secp256k1_bulletproofs_pp_log2(257) == 8);
+}
+
 void run_bulletproofs_tests(void) {
+    test_log_exp();
     test_bulletproofs_generators_api();
     test_bulletproofs_generators_fixed();
     test_bulletproofs_pp_tagged_hash();
