@@ -128,6 +128,49 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
   size_t ncnt
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
 
+/** Compute the "net blinding factor" for an asset/amount pair of Pedersen commitments
+ *
+ *  Returns 0 if either input is out of range, otherwise 1
+ *  Args:    ctx: a secp256k1 context object.
+ *  Out:  output: 32-byte array into which the result will be written
+ *  In:      val: the value of the amount commitment
+ *           vbf: the amount commitment's blinding factor
+ *           abf: the asset commitment's blinding factor
+ *
+ *  This computse val*abf + vbf
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_netbf_compute(
+  const secp256k1_context* ctx,
+  unsigned char* output,
+  uint64_t val,
+  const unsigned char* vbf,
+  const unsigned char* abf
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Accumulate a net blinding factor
+ *
+ *  Returns 0 if the input is out of range, otherwise 1
+ *  Args:    ctx: a secp256k1 context object.
+ *  In/Out:  acc: initially set to the current state of the accumulator; updated in place
+ *  In:      nbf: the net blinding factor to add to the accumulator
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_netbf_acc(
+    const secp256k1_context* ctx,
+    unsigned char* acc,
+    const unsigned char* nbf
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Negate a(n accumulated) net blinding factor
+ *
+ *  Returns 0 if the input is out of range, otherwise 1
+ *  Args:    ctx: a secp256k1 context object.
+ *  In/Out:  acc: initially set to the bf to negate; changed to the negated version
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_netbf_neg(
+    const secp256k1_context* ctx,
+    unsigned char* output
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
+
 /** Sets the final Pedersen blinding factor correctly when the generators themselves
  *  have blinding factors.
  *

@@ -165,6 +165,74 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const secp256k
     return secp256k1_gej_is_infinity(&accj);
 }
 
+int secp256k1_netbf_compute(const secp256k1_context* ctx, unsigned char* output, uint64_t val, const unsigned char* vbf, const unsigned char* abf) {
+    int overflow = 0;
+    secp256k1_scalar vbf_s;
+    secp256k1_scalar abf_s;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(output != NULL);
+    ARG_CHECK(vbf != NULL);
+    ARG_CHECK(abf != NULL);
+    (void) ctx;
+
+    secp256k1_scalar_set_b32(&abf_s, abf, &overflow);
+    if (overflow == 1) {
+        return 0;
+    }
+    secp256k1_scalar_set_u64(&vbf_s, val);
+    secp256k1_scalar_mul(&abf_s, &abf_s, &vbf_s);
+
+    secp256k1_scalar_set_b32(&vbf_s, vbf, &overflow);
+    if (overflow == 1) {
+        return 0;
+    }
+    secp256k1_scalar_add(&vbf_s, &vbf_s, &abf_s);
+
+    secp256k1_scalar_get_b32(output, &vbf_s);
+    return 1;
+}
+
+int secp256k1_netbf_acc(const secp256k1_context* ctx, unsigned char* acc, const unsigned char* nbf) {
+    int overflow = 0;
+    secp256k1_scalar ret_s;
+    secp256k1_scalar nbf_s;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(acc != NULL);
+    ARG_CHECK(nbf != NULL);
+
+    secp256k1_scalar_set_b32(&ret_s, acc, &overflow);
+    if (overflow == 1) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&nbf_s, nbf, &overflow);
+    if (overflow == 1) {
+        return 0;
+    }
+
+    secp256k1_scalar_add(&ret_s, &ret_s, &nbf_s);
+    secp256k1_scalar_get_b32(acc, &ret_s);
+    return 1;
+}
+
+int secp256k1_netbf_neg(const secp256k1_context* ctx, unsigned char* acc) {
+    int overflow = 0;
+    secp256k1_scalar ret_s;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(acc != NULL);
+
+    secp256k1_scalar_set_b32(&ret_s, acc, &overflow);
+    if (overflow == 1) {
+        return 0;
+    }
+
+    secp256k1_scalar_negate(&ret_s, &ret_s);
+    secp256k1_scalar_get_b32(acc, &ret_s);
+    return 1;
+}
+
 int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, const uint64_t *value, const unsigned char* const* generator_blind, unsigned char* const* blinding_factor, size_t n_total, size_t n_inputs) {
     secp256k1_scalar sum;
     secp256k1_scalar tmp;
