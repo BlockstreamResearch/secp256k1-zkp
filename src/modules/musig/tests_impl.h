@@ -466,17 +466,26 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &invalid_keypair, &keyagg_cache, &session) == 0);
     CHECK(ecount == 6);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
+    {
+        unsigned char sk_tmp[32];
+        secp256k1_keypair keypair_tmp;
+        secp256k1_testrand256(sk_tmp);
+        CHECK(secp256k1_keypair_create(ctx, &keypair_tmp, sk_tmp));
+        CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair_tmp, &keyagg_cache, &session) == 0);
+        CHECK(ecount == 7);
+        memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
+    }
     CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], NULL, &session) == 0);
-    CHECK(ecount == 7);
-    memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &invalid_keyagg_cache, &session) == 0);
     CHECK(ecount == 8);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &keyagg_cache, NULL) == 0);
+    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &invalid_keyagg_cache, &session) == 0);
     CHECK(ecount == 9);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &keyagg_cache, &invalid_session) == 0);
+    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &keyagg_cache, NULL) == 0);
     CHECK(ecount == 10);
+    memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
+    CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce_tmp, &keypair[0], &keyagg_cache, &invalid_session) == 0);
+    CHECK(ecount == 11);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
 
     CHECK(secp256k1_musig_partial_sign(none, &partial_sig[0], &secnonce[0], &keypair[0], &keyagg_cache, &session) == 1);
