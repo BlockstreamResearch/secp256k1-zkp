@@ -43,7 +43,7 @@ typedef struct {
 
 /** Opaque data structure that holds a signer's _secret_ nonce.
  *
- *  Guaranteed to be 68 bytes in size.
+ *  Guaranteed to be 132 bytes in size.
  *
  *  WARNING: This structure MUST NOT be copied or read or written to directly. A
  *  signer who is online throughout the whole process and can keep this
@@ -57,7 +57,7 @@ typedef struct {
  *  leak the secret signing key.
  */
 typedef struct {
-    unsigned char data[68];
+    unsigned char data[132];
 } secp256k1_musig_secnonce;
 
 /** Opaque data structure that holds a signer's public nonce.
@@ -351,7 +351,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_xonly_twea
  *                     unless you really know what you are doing.
  *             seckey: the 32-byte secret key that will later be used for signing, if
  *                     already known (can be NULL)
- *             pubkey: public key of the signer creating the nonce
+ *             pubkey: public key of the signer creating the nonce. The secnonce
+ *                     output of this function cannot be used to sign for any
+ *                     other public key.
  *              msg32: the 32-byte message that will later be signed, if already known
  *                     (can be NULL)
  *       keyagg_cache: pointer to the keyagg_cache that was used to create the aggregate
@@ -432,13 +434,20 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_nonce_process(
  *  reuse. However, this is of course easily defeated if the secnonce has been
  *  copied (or serialized). Remember that nonce reuse will leak the secret key!
  *
+ *  For signing to succeed, the secnonce provided to this function must have
+ *  been generated for the provided keypair. This means that when signing for a
+ *  keypair consisting of a seckey and pubkey, the secnonce must have been
+ *  created by calling musig_nonce_gen with that pubkey. Otherwise, the
+ *  illegal_callback is called.
+ *
  *  Returns: 0 if the arguments are invalid or the provided secnonce has already
  *           been used for signing, 1 otherwise
  *  Args:         ctx: pointer to a context object
  *  Out:  partial_sig: pointer to struct to store the partial signature
  *  In/Out:  secnonce: pointer to the secnonce struct created in
  *                     musig_nonce_gen that has been never used in a
- *                     partial_sign call before
+ *                     partial_sign call before and has been created for the
+ *                     keypair
  *  In:       keypair: pointer to keypair to sign the message with
  *       keyagg_cache: pointer to the keyagg_cache that was output when the
  *                     aggregate public key for this session

@@ -22,17 +22,19 @@
 
 static const unsigned char secp256k1_musig_secnonce_magic[4] = { 0x22, 0x0e, 0xdc, 0xf1 };
 
-static void secp256k1_musig_secnonce_save(secp256k1_musig_secnonce *secnonce, secp256k1_scalar *k) {
+static void secp256k1_musig_secnonce_save(secp256k1_musig_secnonce *secnonce, const secp256k1_scalar *k, secp256k1_ge *pk) {
     memcpy(&secnonce->data[0], secp256k1_musig_secnonce_magic, 4);
     secp256k1_scalar_get_b32(&secnonce->data[4], &k[0]);
     secp256k1_scalar_get_b32(&secnonce->data[36], &k[1]);
+    secp256k1_point_save(&secnonce->data[68], pk);
 }
 
-static int secp256k1_musig_secnonce_load(const secp256k1_context* ctx, secp256k1_scalar *k, secp256k1_musig_secnonce *secnonce) {
+static int secp256k1_musig_secnonce_load(const secp256k1_context* ctx, secp256k1_scalar *k, secp256k1_ge *pk, secp256k1_musig_secnonce *secnonce) {
     int is_zero;
     ARG_CHECK(secp256k1_memcmp_var(&secnonce->data[0], secp256k1_musig_secnonce_magic, 4) == 0);
     secp256k1_scalar_set_b32(&k[0], &secnonce->data[4], NULL);
     secp256k1_scalar_set_b32(&k[1], &secnonce->data[36], NULL);
+    secp256k1_point_load(pk, &secnonce->data[68]);
     /* We make very sure that the nonce isn't invalidated by checking the values
      * in addition to the magic. */
     is_zero = secp256k1_scalar_is_zero(&k[0]) & secp256k1_scalar_is_zero(&k[1]);
@@ -44,10 +46,12 @@ static int secp256k1_musig_secnonce_load(const secp256k1_context* ctx, secp256k1
 /* If flag is true, invalidate the secnonce; otherwise leave it. Constant-time. */
 static void secp256k1_musig_secnonce_invalidate(const secp256k1_context* ctx, secp256k1_musig_secnonce *secnonce, int flag) {
     secp256k1_memczero(secnonce->data, sizeof(secnonce->data), flag);
-    /* The flag argument is usually classified. So, above code makes the magic
-     * classified. However, we need the magic to be declassified to be able to
-     * compare it during secnonce_load. */
+    /* The flag argument is usually classified. So, the line above makes the
+     * magic and public key classified. However, we need both to be
+     * declassified. Note that we don't declassify the entire object, because if
+     * flag is 0, then k[0] and k[1] have not been zeroed. */
     secp256k1_declassify(ctx, secnonce->data, sizeof(secp256k1_musig_secnonce_magic));
+    secp256k1_declassify(ctx, &secnonce->data[68], 64);
 }
 
 static const unsigned char secp256k1_musig_pubnonce_magic[4] = { 0xf5, 0x7a, 0x3d, 0xa0 };
@@ -355,6 +359,8 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
     size_t pk_ser_len = sizeof(pk_ser);
     unsigned char aggpk_ser[32];
     unsigned char *aggpk_ser_ptr = NULL;
+    secp256k1_ge pk;
+    int pk_serialize_success;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -393,16 +399,19 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
         VERIFY_CHECK(ret_tmp);
         aggpk_ser_ptr = aggpk_ser;
     }
-    if (!secp256k1_ec_pubkey_serialize(ctx, pk_ser, &pk_ser_len, pubkey, SECP256K1_EC_COMPRESSED)) {
+    if (!secp256k1_pubkey_load(ctx, &pk, pubkey)) {
         return 0;
     }
+    pk_serialize_success = secp256k1_eckey_pubkey_serialize(&pk, pk_ser, &pk_ser_len, SECP256K1_EC_COMPRESSED);
+    /* A pubkey cannot be the point at infinity */
+    VERIFY_CHECK(pk_serialize_success);
     VERIFY_CHECK(pk_ser_len == sizeof(pk_ser));
 
     secp256k1_nonce_function_musig(k, session_id32, msg32, seckey, pk_ser, aggpk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
     VERIFY_CHECK(!secp256k1_scalar_eq(&k[0], &k[1]));
-    secp256k1_musig_secnonce_save(secnonce, k);
+    secp256k1_musig_secnonce_save(secnonce, k, &pk);
     secp256k1_musig_secnonce_invalidate(ctx, secnonce, !ret);
 
     for (i = 0; i < 2; i++) {
@@ -562,7 +571,7 @@ static void secp256k1_musig_partial_sign_clear(secp256k1_scalar *sk, secp256k1_s
 
 int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_partial_sig *partial_sig, secp256k1_musig_secnonce *secnonce, const secp256k1_keypair *keypair, const secp256k1_musig_keyagg_cache *keyagg_cache, const secp256k1_musig_session *session) {
     secp256k1_scalar sk;
-    secp256k1_ge pk;
+    secp256k1_ge pk, keypair_pk;
     secp256k1_scalar k[2];
     secp256k1_scalar mu, s;
     secp256k1_keyagg_cache_internal cache_i;
@@ -573,7 +582,7 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
 
     ARG_CHECK(secnonce != NULL);
     /* Fails if the magic doesn't match */
-    ret = secp256k1_musig_secnonce_load(ctx, k, secnonce);
+    ret = secp256k1_musig_secnonce_load(ctx, k, &pk, secnonce);
     /* Set nonce to zero to avoid nonce reuse. This will cause subsequent calls
      * of this function to fail */
     memset(secnonce, 0, sizeof(*secnonce));
@@ -587,10 +596,12 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
     ARG_CHECK(keyagg_cache != NULL);
     ARG_CHECK(session != NULL);
 
-    if (!secp256k1_keypair_load(ctx, &sk, &pk, keypair)) {
+    if (!secp256k1_keypair_load(ctx, &sk, &keypair_pk, keypair)) {
         secp256k1_musig_partial_sign_clear(&sk, k);
         return 0;
     }
+    ARG_CHECK(secp256k1_fe_equal_var(&pk.x, &keypair_pk.x)
+              && secp256k1_fe_equal_var(&pk.y, &keypair_pk.y));
     if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
         secp256k1_musig_partial_sign_clear(&sk, k);
         return 0;
