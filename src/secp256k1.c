@@ -800,8 +800,8 @@ int secp256k1_tagged_sha256(const secp256k1_context* ctx, unsigned char *hash32,
     return 1;
 }
 
-#ifdef ENABLE_MODULE_BULLETPROOFS
-# include "modules/bulletproofs/main_impl.h"
+#ifdef ENABLE_MODULE_BPPP
+# include "modules/bppp/main_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_ECDH
