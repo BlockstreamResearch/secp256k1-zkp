@@ -4,26 +4,26 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BULLETPROOFS_MAIN_
-#define _SECP256K1_MODULE_BULLETPROOFS_MAIN_
+#ifndef _SECP256K1_MODULE_BPPP_MAIN_
+#define _SECP256K1_MODULE_BPPP_MAIN_
 
-#include "include/secp256k1_bulletproofs.h"
+#include "include/secp256k1_bppp.h"
 #include "include/secp256k1_generator.h"
 #include "modules/generator/main_impl.h" /* for generator_{load, save} */
 #include "hash.h"
 #include "util.h"
-#include "modules/bulletproofs/main.h"
-#include "modules/bulletproofs/bulletproofs_pp_norm_product_impl.h"
+#include "modules/bppp/main.h"
+#include "modules/bppp/bppp_norm_product_impl.h"
 
-secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(const secp256k1_context *ctx, size_t n) {
-    secp256k1_bulletproofs_generators *ret;
+secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_context *ctx, size_t n) {
+    secp256k1_bppp_generators *ret;
     secp256k1_rfc6979_hmac_sha256 rng;
     unsigned char seed[64];
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
 
-    ret = (secp256k1_bulletproofs_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
@@ -49,9 +49,9 @@ secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(cons
     return ret;
 }
 
-secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(const secp256k1_context* ctx, const unsigned char* data, size_t data_len) {
+secp256k1_bppp_generators* secp256k1_bppp_generators_parse(const secp256k1_context* ctx, const unsigned char* data, size_t data_len) {
     size_t n = data_len / 33;
-    secp256k1_bulletproofs_generators* ret;
+    secp256k1_bppp_generators* ret;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(data != NULL);
@@ -60,7 +60,7 @@ secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(const
         return NULL;
     }
 
-    ret = (secp256k1_bulletproofs_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
@@ -83,7 +83,7 @@ secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(const
     return ret;
 }
 
-int secp256k1_bulletproofs_generators_serialize(const secp256k1_context* ctx, const secp256k1_bulletproofs_generators* gens, unsigned char* data, size_t *data_len) {
+int secp256k1_bppp_generators_serialize(const secp256k1_context* ctx, const secp256k1_bppp_generators* gens, unsigned char* data, size_t *data_len) {
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
@@ -103,7 +103,7 @@ int secp256k1_bulletproofs_generators_serialize(const secp256k1_context* ctx, co
     return 1;
 }
 
-void secp256k1_bulletproofs_generators_destroy(const secp256k1_context* ctx, secp256k1_bulletproofs_generators *gens) {
+void secp256k1_bppp_generators_destroy(const secp256k1_context* ctx, secp256k1_bppp_generators *gens) {
     VERIFY_CHECK(ctx != NULL);
     (void) ctx;
     if (gens != NULL) {

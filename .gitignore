@@ -1,5 +1,5 @@
 bench
-bench_bulletproofs
+bench_bppp
 bench_ecmult
 bench_generator
 bench_rangeproof

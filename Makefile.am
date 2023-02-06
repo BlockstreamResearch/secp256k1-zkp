@@ -226,8 +226,8 @@ clean-precomp:
 
 EXTRA_DIST = autogen.sh SECURITY.md
 
-if ENABLE_MODULE_BULLETPROOFS
-include src/modules/bulletproofs/Makefile.am.include
+if ENABLE_MODULE_BPPP
+include src/modules/bppp/Makefile.am.include
 endif
 
 if ENABLE_MODULE_ECDH

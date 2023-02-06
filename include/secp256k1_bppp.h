@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_BULLETPROOFS_
-# define _SECP256K1_BULLETPROOFS_
+#ifndef _SECP256K1_BPPP_
+# define _SECP256K1_BPPP_
 
 # include "secp256k1.h"
 
@@ -10,7 +10,7 @@ extern "C" {
 #include <stdint.h>
 
 /** Opaque structure representing a large number of NUMS generators */
-typedef struct secp256k1_bulletproofs_generators secp256k1_bulletproofs_generators;
+typedef struct secp256k1_bppp_generators secp256k1_bppp_generators;
 
 /** Allocates and initializes a list of NUMS generators.
  *  Returns a list of generators, or calls the error callback if the allocation fails.
@@ -21,7 +21,7 @@ typedef struct secp256k1_bulletproofs_generators secp256k1_bulletproofs_generato
  * points. We will later use G = H0(required for compatibility with pedersen_commitment DS)
  * in a separate commit to make review easier.
  */
-SECP256K1_API secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generators_create(
+SECP256K1_API secp256k1_bppp_generators *secp256k1_bppp_generators_create(
     const secp256k1_context* ctx,
     size_t n
 ) SECP256K1_ARG_NONNULL(1);
@@ -29,10 +29,10 @@ SECP256K1_API secp256k1_bulletproofs_generators *secp256k1_bulletproofs_generato
 /** Allocates a list of generators from a static array
  *  Returns a list of generators or NULL in case of failure.
  *  Args:      ctx: pointer to a context object
- *  In:       data: data that came from `secp256k1_bulletproofs_generators_serialize`
+ *  In:       data: data that came from `secp256k1_bppp_generators_serialize`
  *        data_len: the length of the `data` buffer
  */
-SECP256K1_API secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generators_parse(
+SECP256K1_API secp256k1_bppp_generators* secp256k1_bppp_generators_parse(
     const secp256k1_context* ctx,
     const unsigned char* data,
     size_t data_len
@@ -49,9 +49,9 @@ SECP256K1_API secp256k1_bulletproofs_generators* secp256k1_bulletproofs_generato
  * TODO: For ease of review, this setting G = H0 is not included in this commit. We will
  * add it in the follow-up rangeproof PR.
  */
-SECP256K1_API int secp256k1_bulletproofs_generators_serialize(
+SECP256K1_API int secp256k1_bppp_generators_serialize(
     const secp256k1_context* ctx,
-    const secp256k1_bulletproofs_generators* gen,
+    const secp256k1_bppp_generators* gen,
     unsigned char* data,
     size_t *data_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
@@ -61,9 +61,9 @@ SECP256K1_API int secp256k1_bulletproofs_generators_serialize(
  *          gen: pointer to the generator set to be destroyed
  *               (can be NULL, in which case this function is a no-op)
  */
-SECP256K1_API void secp256k1_bulletproofs_generators_destroy(
+SECP256K1_API void secp256k1_bppp_generators_destroy(
     const secp256k1_context* ctx,
-    secp256k1_bulletproofs_generators* gen
+    secp256k1_bppp_generators* gen
 ) SECP256K1_ARG_NONNULL(1);
 
 # ifdef __cplusplus

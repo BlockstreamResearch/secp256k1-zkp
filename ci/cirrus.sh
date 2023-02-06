@@ -19,7 +19,7 @@ valgrind --version || true
     --with-ecmult-gen-precision="$ECMULTGENPRECISION" \
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
     --enable-module-ecdsa-s2c="$ECDSA_S2C" \
-    --enable-module-bulletproofs="$BULLETPROOFS" \
+    --enable-module-bppp="$BPPP" \
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
@@ -52,9 +52,9 @@ then
         $EXEC ./bench_ecmult
         $EXEC ./bench_internal
         $EXEC ./bench
-        if [ "$BULLETPROOFS" = "yes" ]
+        if [ "$BPPP" = "yes" ]
         then
-            $EXEC ./bench_bulletproofs
+            $EXEC ./bench_bppp
         fi
     } >> bench.log 2>&1
 fi
