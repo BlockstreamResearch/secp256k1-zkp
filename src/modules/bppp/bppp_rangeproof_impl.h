@@ -10,7 +10,6 @@
 
 #include "group.h"
 #include "scalar.h"
-#include "secp256k1.h"
 #include "ecmult_const.h"
 #include "field.h"
 #include "include/secp256k1_bppp.h"
