@@ -448,6 +448,7 @@ static int ecmult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx,
     if (idx == 0) {
         *pt = *data->asset_genp;
         *sc = *data->v;
+        secp256k1_scalar_negate(sc, sc);
         return 1;
     }
     idx -= 1;
@@ -457,8 +458,30 @@ static int ecmult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx,
         *sc = data->s_h[idx - data->g_vec_len];
     }
     *pt = data->g_vec[idx];
+    secp256k1_scalar_negate(sc, sc);
     return 1;
 }
+
+typedef struct ecmult_verify_cb_data3 {
+    const ecmult_verify_cb_data1 *cb_data1;
+    const ecmult_verify_cb_data2 *cb_data2;
+    size_t idx2;
+} ecmult_verify_cb_data3;
+
+static int ecmult_verify_cb3(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
+    ecmult_verify_cb_data3 *data = (ecmult_verify_cb_data3*) cbdata;
+    if (idx < data->idx2) {
+        if(!ecmult_verify_cb1(sc, pt, idx, (void*)data->cb_data1)) {
+            return 0;
+        }
+    } else {
+        if(!ecmult_verify_cb2(sc, pt, idx - data->idx2, (void*)data->cb_data2)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 
 /* Verify the proof. This function modifies the generators, c_vec and the challenge r. The
    caller should make sure to back them up if they need to be reused.
@@ -479,7 +502,7 @@ int secp256k1_bppp_rangeproof_norm_product_verify(
 ) {
     secp256k1_scalar r_f, q_f, v, n, l, r_inv, h_c;
     secp256k1_scalar *es, *s_g, *s_h, *r_inv_pows;
-    secp256k1_gej res1, res2;
+    secp256k1_gej res;
     size_t i = 0, scratch_checkpoint;
     int overflow;
     size_t log_g_len = secp256k1_bppp_log2(g_len), log_h_len = secp256k1_bppp_log2(c_vec_len);
@@ -557,35 +580,30 @@ int secp256k1_bppp_rangeproof_norm_product_verify(
     secp256k1_scalar_add(&v, &v, &h_c);
 
     {
-        ecmult_verify_cb_data1 data;
-        data.proof = proof;
-        data.commit = commit;
-        data.challenges = es;
+        ecmult_verify_cb_data1 data1;
+        ecmult_verify_cb_data2 data2;
+        ecmult_verify_cb_data3 data3;
+        data1.proof = proof;
+        data1.commit = commit;
+        data1.challenges = es;
+        data2.g_vec = g_vec->gens;
+        data2.g_vec_len = g_len;
+        data2.s_g = s_g;
+        data2.s_h = s_h;
+        data2.v = &v;
+        data2.asset_genp = asset_genp;
+        data3.cb_data1 = &data1;
+        data3.cb_data2 = &data2;
+        data3.idx2 = 2*n_rounds + 1;
 
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res1, NULL, ecmult_verify_cb1, &data, 2*n_rounds + 1)) {
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res, NULL, ecmult_verify_cb3, &data3, 2*n_rounds + 1 + g_len + h_len + 1)) {
             secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
-            return 0;
-        }
-    }
-    {
-        ecmult_verify_cb_data2 data;
-        data.g_vec = g_vec->gens;
-        data.g_vec_len = g_len;
-        data.s_g = s_g;
-        data.s_h = s_h;
-        data.v = &v;
-        data.asset_genp = asset_genp;
-
-        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &res2, NULL, ecmult_verify_cb2, &data, g_len + h_len + 1)) {
             return 0;
         }
     }
 
     secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
 
-    /* res1 and res2 should be equal. Could not find a simpler way to compare them */
-    secp256k1_gej_neg(&res1, &res1);
-    secp256k1_gej_add_var(&res1, &res1, &res2, NULL);
-    return secp256k1_gej_is_infinity(&res1);
+    return secp256k1_gej_is_infinity(&res);
 }
 #endif
