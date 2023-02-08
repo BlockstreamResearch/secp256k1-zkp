@@ -126,6 +126,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     unsigned char max64[64];
     unsigned char zeros68[68] = { 0 };
     unsigned char session_id[2][32];
+    unsigned char invalid_session_id[32];
     secp256k1_musig_secnonce secnonce[2];
     secp256k1_musig_secnonce secnonce_tmp;
     secp256k1_musig_secnonce invalid_secnonce;
@@ -310,6 +311,18 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     /* no seckey and session_id is 0 */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, NULL, msg, &keyagg_cache, max64) == 0);
     CHECK(ecount == 4);
+    CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
+    /* no seckey and session_id looks like a counter (little-endian) */
+    memset(invalid_session_id, 0x55, 8);
+    memset(invalid_session_id + 8, 0, 24);
+    CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], invalid_session_id, NULL, msg, &keyagg_cache, max64) == 0);
+    CHECK(ecount == 5);
+    CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
+    /* no seckey and session_id looks like a counter (big-endian) */
+    memset(invalid_session_id, 0, 24);
+    memset(invalid_session_id + 24, 0x55, 8);
+    CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], invalid_session_id, NULL, msg, &keyagg_cache, max64) == 0);
+    CHECK(ecount == 5);
     CHECK(memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     /* session_id 0 is fine when a seckey is provided */
     CHECK(secp256k1_musig_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, sk[0], msg, &keyagg_cache, max64) == 1);
