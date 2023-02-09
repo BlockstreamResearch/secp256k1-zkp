@@ -420,6 +420,24 @@ void norm_arg_zero(void) {
         secp256k1_bppp_generators_destroy(ctx, gs);
     }
 
+    /* Verify vectors of length 0 */
+    {
+        unsigned int n_vec_len = 1;
+        unsigned int c_vec_len = 1;
+        secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n_vec_len + c_vec_len);
+        size_t plen = sizeof(proof);
+        random_scalar_order(&n_vec[0]);
+        random_scalar_order(&c_vec[0]);
+        random_scalar_order(&l_vec[0]);
+        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &q));
+        CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &r, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
+        CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, n_vec_len, c_vec, c_vec_len, &commit));
+        CHECK(!secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, 0, c_vec, c_vec_len, &commit));
+        CHECK(!secp256k1_norm_arg_verify(scratch, proof, plen, &r, gs, n_vec_len, c_vec, 0, &commit));
+
+        secp256k1_bppp_generators_destroy(ctx, gs);
+    }
+
     secp256k1_scratch_space_destroy(ctx, scratch);
 }
 

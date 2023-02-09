@@ -238,9 +238,13 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     ecmult_r_cb_data r_cb_data;
     size_t g_len = n_vec_len, h_len = l_vec_len;
     const size_t G_GENS_LEN = g_len;
-    size_t log_g_len = secp256k1_bppp_log2(g_len), log_h_len = secp256k1_bppp_log2(h_len);
-    size_t num_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
+    size_t log_g_len, log_h_len;
+    size_t num_rounds;
 
+    VERIFY_CHECK(g_len > 0 && h_len > 0);
+    log_g_len = secp256k1_bppp_log2(g_len);
+    log_h_len = secp256k1_bppp_log2(h_len);
+    num_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
     /* Check proof sizes.*/
     VERIFY_CHECK(*proof_len >= 65 * num_rounds + 64);
     VERIFY_CHECK(g_vec_len == (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
@@ -440,9 +444,16 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     secp256k1_gej res1, res2;
     size_t i = 0, scratch_checkpoint;
     int overflow;
-    size_t log_g_len = secp256k1_bppp_log2(g_len), log_h_len = secp256k1_bppp_log2(c_vec_len);
-    size_t n_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
+    size_t log_g_len, log_h_len;
+    size_t n_rounds;
     size_t h_len = c_vec_len;
+
+    if (g_len == 0 || c_vec_len == 0) {
+        return 0;
+    }
+    log_g_len = secp256k1_bppp_log2(g_len);
+    log_h_len = secp256k1_bppp_log2(c_vec_len);
+    n_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
 
     if (g_vec->n != (h_len + g_len) || (proof_len != 65 * n_rounds + 64)) {
         return 0;
