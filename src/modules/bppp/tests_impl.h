@@ -90,8 +90,7 @@ static void test_bppp_generators_api(void) {
 }
 
 static void test_bppp_generators_fixed(void) {
-    secp256k1_context* secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    secp256k1_bppp_generators *gens = secp256k1_bppp_generators_create(secp_ctx, 11);
+    secp256k1_bppp_generators *gens = secp256k1_bppp_generators_create(ctx, 11);
     unsigned char gens_ser[330];
     const unsigned char fixed_first_11[330] = {
         0x0b, 0xb3, 0x4d, 0x5f, 0xa6, 0xb8, 0xf3, 0xd1, 0x38, 0x49, 0xce, 0x51, 0x91, 0xb7, 0xf6, 0x76, 0x18, 0xfe, 0x5b, 0xd1, 0x2a, 0x88, 0xb2, 0x0e, 0xac, 0x33, 0x89, 0x45, 0x66, 0x7f, 0xb3, 0x30, 0x56,
@@ -108,14 +107,14 @@ static void test_bppp_generators_fixed(void) {
     size_t len;
 
     len = 330;
-    CHECK(secp256k1_bppp_generators_serialize(secp_ctx, gens, gens_ser, &len));
+    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
     CHECK(memcmp(gens_ser, fixed_first_11, sizeof(fixed_first_11)) == 0);
 
     len = sizeof(gens_ser);
-    CHECK(secp256k1_bppp_generators_serialize(secp_ctx, gens, gens_ser, &len));
+    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
     CHECK(memcmp(gens_ser, fixed_first_11, sizeof(fixed_first_11)) == 0);
 
-    secp256k1_bppp_generators_destroy(secp_ctx, gens);
+    secp256k1_bppp_generators_destroy(ctx, gens);
 }
 
 static void test_bppp_tagged_hash(void) {
@@ -559,39 +558,40 @@ void rangeproof_test(size_t digit_base, size_t num_bits, uint64_t value, uint64_
     size_t n = num_digits > digit_base ? num_digits : digit_base;
     size_t res;
     secp256k1_pedersen_commitment commit;
-    secp256k1_context* secp_ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     const unsigned char blind[32] = "help me! i'm bliiiiiiiiiiiiiiind";
     const unsigned char nonce[32] = "nonce? non ce n'est vrai amirite";
     /* Extra commit is a Joan Shelley lyric */
     const unsigned char extra_commit[] = "Shock of teal blue beneath clouds gathering, and the light of empty black on the waves at the horizon";
     const size_t extra_commit_len = sizeof(extra_commit);
     secp256k1_sha256 transcript;
-    const secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(secp_ctx, n + 8);
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(secp_ctx, 1000*1000); /* shouldn't need much */
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n + 8);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
     unsigned char proof[1000];
     plen = 1000;
     asset_genp = *secp256k1_generator_h;
-    CHECK(secp256k1_pedersen_commit(secp_ctx, &commit, blind, value, &asset_genp));
-    secp256k1_bppp_generators_serialize(secp_ctx, gs, proof, &plen);
+    CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, value, &asset_genp));
+    secp256k1_bppp_generators_serialize(ctx, gs, proof, &plen);
     plen = 1000;
     secp256k1_sha256_initialize(&transcript);
 
 
-    res = secp256k1_bppp_rangeproof_prove(secp_ctx, scratch, gs, &asset_genp, proof, &plen, num_bits, digit_base, value, min_value, &commit, blind, nonce, extra_commit, extra_commit_len);
+    res = secp256k1_bppp_rangeproof_prove(ctx, scratch, gs, &asset_genp, proof, &plen, num_bits, digit_base, value, min_value, &commit, blind, nonce, extra_commit, extra_commit_len);
     CHECK(res == 1);
 
-    res = secp256k1_bppp_rangeproof_verify(secp_ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
+    res = secp256k1_bppp_rangeproof_verify(ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
     CHECK(res == 1);
 
     proof[plen - 1] ^= 1;
-    res = secp256k1_bppp_rangeproof_verify(secp_ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
+    res = secp256k1_bppp_rangeproof_verify(ctx, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
     CHECK(res == 0);
+
+    secp256k1_scratch_space_destroy(ctx, scratch);
+    secp256k1_bppp_generators_destroy(ctx, gs);
 }
 
 void run_bppp_tests(void) {
     /* Update the global context for all bppp tests*/
     size_t i;
-    ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     test_log_exp();
     test_norm_util_helpers();
     test_bppp_generators_api();

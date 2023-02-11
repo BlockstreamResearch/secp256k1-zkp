@@ -784,6 +784,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
     secp256k1_scalar e, q_sqrt, q, q_inv, x, y, t;
     /* To be re-used as c_vec later */
     secp256k1_scalar t_pows[8];
+    int res;
 
     /* Check proof sizes*/
     if (proof_len != 33 * 4 + (65 * n_rounds) + 64) {
@@ -936,6 +937,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
         num_points = 6 + g_offset;
 
         if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &c_commj, NULL, secp256k1_bppp_verify_cb, (void*) &cb_data, num_points)) {
+            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
             return 0;
         }
 
@@ -949,7 +951,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
         secp256k1_scalar_clear(&t_pows[6]);
         secp256k1_scalar_clear(&t_pows[7]);
 
-        return secp256k1_bppp_rangeproof_norm_product_verify(
+        res = secp256k1_bppp_rangeproof_norm_product_verify(
             ctx,
             scratch,
             &proof[33*4],
@@ -964,6 +966,8 @@ static int secp256k1_bppp_rangeproof_verify_impl(
             &c_comm
         );
     }
+    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+    return res;
 }
 
 #endif
