@@ -21,7 +21,9 @@ static void test_bppp_generators_api(void) {
 
     secp256k1_bppp_generators *gens;
     secp256k1_bppp_generators *gens_orig;
-    unsigned char gens_ser[330 - 33];
+    enum { N_GENS = 10, GENS_SER_SIZE = (N_GENS - 1) * 33 };
+    unsigned char gens_ser[GENS_SER_SIZE];
+
     size_t len = sizeof(gens_ser);
 
     int32_t ecount = 0;
@@ -30,12 +32,13 @@ static void test_bppp_generators_api(void) {
     secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
 
     /* Create */
-    gens = secp256k1_bppp_generators_create(none, 10);
+    gens = secp256k1_bppp_generators_create(none, N_GENS);
     CHECK(gens != NULL && ecount == 0);
     gens_orig = gens; /* Preserve for round-trip test */
 
     /* Serialize */
     ecount = 0;
+    CHECK(secp256k1_bppp_generators_serialize(none, gens, gens_ser, &len));
     CHECK(!secp256k1_bppp_generators_serialize(none, NULL, gens_ser, &len));
     CHECK(ecount == 1);
     CHECK(!secp256k1_bppp_generators_serialize(none, gens, NULL, &len));
@@ -51,10 +54,10 @@ static void test_bppp_generators_api(void) {
     len = sizeof(gens_ser);
     {
         /* Output buffer can be greater than minimum needed */
-        unsigned char gens_ser_tmp[331];
+        unsigned char gens_ser_tmp[GENS_SER_SIZE + 1];
         size_t len_tmp = sizeof(gens_ser_tmp);
         CHECK(secp256k1_bppp_generators_serialize(none, gens, gens_ser_tmp, &len_tmp));
-        CHECK(len_tmp == sizeof(gens_ser_tmp) - 1 - 33);
+        CHECK(len_tmp == GENS_SER_SIZE);
         CHECK(ecount == 5);
     }
 
