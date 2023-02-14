@@ -7917,6 +7917,11 @@ int main(int argc, char **argv) {
     memcpy(STATIC_CTX, secp256k1_context_static, sizeof(secp256k1_context));
     CHECK(!secp256k1_context_is_proper(STATIC_CTX));
 
+#ifdef ENABLE_MODULE_BPPP
+    run_bppp_tests();
+    return 0;
+#endif
+
     /*** Run actual tests ***/
 
     /* selftest tests */
