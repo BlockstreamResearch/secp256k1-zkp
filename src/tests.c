@@ -1899,6 +1899,14 @@ void scalar_test(void) {
     }
 
     {
+        /* Test square. */
+        secp256k1_scalar r1, r2;
+        secp256k1_scalar_sqr(&r1, &s1);
+        secp256k1_scalar_mul(&r2, &s1, &s1);
+        CHECK(secp256k1_scalar_eq(&r1, &r2));
+    }
+
+    {
         /* Test multiplicative identity. */
         secp256k1_scalar r1, v1;
         secp256k1_scalar_set_int(&v1,1);
@@ -2653,6 +2661,12 @@ void run_scalar_tests(void) {
                 CHECK(!secp256k1_scalar_check_overflow(&zz));
                 CHECK(secp256k1_scalar_eq(&one, &zz));
             }
+            secp256k1_scalar_mul(&z, &x, &x);
+            CHECK(!secp256k1_scalar_check_overflow(&z));
+            secp256k1_scalar_sqr(&zz, &x);
+            CHECK(!secp256k1_scalar_check_overflow(&zz));
+            CHECK(secp256k1_scalar_eq(&zz, &z));
+            CHECK(secp256k1_scalar_eq(&r2, &zz));
         }
     }
 }
@@ -7118,6 +7132,10 @@ void run_ecdsa_edge_cases(void) {
     test_ecdsa_edge_cases();
 }
 
+#ifdef ENABLE_MODULE_BPPP
+# include "modules/bppp/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDH
 # include "modules/ecdh/tests_impl.h"
 #endif
@@ -7437,6 +7455,10 @@ int main(int argc, char **argv) {
 
     /* EC key arithmetic test */
     run_eckey_negate_test();
+
+#ifdef ENABLE_MODULE_BPPP
+    run_bppp_tests();
+#endif
 
 #ifdef ENABLE_MODULE_ECDH
     /* ecdh tests */
