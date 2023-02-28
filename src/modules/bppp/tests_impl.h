@@ -535,7 +535,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         secp256k1_scalar_set_b32(&c_vec[i], c_vec32[i], &overflow);
         CHECK(!overflow);
     }
-    CHECK(secp256k1_eckey_pubkey_parse(&commit, commit33, 33));
+    CHECK(secp256k1_ge_parse_ext(&commit, commit33));
     ret = secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
 
     secp256k1_bppp_generators_destroy(ctx, gs);
@@ -557,6 +557,7 @@ void norm_arg_verify_vectors(void) {
     CHECK(IDX_TO_TEST(6));
     CHECK(IDX_TO_TEST(7));
     CHECK(IDX_TO_TEST(8));
+    CHECK(IDX_TO_TEST(9));
 
     CHECK(alloc == scratch->alloc_size);
     secp256k1_scratch_space_destroy(ctx, scratch);
