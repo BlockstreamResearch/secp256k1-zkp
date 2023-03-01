@@ -212,6 +212,80 @@ void test_norm_util_helpers(void) {
     secp256k1_scalar_set_int(&res, 256); CHECK(secp256k1_scalar_eq(&res, &rho_pows[3]));
 }
 
+
+void test_serialize_two_points_roundtrip(secp256k1_ge *X, secp256k1_ge *R) {
+    secp256k1_ge X_tmp, R_tmp;
+    unsigned char buf[65];
+    secp256k1_bppp_serialize_points(buf, X, R);
+    CHECK(secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0));
+    CHECK(secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 1));
+    ge_equals_ge(X, &X_tmp);
+    ge_equals_ge(R, &R_tmp);
+}
+
+void test_serialize_two_points(void) {
+    secp256k1_ge X, R;
+    int i;
+
+    for (i = 0; i < count; i++) {
+        random_group_element_test(&X);
+        random_group_element_test(&R);
+        test_serialize_two_points_roundtrip(&X, &R);
+    }
+
+    for (i = 0; i < count; i++) {
+        random_group_element_test(&X);
+        secp256k1_ge_set_infinity(&R);
+        test_serialize_two_points_roundtrip(&X, &R);
+    }
+
+    for (i = 0; i < count; i++) {
+        secp256k1_ge_set_infinity(&X);
+        random_group_element_test(&R);
+        test_serialize_two_points_roundtrip(&X, &R);
+    }
+
+    secp256k1_ge_set_infinity(&X);
+    secp256k1_ge_set_infinity(&R);
+    test_serialize_two_points_roundtrip(&X, &R);
+
+    /* Test invalid sign byte */
+    {
+        secp256k1_ge X_tmp, R_tmp;
+        unsigned char buf[65];
+        random_group_element_test(&X);
+        random_group_element_test(&R);
+        secp256k1_bppp_serialize_points(buf, &X, &R);
+        buf[0] |= 4 + (unsigned char)secp256k1_testrandi64(4, 255);
+        CHECK(!secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0));
+        CHECK(!secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 0));
+    }
+    /* Check that sign bit is 0 for point at infinity */
+    for (i = 0; i < count; i++) {
+        secp256k1_ge X_tmp, R_tmp;
+        unsigned char buf[65];
+        int expect;
+        random_group_element_test(&X);
+        random_group_element_test(&R);
+        secp256k1_bppp_serialize_points(buf, &X, &R);
+        memset(&buf[1], 0, 32);
+        if ((buf[0] & 2) == 0) {
+            expect = 1;
+        } else {
+            expect = 0;
+        }
+        CHECK(secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0) == expect);
+        CHECK(secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 1));
+        memset(&buf[33], 0, 32);
+        if ((buf[0] & 1) == 0) {
+            expect = 1;
+        } else {
+            expect = 0;
+        }
+        CHECK(secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 1) == expect);
+    }
+}
+
 static void secp256k1_norm_arg_commit_initial_data(
     secp256k1_sha256* transcript,
     const secp256k1_scalar* rho,
@@ -416,7 +490,9 @@ void norm_arg_zero(void) {
             random_scalar_order(&c_vec[i]);
         }
         CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
-        CHECK(!secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
+        CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
+        secp256k1_sha256_initialize(&transcript);
+        CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
         secp256k1_bppp_generators_destroy(ctx, gs);
     }
 
@@ -558,6 +634,7 @@ void norm_arg_verify_vectors(void) {
     CHECK(IDX_TO_TEST(7));
     CHECK(IDX_TO_TEST(8));
     CHECK(IDX_TO_TEST(9));
+    CHECK(IDX_TO_TEST(10));
 
     CHECK(alloc == scratch->alloc_size);
     secp256k1_scratch_space_destroy(ctx, scratch);
@@ -567,6 +644,7 @@ void norm_arg_verify_vectors(void) {
 void run_bppp_tests(void) {
     test_log_exp();
     test_norm_util_helpers();
+    test_serialize_two_points();
     test_bppp_generators_api();
     test_bppp_generators_fixed();
     test_bppp_tagged_hash();

@@ -300,17 +300,8 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
             return 0;
         }
 
-        /* We only fail here because we cannot serialize points at infinity. */
-        if (secp256k1_gej_is_infinity(&xj) || secp256k1_gej_is_infinity(&rj)) {
-            return 0;
-        }
-
         secp256k1_ge_set_gej_var(&x_ge, &xj);
-        secp256k1_fe_normalize_var(&x_ge.x);
-        secp256k1_fe_normalize_var(&x_ge.y);
         secp256k1_ge_set_gej_var(&r_ge, &rj);
-        secp256k1_fe_normalize_var(&r_ge.x);
-        secp256k1_fe_normalize_var(&r_ge.y);
         secp256k1_bppp_serialize_points(&proof[proof_idx], &x_ge, &r_ge);
         proof_idx += 65;
 
@@ -379,16 +370,12 @@ static int ec_mult_verify_cb1(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx
     }
     idx -= 1;
     if (idx % 2 == 0) {
-        unsigned char pk_buf[33];
         idx /= 2;
         *sc = data->gammas[idx];
-        pk_buf[0] = 2 | (data->proof[65*idx] >> 1);
-        memcpy(&pk_buf[1], &data->proof[65*idx + 1], 32);
-        if (!secp256k1_eckey_pubkey_parse(pt, pk_buf, sizeof(pk_buf))) {
+        if (!secp256k1_bppp_parse_one_of_points(pt, &data->proof[65*idx], 0)) {
             return 0;
         }
     } else {
-        unsigned char pk_buf[33];
         secp256k1_scalar neg_one;
         idx /= 2;
         secp256k1_scalar_set_int(&neg_one, 1);
@@ -396,9 +383,7 @@ static int ec_mult_verify_cb1(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx
         *sc = data->gammas[idx];
         secp256k1_scalar_sqr(sc, sc);
         secp256k1_scalar_add(sc, sc, &neg_one);
-        pk_buf[0] = 2 | data->proof[65*idx];
-        memcpy(&pk_buf[1], &data->proof[65*idx + 33], 32);
-        if (!secp256k1_eckey_pubkey_parse(pt, pk_buf, sizeof(pk_buf))) {
+        if (!secp256k1_bppp_parse_one_of_points(pt, &data->proof[65*idx], 1)) {
             return 0;
         }
     }
