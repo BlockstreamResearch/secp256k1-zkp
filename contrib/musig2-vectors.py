@@ -208,7 +208,8 @@ struct musig_nonce_gen_test_case {
     unsigned char msg[32];
     int has_extra_in;
     unsigned char extra_in[32];
-    unsigned char expected[97];
+    unsigned char expected_secnonce[97];
+    unsigned char expected_pubnonce[66];
 };
 """
 
@@ -231,7 +232,7 @@ struct musig_nonce_gen_vector {
 
     s += init_cases(
         data["test_cases"],
-        lambda case: "{ { %s },  %s, { %s }, %s, %s, %s, { %s } },"
+        lambda case: "{ { %s },  %s, { %s }, %s, %s, %s, { %s }, { %s } },"
         % (
             hexstr_to_intarray(case["rand_"]),
             init_array_maybe(case["sk"]),
@@ -239,7 +240,8 @@ struct musig_nonce_gen_vector {
             init_array_maybe(case["aggpk"]),
             init_array_maybe(case["msg"]),
             init_array_maybe(case["extra_in"]),
-            hexstr_to_intarray(case["expected"]),
+            hexstr_to_intarray(case["expected_secnonce"]),
+            hexstr_to_intarray(case["expected_pubnonce"]),
         ),
     )
 
