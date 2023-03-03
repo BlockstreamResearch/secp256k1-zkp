@@ -1295,6 +1295,60 @@ void musig_test_vectors_sigagg(void) {
     }
 }
 
+void musig_sig_point_test(secp256k1_scratch_space *scratch) {
+    unsigned char sk[2][32];
+    secp256k1_keypair keypair[2];
+    secp256k1_musig_pubnonce pubnonce[2];
+    const secp256k1_musig_pubnonce *pubnonce_ptr[2];
+    secp256k1_musig_aggnonce aggnonce;
+    unsigned char msg[32];
+    secp256k1_xonly_pubkey agg_pk;
+    secp256k1_musig_keyagg_cache keyagg_cache;
+    unsigned char session_id[2][32];
+    secp256k1_musig_secnonce secnonce[2];
+    secp256k1_pubkey pk[2];
+    const secp256k1_pubkey *pk_ptr[2];
+    secp256k1_musig_partial_sig partial_sig[2];
+    const secp256k1_musig_partial_sig *partial_sig_ptr[2];
+    unsigned char final_sig[64];
+    secp256k1_musig_session session;
+    int i;
+
+    secp256k1_testrand256(msg);
+    for (i = 0; i < 2; i++) {
+        secp256k1_testrand256(session_id[i]);
+        secp256k1_testrand256(sk[i]);
+        pk_ptr[i] = &pk[i];
+        pubnonce_ptr[i] = &pubnonce[i];
+        partial_sig_ptr[i] = &partial_sig[i];
+
+        CHECK(create_keypair_and_pk(&keypair[i], &pk[i], sk[i]));
+        CHECK(secp256k1_musig_nonce_gen(ctx, &secnonce[i], &pubnonce[i], session_id[i], sk[i], &pk[i], NULL, NULL, NULL) == 1);
+    }
+
+    CHECK(secp256k1_musig_pubkey_agg(ctx, scratch, &agg_pk, &keyagg_cache, pk_ptr, 2) == 1);
+    CHECK(secp256k1_musig_nonce_agg(ctx, &aggnonce, pubnonce_ptr, 2) == 1);
+    CHECK(secp256k1_musig_nonce_process(ctx, &session, &aggnonce, msg, &keyagg_cache, NULL) == 1);
+
+    for (i = 0; i < 2; i++) {
+        secp256k1_pubkey sigp;
+        secp256k1_ge sigp_ge;
+        secp256k1_gej sigp_expected_gej;
+        secp256k1_scalar s;
+        CHECK(secp256k1_musig_partial_sign(ctx, &partial_sig[i], &secnonce[i], &keypair[i], &keyagg_cache, &session) == 1);
+        CHECK(secp256k1_musig_partial_sig_verify(ctx, &partial_sig[i], &pubnonce[i], &pk[i], &keyagg_cache, &session) == 1);
+
+        CHECK(secp256k1_musig_partial_sig_load(ctx, &s, &partial_sig[i]));
+        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &sigp_expected_gej, &s);
+        CHECK(secp256k1_musig_partial_sig_point(ctx, &sigp, &pubnonce[i], &pk[i], &keyagg_cache, &session));
+        CHECK(secp256k1_pubkey_load(ctx, &sigp_ge, &sigp));
+        ge_equals_gej(&sigp_ge, &sigp_expected_gej);
+    }
+
+    CHECK(secp256k1_musig_partial_sig_agg(ctx, final_sig, &session, partial_sig_ptr, 2) == 1);
+    CHECK(secp256k1_schnorrsig_verify(ctx, final_sig, msg, sizeof(msg), &agg_pk) == 1);
+}
+
 void run_musig_tests(void) {
     int i;
     secp256k1_scratch_space *scratch = secp256k1_scratch_space_create(ctx, 1024 * 1024);
@@ -1309,6 +1363,7 @@ void run_musig_tests(void) {
          * parities */
         scriptless_atomic_swap(scratch);
         musig_tweak_test(scratch);
+        musig_sig_point_test(scratch);
     }
     sha256_tag_test();
     musig_test_vectors_keyagg();
