@@ -1031,6 +1031,7 @@ void musig_test_vectors_noncegen(void) {
         const unsigned char *msg = NULL;
         const unsigned char *extra_in = NULL;
         secp256k1_pubkey pk;
+        unsigned char pubnonce66[66];
 
         if (c->has_sk) {
             sk = c->sk;
@@ -1054,8 +1055,12 @@ void musig_test_vectors_noncegen(void) {
 
         CHECK(secp256k1_ec_pubkey_parse(ctx, &pk, c->pk, sizeof(c->pk)));
         CHECK(secp256k1_musig_nonce_gen(ctx, &secnonce, &pubnonce, c->rand_, sk, &pk, msg, keyagg_cache_ptr, extra_in) == 1);
-        CHECK(secp256k1_memcmp_var(&secnonce.data[4], c->expected, 2*32) == 0);
+        CHECK(secp256k1_memcmp_var(&secnonce.data[4], c->expected_secnonce, 2*32) == 0);
         CHECK(secp256k1_memcmp_var(&secnonce.data[4+2*32], &pk, sizeof(pk)) == 0);
+
+        CHECK(secp256k1_musig_pubnonce_serialize(ctx, pubnonce66, &pubnonce) == 1);
+        CHECK(sizeof(c->expected_pubnonce) == sizeof(pubnonce66));
+        CHECK(secp256k1_memcmp_var(pubnonce66, c->expected_pubnonce, sizeof(pubnonce66)) == 0);
     }
 }
 
