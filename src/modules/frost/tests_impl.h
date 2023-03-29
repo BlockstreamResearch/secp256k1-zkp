@@ -227,7 +227,7 @@ void frost_api_tests(void) {
         invalid_partial_sig_ptr[i] = &partial_sig[i];
         secp256k1_testrand256(session_id[i]);
         secp256k1_testrand256(sk[i]);
-        CHECK(create_keypair_and_pk(&keypair[i], &pk[i], sk[i]));
+        CHECK(frost_create_keypair_and_pk(&keypair[i], &pk[i], sk[i]));
     }
     invalid_pubnonce_ptr[0] = &invalid_pubnonce;
     invalid_pk_ptr[0] = &invalid_pk;

@@ -16,7 +16,9 @@
 
 typedef struct {
     secp256k1_ge pk;
-    secp256k1_fe second_pk_x;
+    /* If there is no "second" public key, second_pk is set to the point at
+     * infinity */
+    secp256k1_ge second_pk;
     unsigned char pk_hash[32];
     /* tweak is identical to value tacc[v] in the specification. */
     secp256k1_scalar tweak;
@@ -27,6 +29,6 @@ typedef struct {
 
 static int secp256k1_keyagg_cache_load(const secp256k1_context* ctx, secp256k1_keyagg_cache_internal *cache_i, const secp256k1_musig_keyagg_cache *cache);
 
-static void secp256k1_musig_keyaggcoef(secp256k1_scalar *r, const secp256k1_keyagg_cache_internal *cache_i, secp256k1_fe *x);
+static void secp256k1_musig_keyaggcoef(secp256k1_scalar *r, const secp256k1_keyagg_cache_internal *cache_i, secp256k1_ge *pk);
 
 #endif
