@@ -117,12 +117,12 @@ int secp256k1_frost_share_parse(const secp256k1_context* ctx, secp256k1_frost_sh
     return 1;
 }
 
-int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_keypair *keypair, const secp256k1_xonly_pubkey *pk, size_t threshold) {
+int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_keypair *keypair, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
     secp256k1_sha256 sha;
     secp256k1_scalar idx;
     secp256k1_scalar sk;
     secp256k1_scalar share_i;
-    secp256k1_ge ge_tmp;
+    secp256k1_ge sender_pk;
     unsigned char buf[32];
     unsigned char rngseed[32];
     secp256k1_scalar rand[2];
@@ -134,16 +134,16 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vs
     memset(share, 0, sizeof(*share));
     ARG_CHECK(session_id != NULL);
     ARG_CHECK(keypair != NULL);
-    ARG_CHECK(pk != NULL);
+    ARG_CHECK(recipient_pk != NULL);
     ARG_CHECK(threshold > 1);
 
-    if (!secp256k1_keypair_load(ctx, &sk, &ge_tmp, keypair)) {
+    if (!secp256k1_keypair_load(ctx, &sk, &sender_pk, keypair)) {
         return 0;
     }
     /* The first coefficient is the secret key, and thus the first commitment
      * is the public key. */
     if (vss_commitment != NULL) {
-        secp256k1_pubkey_save(&vss_commitment[0], &ge_tmp);
+        secp256k1_pubkey_save(&vss_commitment[0], &sender_pk);
     }
     /* Compute seed which commits to threshold and session ID */
     secp256k1_scalar_get_b32(buf, &sk);
@@ -159,7 +159,7 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vs
     /* Derive share */
     /* See draft-irtf-cfrg-frost-08#appendix-C.1 */
     secp256k1_scalar_clear(&share_i);
-    if (!secp256k1_frost_compute_indexhash(ctx, &idx, pk)) {
+    if (!secp256k1_frost_compute_indexhash(ctx, &idx, recipient_pk)) {
         return 0;
     }
     for (i = 0; i < threshold - 1; i++) {

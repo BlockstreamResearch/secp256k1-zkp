@@ -216,7 +216,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
  *   In:    session_id32: a 32-byte session_id32 as explained above
  *               keypair: pointer to a keypair that contains the secret that is
  *                        shared
- *                    pk: pointer to the public key of the share recipient
+ *          recipient_pk: pointer to the public key of the share recipient
  *             threshold: the minimum number of signers required to produce a
  *                        signature
  */
@@ -226,7 +226,7 @@ SECP256K1_API int secp256k1_frost_share_gen(
     secp256k1_frost_share *share,
     const unsigned char *session_id32,
     const secp256k1_keypair *keypair,
-    const secp256k1_xonly_pubkey *pk,
+    const secp256k1_xonly_pubkey *recipient_pk,
     size_t threshold
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 
