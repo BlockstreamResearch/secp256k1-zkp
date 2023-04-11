@@ -97,7 +97,7 @@ echo "$BODY"
 echo "-----------------------------------"
 # Create branch from PR commit and create PR
 git checkout master
-git pull
+git pull --autostash
 git checkout -b temp-merge-"$PRNUM"
 
 # Escape single quote
