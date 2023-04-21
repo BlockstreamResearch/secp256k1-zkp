@@ -5,8 +5,8 @@
  **********************************************************************/
 
 
-#ifndef _SECP256K1_BORROMEAN_H_
-#define _SECP256K1_BORROMEAN_H_
+#ifndef SECP256K1_BORROMEAN_H
+#define SECP256K1_BORROMEAN_H
 
 #include "../../scalar.h"
 #include "../../field.h"

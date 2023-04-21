@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_
-#define _SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_
+#ifndef SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_H
+#define SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_H
 
 #include "../../group.h"
 #include "../../scalar.h"

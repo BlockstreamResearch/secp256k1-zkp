@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_GENERATOR_MAIN
-#define SECP256K1_MODULE_GENERATOR_MAIN
+#ifndef SECP256K1_MODULE_GENERATOR_MAIN_H
+#define SECP256K1_MODULE_GENERATOR_MAIN_H
 
 #include <stdio.h>
 

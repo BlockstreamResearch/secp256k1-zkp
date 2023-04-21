@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_RANGEPROOF_MAIN
-#define SECP256K1_MODULE_RANGEPROOF_MAIN
+#ifndef SECP256K1_MODULE_RANGEPROOF_MAIN_H
+#define SECP256K1_MODULE_RANGEPROOF_MAIN_H
 
 #include "../../group.h"
 

@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BPPP_MAIN_
-#define _SECP256K1_MODULE_BPPP_MAIN_
+#ifndef SECP256K1_MODULE_BPPP_MAIN_IMPL_H
+#define SECP256K1_MODULE_BPPP_MAIN_IMPL_H
 
 #include "../../../include/secp256k1_bppp.h"
 #include "../../../include/secp256k1_generator.h"

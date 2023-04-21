@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BPPP_UTIL_
-#define _SECP256K1_MODULE_BPPP_UTIL_
+#ifndef SECP256K1_MODULE_BPPP_UTIL_H
+#define SECP256K1_MODULE_BPPP_UTIL_H
 
 #include "../../field.h"
 #include "../../group.h"

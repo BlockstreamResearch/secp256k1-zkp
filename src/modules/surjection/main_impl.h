@@ -3,8 +3,8 @@
  * Distributed under the MIT software license, see the accompanying   *
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
-#ifndef SECP256K1_MODULE_SURJECTION_MAIN
-#define SECP256K1_MODULE_SURJECTION_MAIN
+#ifndef SECP256K1_MODULE_SURJECTION_MAIN_H
+#define SECP256K1_MODULE_SURJECTION_MAIN_H
 
 #include <assert.h>
 #include <string.h>
