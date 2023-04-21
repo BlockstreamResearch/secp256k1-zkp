@@ -33,15 +33,15 @@
 #endif
 
 #ifdef ENABLE_MODULE_GENERATOR
-# include "include/secp256k1_generator.h"
+# include "../include/secp256k1_generator.h"
 #endif
 
 #ifdef ENABLE_MODULE_RANGEPROOF
-# include "include/secp256k1_rangeproof.h"
+# include "../include/secp256k1_rangeproof.h"
 #endif
 
 #ifdef ENABLE_MODULE_ECDSA_S2C
-# include "include/secp256k1_ecdsa_s2c.h"
+# include "../include/secp256k1_ecdsa_s2c.h"
 static void secp256k1_ecdsa_s2c_opening_save(secp256k1_ecdsa_s2c_opening* opening, secp256k1_ge* ge);
 #else
 typedef void secp256k1_ecdsa_s2c_opening;

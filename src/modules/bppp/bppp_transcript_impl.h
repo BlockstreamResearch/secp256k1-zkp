@@ -6,8 +6,8 @@
 #ifndef _SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_
 #define _SECP256K1_MODULE_BPPP_PP_TRANSCRIPT_IMPL_
 
-#include "group.h"
-#include "scalar.h"
+#include "../../group.h"
+#include "../../scalar.h"
 #include "bppp_util.h"
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying

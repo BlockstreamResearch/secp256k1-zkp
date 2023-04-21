@@ -7,15 +7,15 @@
 #ifndef _SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_
 #define _SECP256K1_MODULE_BPPP_PP_NORM_PRODUCT_
 
-#include "group.h"
-#include "scalar.h"
-#include "ecmult.h"
-#include "ecmult_gen.h"
-#include "hash.h"
+#include "../../group.h"
+#include "../../scalar.h"
+#include "../../ecmult.h"
+#include "../../ecmult_gen.h"
+#include "../../hash.h"
 
-#include "modules/bppp/main.h"
-#include "modules/bppp/bppp_util.h"
-#include "modules/bppp/bppp_transcript_impl.h"
+#include "../bppp/main.h"
+#include "../bppp/bppp_util.h"
+#include "../bppp/bppp_transcript_impl.h"
 
 /* Computes the inner product of two vectors of scalars
  * with elements starting from offset a and offset b

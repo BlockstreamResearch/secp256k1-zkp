@@ -14,7 +14,7 @@
 #include "../../hash.h"
 #include "../../scalar.h"
 
-#include "modules/generator/pedersen_impl.h"
+#include "../generator/pedersen_impl.h"
 
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after standard encoding (without compression),

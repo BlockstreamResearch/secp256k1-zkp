@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-#include "include/secp256k1_bppp.h"
+#include "../../../include/secp256k1_bppp.h"
 #include "bppp_norm_product_impl.h"
 #include "bppp_util.h"
 #include "bppp_transcript_impl.h"
