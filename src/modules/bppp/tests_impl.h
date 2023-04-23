@@ -4,12 +4,12 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_MODULE_BPPP_TEST_
-#define _SECP256K1_MODULE_BPPP_TEST_
+#ifndef SECP256K1_MODULE_BPPP_TEST_H
+#define SECP256K1_MODULE_BPPP_TEST_H
 
 #include <stdint.h>
 
-#include "include/secp256k1_bppp.h"
+#include "../../../include/secp256k1_bppp.h"
 #include "bppp_norm_product_impl.h"
 #include "bppp_util.h"
 #include "bppp_transcript_impl.h"

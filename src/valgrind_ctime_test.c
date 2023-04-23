@@ -29,15 +29,15 @@
 #endif
 
 #ifdef ENABLE_MODULE_ECDSA_S2C
-#include "include/secp256k1_ecdsa_s2c.h"
+#include "../include/secp256k1_ecdsa_s2c.h"
 #endif
 
 #ifdef ENABLE_MODULE_ECDSA_ADAPTOR
-#include "include/secp256k1_ecdsa_adaptor.h"
+#include "../include/secp256k1_ecdsa_adaptor.h"
 #endif
 
 #ifdef ENABLE_MODULE_MUSIG
-#include "include/secp256k1_musig.h"
+#include "../include/secp256k1_musig.h"
 #endif
 
 void run_tests(secp256k1_context *ctx, unsigned char *key);

@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_RANGEPROOF_TESTS
-#define SECP256K1_MODULE_RANGEPROOF_TESTS
+#ifndef SECP256K1_MODULE_RANGEPROOF_TESTS_H
+#define SECP256K1_MODULE_RANGEPROOF_TESTS_H
 
 #include <string.h>
 

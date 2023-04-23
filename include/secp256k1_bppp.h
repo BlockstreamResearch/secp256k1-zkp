@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_BPPP_
-# define _SECP256K1_BPPP_
+#ifndef SECP256K1_BPPP_H
+# define SECP256K1_BPPP_H
 
 # include "secp256k1.h"
 

@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_GENERATOR_
-# define _SECP256K1_GENERATOR_
+#ifndef SECP256K1_GENERATOR_H
+# define SECP256K1_GENERATOR_H
 
 # include "secp256k1.h"
 

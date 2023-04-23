@@ -5,9 +5,9 @@
  **********************************************************************/
 #include <stdio.h>
 
-#include "include/secp256k1.h"
+#include "../include/secp256k1.h"
 
-#include "include/secp256k1_whitelist.h"
+#include "../include/secp256k1_whitelist.h"
 #include "util.h"
 #include "bench.h"
 #include "hash_impl.h"

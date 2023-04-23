@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_WHITELIST_
-#define _SECP256K1_WHITELIST_
+#ifndef SECP256K1_WHITELIST_H
+#define SECP256K1_WHITELIST_H
 
 #include "secp256k1.h"
 

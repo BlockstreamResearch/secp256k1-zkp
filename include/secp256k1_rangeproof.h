@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_RANGEPROOF_
-# define _SECP256K1_RANGEPROOF_
+#ifndef SECP256K1_RANGEPROOF_H
+# define SECP256K1_RANGEPROOF_H
 
 # include "secp256k1.h"
 # include "secp256k1_generator.h"
