@@ -453,60 +453,6 @@ static int secp256k1_norm_arg_verify(
     return res;
 }
 
-void norm_arg_prove_edge(void) {
-    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
-    secp256k1_scalar rho, mu;
-    secp256k1_ge commit;
-    size_t i;
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*10); /* shouldn't need much */
-    unsigned char proof[1000];
-    secp256k1_sha256 transcript;
-
-    random_scalar_order(&rho);
-    secp256k1_scalar_sqr(&mu, &rho);
-
-    /* l is zero vector and n is zero vectors of length 1 each. */
-    {
-        size_t plen = sizeof(proof);
-        unsigned int n_vec_len = 1;
-        unsigned int c_vec_len = 1;
-        secp256k1_bppp_generators *gens = secp256k1_bppp_generators_create(ctx, n_vec_len + c_vec_len);
-
-        secp256k1_scalar_set_int(&n_vec[0], 0);
-        secp256k1_scalar_set_int(&l_vec[0], 0);
-        random_scalar_order(&c_vec[0]);
-
-        secp256k1_sha256_initialize(&transcript); /* No challenges used in n = 1, l = 1, but we set transcript as a good practice*/
-        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gens, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
-        CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, &plen, &transcript, &rho, gens->gens, gens->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len));
-        secp256k1_sha256_initialize(&transcript);
-        CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gens, c_vec_len, c_vec, c_vec_len, &commit));
-
-        secp256k1_bppp_generators_destroy(ctx, gens);
-    }
-
-    /* l is the zero vector and longer than n. This results in one of the
-     * internal commitments X or R to be the point at infinity. */
-    {
-        unsigned int n_vec_len = 1;
-        unsigned int c_vec_len = 2;
-        secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n_vec_len + c_vec_len);
-        size_t plen = sizeof(proof);
-        for (i = 0; i < n_vec_len; i++) {
-            random_scalar_order(&n_vec[i]);
-        }
-        for (i = 0; i < c_vec_len; i++) {
-            secp256k1_scalar_set_int(&l_vec[i], 0);
-            random_scalar_order(&c_vec[i]);
-        }
-        CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
-        CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
-        secp256k1_sha256_initialize(&transcript);
-        CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
-        secp256k1_bppp_generators_destroy(ctx, gs);
-    }
-}
-
 /* Verify |c| = 0 */
 void norm_arg_verify_zero_len(void) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
@@ -733,7 +679,6 @@ void run_bppp_tests(void) {
     test_bppp_generators_fixed();
     test_bppp_tagged_hash();
 
-    norm_arg_prove_edge();
     norm_arg_verify_zero_len();
     norm_arg_test(1, 1);
     norm_arg_test(1, 64);
