@@ -664,7 +664,8 @@ void norm_arg_verify_vectors(void) {
 void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned char *gens, const unsigned char *proof, size_t plen, const unsigned char *r32, const unsigned char n_vec32[][32], secp256k1_scalar *n_vec, size_t n_vec_len, const unsigned char l_vec32[][32], secp256k1_scalar *l_vec, const unsigned char c_vec32[][32], secp256k1_scalar *c_vec, size_t c_vec_len, int result) {
     secp256k1_sha256 transcript;
     secp256k1_bppp_generators *gs = bppp_generators_parse_regular(gens, 33*(n_vec_len + c_vec_len));
-    secp256k1_scalar rho;
+    secp256k1_scalar rho, mu;
+    secp256k1_ge commit;
     unsigned char myproof[1024];
     size_t myplen = sizeof(myproof);
     int overflow;
@@ -672,15 +673,14 @@ void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
 
     CHECK(gs != NULL);
     secp256k1_sha256_initialize(&transcript);
-
     secp256k1_scalar_set_b32(&rho, r32, &overflow);
     CHECK(!overflow);
+    secp256k1_scalar_sqr(&mu, &rho);
 
     for (i = 0; i < (int)n_vec_len; i++) {
         secp256k1_scalar_set_b32(&n_vec[i], n_vec32[i], &overflow);
         CHECK(!overflow);
     }
-
     for (i = 0; i < (int)c_vec_len; i++) {
         secp256k1_scalar_set_b32(&l_vec[i], l_vec32[i], &overflow);
         CHECK(!overflow);
@@ -688,13 +688,17 @@ void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         CHECK(!overflow);
     }
 
-    CHECK(secp256k1_bppp_rangeproof_norm_product_prove(ctx, scratch, myproof, &myplen, &transcript, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
+    CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, myproof, &myplen, &transcript, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
     if (!result) {
         secp256k1_bppp_generators_destroy(ctx, gs);
         return;
     }
     CHECK(plen == myplen);
     CHECK(secp256k1_memcmp_var(proof, myproof, plen) == 0);
+
+    CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
+    secp256k1_sha256_initialize(&transcript);
+    CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
     secp256k1_bppp_generators_destroy(ctx, gs);
 }
 
