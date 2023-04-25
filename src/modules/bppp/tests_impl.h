@@ -14,6 +14,7 @@
 #include "bppp_util.h"
 #include "bppp_transcript_impl.h"
 #include "test_vectors/verify.h"
+#include "test_vectors/prove.h"
 
 static void test_bppp_generators_api(void) {
     /* The BP generator API requires no precomp */
@@ -660,6 +661,66 @@ void norm_arg_verify_vectors(void) {
 }
 #undef IDX_TO_TEST
 
+void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned char *gens, const unsigned char *proof, size_t plen, const unsigned char *r32, const unsigned char n_vec32[][32], secp256k1_scalar *n_vec, size_t n_vec_len, const unsigned char l_vec32[][32], secp256k1_scalar *l_vec, const unsigned char c_vec32[][32], secp256k1_scalar *c_vec, size_t c_vec_len, int result) {
+    secp256k1_sha256 transcript;
+    secp256k1_bppp_generators *gs = bppp_generators_parse_regular(gens, 33*(n_vec_len + c_vec_len));
+    secp256k1_scalar rho;
+    unsigned char myproof[1024];
+    size_t myplen = sizeof(myproof);
+    int overflow;
+    int i;
+
+    CHECK(gs != NULL);
+    secp256k1_sha256_initialize(&transcript);
+
+    secp256k1_scalar_set_b32(&rho, r32, &overflow);
+    CHECK(!overflow);
+
+    for (i = 0; i < (int)n_vec_len; i++) {
+        secp256k1_scalar_set_b32(&n_vec[i], n_vec32[i], &overflow);
+        CHECK(!overflow);
+    }
+
+    for (i = 0; i < (int)c_vec_len; i++) {
+        secp256k1_scalar_set_b32(&l_vec[i], l_vec32[i], &overflow);
+        CHECK(!overflow);
+        secp256k1_scalar_set_b32(&c_vec[i], c_vec32[i], &overflow);
+        CHECK(!overflow);
+    }
+
+    CHECK(secp256k1_bppp_rangeproof_norm_product_prove(ctx, scratch, myproof, &myplen, &transcript, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
+    if (!result) {
+        secp256k1_bppp_generators_destroy(ctx, gs);
+        return;
+    }
+    CHECK(plen == myplen);
+    CHECK(secp256k1_memcmp_var(proof, myproof, plen) == 0);
+    secp256k1_bppp_generators_destroy(ctx, gs);
+}
+
+
+#define IDX_TO_TEST(i) (norm_arg_prove_vectors_helper(scratch, prove_vector_gens, prove_vector_##i##_proof, sizeof(prove_vector_##i##_proof), prove_vector_##i##_r32,\
+    prove_vector_##i##_n_vec32, prove_vector_##i##_n_vec, sizeof(prove_vector_##i##_n_vec)/sizeof(secp256k1_scalar),\
+    prove_vector_##i##_l_vec32, prove_vector_##i##_l_vec,\
+    prove_vector_##i##_c_vec32, prove_vector_##i##_c_vec, sizeof(prove_vector_##i##_c_vec)/sizeof(secp256k1_scalar), \
+    prove_vector_##i##_result))
+
+void norm_arg_prove_vectors(void) {
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
+    size_t alloc = scratch->alloc_size;
+
+    IDX_TO_TEST(0);
+    IDX_TO_TEST(1);
+    IDX_TO_TEST(2);
+    IDX_TO_TEST(3);
+    IDX_TO_TEST(4);
+
+    CHECK(alloc == scratch->alloc_size);
+    secp256k1_scratch_space_destroy(ctx, scratch);
+}
+
+#undef IDX_TO_TEST
+
 void run_bppp_tests(void) {
     test_log_exp();
     test_norm_util_helpers();
@@ -677,7 +738,9 @@ void run_bppp_tests(void) {
     norm_arg_test(32, 64);
     norm_arg_test(64, 32);
     norm_arg_test(64, 64);
+
     norm_arg_verify_vectors();
+    norm_arg_prove_vectors();
 }
 
 #endif
