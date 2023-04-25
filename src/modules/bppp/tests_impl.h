@@ -347,6 +347,50 @@ static void copy_vectors_into_scratch(secp256k1_scratch_space* scratch,
     memcpy(*gs, gens_vec, (g_len + h_len) * sizeof(secp256k1_ge));
 }
 
+/* Same as secp256k1_bppp_rangeproof_norm_product_prove but does not modify the inputs */
+static int secp256k1_bppp_rangeproof_norm_product_prove_const(
+    secp256k1_scratch_space* scratch,
+    unsigned char* proof,
+    size_t *proof_len,
+    secp256k1_sha256 *transcript,
+    const secp256k1_scalar* rho,
+    const secp256k1_ge* g_vec,
+    size_t g_vec_len,
+    const secp256k1_scalar* n_vec,
+    size_t n_vec_len,
+    const secp256k1_scalar* l_vec,
+    size_t l_vec_len,
+    const secp256k1_scalar* c_vec,
+    size_t c_vec_len
+) {
+    secp256k1_scalar *ns, *ls, *cs;
+    secp256k1_ge *gs;
+    size_t scratch_checkpoint;
+    size_t g_len = n_vec_len, h_len = l_vec_len;
+    int res;
+
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
+    copy_vectors_into_scratch(scratch, &ns, &ls, &cs, &gs, n_vec, l_vec, c_vec, g_vec, g_len, h_len);
+    res = secp256k1_bppp_rangeproof_norm_product_prove(
+        ctx,
+        scratch,
+        proof,
+        proof_len,
+        transcript, /* Transcript hash of the parent protocol */
+        rho,
+        gs,
+        g_vec_len,
+        ns,
+        n_vec_len,
+        ls,
+        l_vec_len,
+        cs,
+        c_vec_len
+    );
+    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+    return res;
+}
+
 /* A complete norm argument. In contrast to secp256k1_bppp_rangeproof_norm_product_prove, this is meant
    to be used as a standalone norm argument.
    This is a simple wrapper around secp256k1_bppp_rangeproof_norm_product_prove
@@ -367,38 +411,10 @@ static int secp256k1_norm_arg_prove(
     size_t c_vec_len,
     const secp256k1_ge* commit
 ) {
-    secp256k1_scalar *ns, *ls, *cs;
-    secp256k1_ge *gs, comm = *commit;
-    size_t scratch_checkpoint;
-    size_t g_len = n_vec_len, h_len = l_vec_len;
-    int res;
     secp256k1_sha256 transcript;
+    secp256k1_norm_arg_commit_initial_data(&transcript, rho, gens_vec, n_vec_len, c_vec, c_vec_len, commit);
 
-    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
-
-    copy_vectors_into_scratch(scratch, &ns, &ls, &cs, &gs, n_vec, l_vec, c_vec, gens_vec->gens, g_len, h_len);
-
-    /* Commit to the initial public values */
-    secp256k1_norm_arg_commit_initial_data(&transcript, rho, gens_vec, g_len, c_vec, c_vec_len, &comm);
-
-    res = secp256k1_bppp_rangeproof_norm_product_prove(
-        ctx,
-        scratch,
-        proof,
-        proof_len,
-        &transcript, /* Transcript hash of the parent protocol */
-        rho,
-        gs,
-        gens_vec->n,
-        ns,
-        n_vec_len,
-        ls,
-        l_vec_len,
-        cs,
-        c_vec_len
-    );
-    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
-    return res;
+    return secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, proof_len, &transcript, rho, gens_vec->gens, gens_vec->n, n_vec, n_vec_len, l_vec, l_vec_len, c_vec, c_vec_len);
 }
 
 /* Verify the proof */
@@ -461,14 +477,7 @@ void norm_arg_prove_edge(void) {
 
         secp256k1_sha256_initialize(&transcript); /* No challenges used in n = 1, l = 1, but we set transcript as a good practice*/
         CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gens, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
-        {
-            secp256k1_scalar *ns, *ls, *cs;
-            secp256k1_ge *gs;
-            size_t scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
-            copy_vectors_into_scratch(scratch, &ns, &ls, &cs, &gs, n_vec, l_vec, c_vec, gens->gens, n_vec_len, c_vec_len);
-            CHECK(secp256k1_bppp_rangeproof_norm_product_prove(ctx, scratch, proof, &plen, &transcript, &rho, gs, gens->n, ns, n_vec_len, ls, c_vec_len, cs, c_vec_len));
-            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
-        }
+        CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, &plen, &transcript, &rho, gens->gens, gens->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len));
         secp256k1_sha256_initialize(&transcript);
         CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gens, c_vec_len, c_vec, c_vec_len, &commit));
 
