@@ -110,8 +110,9 @@ static int secp256k1_scalar_add(secp256k1_scalar *r, const secp256k1_scalar *a, 
 
 static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int flag) {
     uint128_t t;
+    volatile int vflag = flag;
     VERIFY_CHECK(bit < 256);
-    bit += ((uint32_t) flag - 1) & 0x100;  /* forcing (bit >> 6) > 3 makes this a noop */
+    bit += ((uint32_t) vflag - 1) & 0x100;  /* forcing (bit >> 6) > 3 makes this a noop */
     t = (uint128_t)r->d[0] + (((uint64_t)((bit >> 6) == 0)) << (bit & 0x3F));
     r->d[0] = t & 0xFFFFFFFFFFFFFFFFULL; t >>= 64;
     t += (uint128_t)r->d[1] + (((uint64_t)((bit >> 6) == 1)) << (bit & 0x3F));
