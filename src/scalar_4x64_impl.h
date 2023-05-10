@@ -180,7 +180,8 @@ static int secp256k1_scalar_is_high(const secp256k1_scalar *a) {
 static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
     /* If we are flag = 0, mask = 00...00 and this is a no-op;
      * if we are flag = 1, mask = 11...11 and this is identical to secp256k1_scalar_negate */
-    uint64_t mask = !flag - 1;
+    volatile int vflag = flag;
+    uint64_t mask = -vflag;
     uint64_t nonzero = (secp256k1_scalar_is_zero(r) != 0) - 1;
     uint128_t t = (uint128_t)(r->d[0] ^ mask) + ((SECP256K1_N_0 + 1) & mask);
     r->d[0] = t & nonzero; t >>= 64;
