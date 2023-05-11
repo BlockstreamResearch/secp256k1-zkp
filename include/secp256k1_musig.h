@@ -9,9 +9,11 @@ extern "C" {
 
 #include <stddef.h>
 
-/** This module implements BIP MuSig2 v1.0.0-rc.3, a multi-signature scheme
- * compatible with BIP-340 ("Schnorr"). You can find an example demonstrating
- * the musig module in examples/musig.c.
+/** This module implements BIP 327 "MuSig2 for BIP340-compatible
+ * Multi-Signatures"
+ * (https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki)
+ * v1.0.0. You can find an example demonstrating the musig module in
+ * examples/musig.c.
  *
  * The module also supports BIP-341 ("Taproot") public key tweaking and adaptor
  * signatures as described in
