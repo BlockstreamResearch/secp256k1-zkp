@@ -9,9 +9,11 @@ extern "C" {
 
 #include <stddef.h>
 
-/** This module implements BIP MuSig2 v1.0.0-rc.3, a multi-signature scheme
- * compatible with BIP-340 ("Schnorr"). You can find an example demonstrating
- * the musig module in examples/musig.c.
+/** This module implements BIP 327 "MuSig2 for BIP340-compatible
+ * Multi-Signatures"
+ * (https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki)
+ * v1.0.0. You can find an example demonstrating the musig module in
+ * examples/musig.c.
  *
  * The module also supports BIP-341 ("Taproot") public key tweaking and adaptor
  * signatures as described in
@@ -439,6 +441,11 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_nonce_process(
  *  keypair consisting of a seckey and pubkey, the secnonce must have been
  *  created by calling musig_nonce_gen with that pubkey. Otherwise, the
  *  illegal_callback is called.
+ *
+ *  This function does not verify the output partial signature, deviating from
+ *  the BIP 327 specification. It is recommended to verify the output partial
+ *  signature with `secp256k1_musig_partial_sig_verify` to prevent random or
+ *  adversarially provoked computation errors.
  *
  *  Returns: 0 if the arguments are invalid or the provided secnonce has already
  *           been used for signing, 1 otherwise
