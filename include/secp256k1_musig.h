@@ -511,6 +511,31 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_verif
     const secp256k1_musig_session *session
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 
+/** Computes a "signature point"
+ *
+ * The signature point for a MuSig2 signer is s*G, where s is the (unique)
+ * partial signature of the signer. The signature point can be computed without
+ * knowledge of the signer's secret key.
+ *
+ *  Returns: 0 if the arguments are invalid, 1 otherwise
+ *  Args         ctx: pointer to a context object, initialized for verification
+ *  Out:   sig_point: signature point
+ *  In:     pubnonce: public nonce of the signer in the signing session
+ *            pubkey: public key of the signer in the signing session
+ *      keyagg_cache: pointer to the keyagg_cache that was output when the
+ *                    aggregate public key for this signing session
+ *           session: pointer to the session that was created with
+ *                    `musig_nonce_process`
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_point(
+    const secp256k1_context* ctx,
+    secp256k1_pubkey *sig_point,
+    const secp256k1_musig_pubnonce *pubnonce,
+    const secp256k1_pubkey *pubkey,
+    const secp256k1_musig_keyagg_cache *keyagg_cache,
+    const secp256k1_musig_session *session
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
 /** Aggregates partial signatures
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise (which does NOT mean

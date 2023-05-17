@@ -681,6 +681,70 @@ int secp256k1_musig_partial_sig_verify(const secp256k1_context* ctx, const secp2
     return secp256k1_gej_is_infinity(&tmp);
 }
 
+/* TODO: abstract parts of the code that are shared with verify */
+int secp256k1_musig_partial_sig_point(const secp256k1_context* ctx, secp256k1_pubkey *sig_point, const secp256k1_musig_pubnonce *pubnonce, const secp256k1_pubkey *pubkey, const secp256k1_musig_keyagg_cache *keyagg_cache, const secp256k1_musig_session *session) {
+    secp256k1_keyagg_cache_internal cache_i;
+    secp256k1_musig_session_internal session_i;
+    secp256k1_scalar mu, e;
+    secp256k1_gej pkj;
+    secp256k1_ge nonce_pt[2];
+    secp256k1_gej rj;
+    secp256k1_gej tmpj;
+    secp256k1_ge tmp;
+    secp256k1_ge pkp;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pubnonce != NULL);
+    ARG_CHECK(pubkey != NULL);
+    ARG_CHECK(keyagg_cache != NULL);
+    ARG_CHECK(session != NULL);
+
+    if (!secp256k1_musig_session_load(ctx, &session_i, session)) {
+        return 0;
+    }
+
+    /* Compute "effective" nonce rj = aggnonce[0] + b*aggnonce[1] */
+    /* TODO: use multiexp to compute -s*G + e*mu*pubkey + aggnonce[0] + b*aggnonce[1] */
+    if (!secp256k1_musig_pubnonce_load(ctx, nonce_pt, pubnonce)) {
+        return 0;
+    }
+    secp256k1_gej_set_ge(&rj, &nonce_pt[1]);
+    secp256k1_ecmult(&rj, &rj, &session_i.noncecoef, NULL);
+    secp256k1_gej_add_ge_var(&rj, &rj, &nonce_pt[0], NULL);
+
+    if (!secp256k1_pubkey_load(ctx, &pkp, pubkey)) {
+        return 0;
+    }
+    if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
+        return 0;
+    }
+    /* Multiplying the challenge by the KeyAgg coefficient is equivalent
+     * to multiplying the signer's public key by the coefficient, except
+     * much easier to do. */
+    secp256k1_musig_keyaggcoef(&mu, &cache_i, &pkp);
+    secp256k1_scalar_mul(&e, &session_i.challenge, &mu);
+
+    /* Negate e if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let g' = g⋅gacc mod n" and the multiplication "g'⋅e"
+     * in the specification. */
+    if (secp256k1_fe_is_odd(&cache_i.pk.y)
+            != cache_i.parity_acc) {
+        secp256k1_scalar_negate(&e, &e);
+    }
+
+    /* Compute -s*G + e*pkj + rj (e already includes the keyagg coefficient mu) */
+    secp256k1_gej_set_ge(&pkj, &pkp);
+    secp256k1_ecmult(&tmpj, &pkj, &e, NULL);
+    if (session_i.fin_nonce_parity) {
+        secp256k1_gej_neg(&rj, &rj);
+    }
+    secp256k1_gej_add_var(&tmpj, &tmpj, &rj, NULL);
+    secp256k1_ge_set_gej(&tmp, &tmpj);
+    secp256k1_pubkey_save(sig_point, &tmp);
+
+    return 1;
+}
+
 int secp256k1_musig_partial_sig_agg(const secp256k1_context* ctx, unsigned char *sig64, const secp256k1_musig_session *session, const secp256k1_musig_partial_sig * const* partial_sigs, size_t n_sigs) {
     size_t i;
     secp256k1_musig_session_internal session_i;
