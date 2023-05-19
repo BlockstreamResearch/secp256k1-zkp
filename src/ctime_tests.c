@@ -31,6 +31,10 @@
 #include "../include/secp256k1_schnorrsig.h"
 #endif
 
+#ifdef ENABLE_MODULE_SCHNORR_ADAPTOR
+#include "../include/secp256k1_schnorr_adaptor.h"
+#endif
+
 #ifdef ENABLE_MODULE_ELLSWIFT
 #include "../include/secp256k1_ellswift.h"
 #endif
@@ -191,6 +195,24 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
     ret = secp256k1_schnorrsig_sign32(ctx, sig, msg, &keypair, NULL);
     SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
     CHECK(ret == 1);
+#endif
+
+#ifdef ENABLE_MODULE_SCHNORR_ADAPTOR
+    {
+        unsigned char t[33];
+
+        for (i = 0; i < 33; i++) {
+            t[i] = i + 2;
+        }
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_keypair_create(ctx, &keypair, key);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        ret = secp256k1_schnorr_adaptor_presign(ctx, sig, msg, &keypair, t, NULL);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+    }
 #endif
 
 #ifdef ENABLE_MODULE_ELLSWIFT

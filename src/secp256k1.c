@@ -892,6 +892,10 @@ static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
 # include "modules/schnorrsig/main_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_SCHNORR_ADAPTOR
+# include "modules/schnorr_adaptor/main_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ELLSWIFT
 # include "modules/ellswift/main_impl.h"
 #endif
