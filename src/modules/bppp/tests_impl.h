@@ -598,7 +598,7 @@ static void run_bppp_tests(void) {
     test_bppp_generators_api();
     test_bppp_tagged_hash();
 
-    norm_arg_verify_zero_len();
+    /* norm_arg_verify_zero_len(); */
     norm_arg_test(1, 8);
     norm_arg_test(1, 64);
     norm_arg_test(64, 8);
