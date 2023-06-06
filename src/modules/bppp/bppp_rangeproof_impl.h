@@ -756,4 +756,265 @@ static int secp256k1_bppp_rangeproof_prove_impl(
     return res;
 }
 
+typedef struct secp256k1_bppp_verify_cb_data {
+    const unsigned char *proof;
+    const secp256k1_scalar *g_vec_pub_deltas;
+    const secp256k1_scalar *t_pows;
+    const secp256k1_scalar *t_inv;
+    const secp256k1_scalar *v;
+    const secp256k1_scalar *delta;
+    const secp256k1_ge *asset_genp;
+    const secp256k1_ge *commit;
+    const secp256k1_ge *g_gens;
+} secp256k1_bppp_verify_cb_data;
+
+static int secp256k1_bppp_verify_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
+    secp256k1_bppp_verify_cb_data *data = (secp256k1_bppp_verify_cb_data*) cbdata;
+    switch(idx) {
+        case 0:  /* v * asset_genp */
+            *pt = *data->asset_genp;
+            *sc = *data->v;
+            break;
+        case 1:  /* delta * M */
+            if (!secp256k1_eckey_pubkey_parse(pt, data->proof, 33)) {
+                return 0;
+            }
+            *sc = *data->delta;
+            break;
+        case 2:  /* t * D */
+            if (!secp256k1_eckey_pubkey_parse(pt, &data->proof[33], 33)) {
+                return 0;
+            }
+            *sc = data->t_pows[0];
+            break;
+        case 3:  /* t^2 * R */
+            if (!secp256k1_eckey_pubkey_parse(pt, &data->proof[33 * 2], 33)) {
+                return 0;
+            }
+            *sc = data->t_pows[1];
+            break;
+        case 4:  /* t^-1 * S */
+            if (!secp256k1_eckey_pubkey_parse(pt, &data->proof[33 * 3], 33)) {
+                return 0;
+            }
+            *sc = *data->t_inv;
+            break;
+        case 5:  /* 2t^3 * V(commit) */
+            *pt = *data->commit;
+            *sc = data->t_pows[2];
+            secp256k1_scalar_add(sc, sc, sc);
+            break;
+        default:
+            idx -= 6;
+            *pt = data->g_gens[idx];
+            *sc = data->g_vec_pub_deltas[idx];
+            break;
+    }
+    return 1;
+}
+
+static int secp256k1_bppp_rangeproof_verify_impl(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_ge* asset_genp,
+    const unsigned char* proof,
+    const size_t proof_len,
+    const size_t n_bits,
+    const size_t digit_base,
+    const uint64_t min_value,
+    const secp256k1_ge* commitp,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    size_t scratch_checkpoint;
+    secp256k1_sha256 transcript;
+    size_t num_digits = n_bits / secp256k1_bppp_log2(digit_base);
+    size_t h_len = 8, i;
+    size_t g_offset = num_digits > digit_base ? num_digits : digit_base;
+    size_t log_n = secp256k1_bppp_log2(g_offset), log_m = secp256k1_bppp_log2(h_len);
+    size_t n_rounds = log_n > log_m ? log_n : log_m;
+    secp256k1_scalar v_g;
+    secp256k1_scalar *mu_pows, *mu_inv_pows, *g_vec_pub_deltas;
+    secp256k1_scalar alpha, rho, mu, mu_inv, x, beta, delta, t;
+    /* To be re-used as c_vec later */
+    secp256k1_scalar t_pows[8];
+
+    /* Check proof sizes*/
+    if (proof_len != 33 * 4 + (65 * n_rounds) + 64) {
+        return 0;
+    }
+    if (gens->n != (g_offset + h_len)) {
+        return 0;
+    }
+    if (!secp256k1_is_power_of_two(digit_base) ||  !secp256k1_is_power_of_two(num_digits) || !secp256k1_is_power_of_two(n_bits)) {
+        return 0;
+    }
+    if (n_bits > 64) {
+        return 0;
+    }
+    if (extra_commit_len > 0 && extra_commit == NULL) {
+        return 0;
+    }
+
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
+    mu_pows = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+    mu_inv_pows = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+    g_vec_pub_deltas = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+
+    if ( mu_pows == NULL || mu_inv_pows == NULL ) {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+
+    /* Obtain the challenges */
+    secp256k1_bppp_commit_initial_data(
+        &transcript,
+        num_digits,
+        digit_base,
+        min_value,
+        commitp,
+        asset_genp,
+        extra_commit,
+        extra_commit_len
+    );
+
+    /* Verify round 1 */
+    secp256k1_sha256_write(&transcript, proof, 66);
+    secp256k1_bppp_challenge_scalar(&alpha, &transcript, 0);
+
+    /* Verify round 2 */
+    secp256k1_sha256_write(&transcript, &proof[33*2], 33);
+    secp256k1_bppp_challenge_scalar(&rho, &transcript, 0);
+    secp256k1_bppp_challenge_scalar(&x, &transcript, 1);
+    secp256k1_bppp_challenge_scalar(&beta, &transcript, 2);
+    secp256k1_bppp_challenge_scalar(&delta, &transcript, 3);
+    secp256k1_scalar_sqr(&mu, &rho);
+    secp256k1_scalar_inverse_var(&mu_inv, &mu);
+
+    /* Verify round 3 */
+    secp256k1_sha256_write(&transcript, &proof[33*3], 33);
+    secp256k1_bppp_challenge_scalar(&t, &transcript, 0);
+
+    secp256k1_bppp_rangeproof_powers_of_mu(mu_pows, &mu, g_offset);
+    secp256k1_bppp_rangeproof_powers_of_mu(mu_inv_pows, &mu_inv, g_offset);
+
+    /* Computes from t^1 to t^7, Others unneeded, will be set to 0 later */
+    secp256k1_bppp_rangeproof_powers_of_mu(&t_pows[0], &t, 7);
+    {
+        /* g_vec_pub_delta[i] = (b^i*t^2 + (-x*delta)*t^1 + (x/alpha+i)*t^3)*mu_inv^i + alpha*t^1 */
+        secp256k1_scalar b_pow_i_t2, neg_x_delta_t1, x_t3, alpha_t1, base;
+        b_pow_i_t2 = t_pows[1];
+        secp256k1_scalar_negate(&neg_x_delta_t1, &x);
+        secp256k1_scalar_mul(&neg_x_delta_t1, &neg_x_delta_t1, &delta); /* -x */
+        secp256k1_scalar_mul(&neg_x_delta_t1, &neg_x_delta_t1, &t_pows[0]); /* -x * delta *t */
+        x_t3 = t_pows[2];
+        secp256k1_scalar_mul(&x_t3, &x_t3, &x);
+        alpha_t1 = t_pows[0];
+        secp256k1_scalar_mul(&alpha_t1, &alpha_t1, &alpha);
+        secp256k1_scalar_set_int(&base, digit_base);
+
+        for (i = 0; i < g_offset; i++) {
+            secp256k1_scalar_clear(&g_vec_pub_deltas[i]);
+            if (i < num_digits) {
+                secp256k1_scalar_add(&g_vec_pub_deltas[i], &b_pow_i_t2, &neg_x_delta_t1); /* g_vec_pub_delta[i] = b^i*t^2 + (-x * delta)*t^1 */
+                secp256k1_scalar_mul(&b_pow_i_t2, &b_pow_i_t2, &base); /* b^i */
+            }
+
+            if (i < digit_base) {
+                secp256k1_scalar e_plus_i_inv;
+                secp256k1_scalar_set_int(&e_plus_i_inv, i); /* digit base is less than 2^32, can directly set*/
+                secp256k1_scalar_add(&e_plus_i_inv, &e_plus_i_inv, &alpha); /* (alpha + i)*/
+                secp256k1_scalar_inverse_var(&e_plus_i_inv, &e_plus_i_inv); /* 1/(alpha +i)*/
+                secp256k1_scalar_mul(&e_plus_i_inv, &e_plus_i_inv, &x_t3); /* xt^3/(alpha+i) */
+
+                secp256k1_scalar_add(&g_vec_pub_deltas[i], &g_vec_pub_deltas[i], &e_plus_i_inv); /* g_vec_pub_delta[i] = b^i*t^2 + (-x * delta)*t^1 + xt^3/(alpha+i) */
+            }
+
+            secp256k1_scalar_mul(&g_vec_pub_deltas[i], &g_vec_pub_deltas[i], &mu_inv_pows[i]); /* g_vec_pub_delta[i] = (b^i*t^2 + (-x*delta)*t^1 + (x/alpha+i)*t^3)*mu_inv^i */
+            if (i < num_digits) {
+                secp256k1_scalar_add(&g_vec_pub_deltas[i], &g_vec_pub_deltas[i], &alpha_t1); /* g_vec_pub_delta[i] = (b^i*t^2 + (-x*delta)*t^1 + (x/alpha+i)*t^3)*mu_inv^i + alpha*t^1 */
+            }
+        }
+    }
+
+    {
+        /* v = 2*t3(<one_vec, mu^(i+1)> + <b^i, alpha> + <b^i, -x*mu^-(i+1)>) */
+        secp256k1_scalar two_t3, b_pow_i, neg_x_mu_inv_pow_plus_alpha, base, sc_min_v;
+        secp256k1_scalar_set_int(&two_t3, 2); /* 2 */
+        secp256k1_scalar_mul(&two_t3, &two_t3, &t_pows[2]); /* 2*t^3 */
+        secp256k1_scalar_set_int(&b_pow_i, 1); /* b^0 */
+        secp256k1_scalar_clear(&v_g); /* v_g = 0 */
+        secp256k1_scalar_set_int(&base, digit_base); /* base = digit_base */
+
+        /* Compute v_g = 2*t5(<one_vec, mu^(i+1)> + <b^i, alpha> + <b^i, -x*mu^-(i+1)>) */
+        for (i = 0; i < num_digits; i++) {
+            secp256k1_scalar_add(&v_g, &v_g, &mu_pows[i]); /* v_g = <mu^(i+1), 1> */
+            secp256k1_scalar_mul(&neg_x_mu_inv_pow_plus_alpha, &x, &delta); /* x * delta */
+            secp256k1_scalar_negate(&neg_x_mu_inv_pow_plus_alpha, &neg_x_mu_inv_pow_plus_alpha); /* -x *delta*/
+            secp256k1_scalar_mul(&neg_x_mu_inv_pow_plus_alpha, &mu_inv_pows[i], &neg_x_mu_inv_pow_plus_alpha); /* -x*mu^-(i+1) */
+            secp256k1_scalar_add(&neg_x_mu_inv_pow_plus_alpha, &neg_x_mu_inv_pow_plus_alpha, &alpha); /* -x*mu^-(i+1) + alpha */
+            secp256k1_scalar_mul(&neg_x_mu_inv_pow_plus_alpha, &neg_x_mu_inv_pow_plus_alpha, &b_pow_i); /* <b^i, -x*mu^-(i+1) + alpha> */
+            secp256k1_scalar_add(&v_g, &v_g, &neg_x_mu_inv_pow_plus_alpha); /* v_g = <mu^(i+1), 1> + <b^i, -x*mu^-(i+1) + alpha> */
+            secp256k1_scalar_mul(&b_pow_i, &b_pow_i, &base);
+        }
+        secp256k1_scalar_set_int(&sc_min_v, min_value);
+        secp256k1_scalar_negate(&sc_min_v, &sc_min_v);
+        secp256k1_scalar_add(&v_g, &v_g, &sc_min_v); /* v_g = <mu^(i+1), 1> + <b^i, -x*mu^-(i+1) + alpha> - min_value */
+        secp256k1_scalar_mul(&v_g, &v_g, &two_t3); /* v_g = 2*t5(<one_vec, mu^(i+1)> + <b^i, alpha> + <b^i, -x*mu^-(i+1)> - min_value) */
+    }
+    /* Ecmult to compute C = S/T + M*delta + t*D + t^2R + 2t^3V + <g_vec_pub_deltas, G_vec> + v_g*A(asset_genP) */
+    {
+        secp256k1_bppp_verify_cb_data cb_data;
+        secp256k1_gej c_commj;
+        secp256k1_ge c_comm;
+        secp256k1_scalar c_poly[8], t_inv;
+        size_t num_points;
+        cb_data.g_vec_pub_deltas = g_vec_pub_deltas;
+        cb_data.v = &v_g;
+        cb_data.asset_genp = asset_genp;
+        cb_data.commit = commitp;
+        cb_data.g_gens = gens->gens;
+        cb_data.proof = proof;
+        cb_data.t_pows = t_pows;
+        cb_data.delta = &delta;
+        secp256k1_scalar_inverse(&t_inv, &t);
+        cb_data.t_inv = &t_inv;
+        num_points = 6 + g_offset;
+
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &c_commj, NULL, secp256k1_bppp_verify_cb, (void*) &cb_data, num_points)) {
+            return 0;
+        }
+
+        secp256k1_ge_set_gej_var(&c_comm, &c_commj);
+        /* Make c = beta*(1/T, T, T^2, T^3, T^5, T^6, T^7, 0) */
+        c_poly[0] = t_inv;
+        c_poly[1] = t_pows[0];
+        c_poly[2] = t_pows[1];
+        c_poly[3] = t_pows[2];
+        c_poly[4] = t_pows[4];
+        c_poly[5] = t_pows[5];
+        c_poly[6] = t_pows[6];
+        for (i = 0; i < 7; i++) {
+            secp256k1_scalar_mul(&c_poly[i], &c_poly[i], &beta);
+        }
+        secp256k1_scalar_clear(&c_poly[7]);
+
+        return secp256k1_bppp_rangeproof_norm_product_verify(
+            ctx,
+            scratch,
+            &proof[33*4],
+            proof_len - 33*4,
+            &transcript,
+            &rho,
+            gens,
+            asset_genp,
+            g_offset,
+            c_poly,
+            8,
+            &c_comm
+        );
+    }
+}
+
 #endif
