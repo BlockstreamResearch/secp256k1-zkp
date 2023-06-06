@@ -610,4 +610,150 @@ static int secp256k1_bppp_rangeproof_prove_round4_impl(
     );
 }
 
+static int secp256k1_bppp_rangeproof_prove_impl(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_ge* asset_genp,
+    unsigned char* proof,
+    size_t* proof_len,
+    const size_t n_bits,
+    const size_t digit_base,
+    const uint64_t value,
+    const uint64_t min_value,
+    const secp256k1_ge* commitp,
+    const secp256k1_scalar* gamma,
+    const unsigned char* nonce,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    size_t scratch_checkpoint, n_proof_bytes_written, norm_proof_len;
+    secp256k1_sha256 transcript;
+    size_t num_digits = n_bits / secp256k1_bppp_log2(digit_base);
+    size_t h_len = 8;
+    size_t g_offset = num_digits > digit_base ? num_digits : digit_base;
+    size_t log_n = secp256k1_bppp_log2(g_offset), log_m = secp256k1_bppp_log2(h_len);
+    size_t n_rounds = log_n > log_m ? log_n : log_m;
+    int res;
+    secp256k1_bppp_rangeproof_prover_context prover_ctx;
+    /* Check proof sizes*/
+    if (*proof_len < 33 * 4 + (65 * n_rounds) + 64) {
+        return 0;
+    }
+    if (gens->n != (g_offset + h_len)) {
+        return 0;
+    }
+    if (!secp256k1_is_power_of_two(digit_base) ||  !secp256k1_is_power_of_two(num_digits)) {
+        return 0;
+    }
+    if (n_bits > 64) {
+        return 0;
+    }
+    if (value < min_value) {
+        return 0;
+    }
+    if (n_bits < 64 && (value - min_value) >= (1ull << n_bits)) {
+        return 0;
+    }
+    if (extra_commit_len > 0 && extra_commit == NULL) {
+        return 0;
+    }
+
+    /* Compute the base digits representation of the value */
+    /* Alloc for prover->ctx */
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
+    prover_ctx.s = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+    prover_ctx.d = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, num_digits * sizeof(secp256k1_scalar));
+    prover_ctx.m = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, digit_base * sizeof(secp256k1_scalar));
+    prover_ctx.r = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, num_digits * sizeof(secp256k1_scalar));
+    prover_ctx.c_m = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, digit_base * sizeof(secp256k1_scalar));
+
+    prover_ctx.r_m_1_vec = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, 8 * sizeof(secp256k1_scalar));
+    prover_ctx.r_s_1_vec = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, h_len * sizeof(secp256k1_scalar));
+
+    prover_ctx.mu_pows = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+    prover_ctx.mu_inv_pows = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_offset * sizeof(secp256k1_scalar));
+
+    if ( prover_ctx.s == NULL || prover_ctx.d == NULL || prover_ctx.m == NULL || prover_ctx.r == NULL
+        || prover_ctx.c_m == NULL || prover_ctx.r_m_1_vec == NULL || prover_ctx.r_s_1_vec == NULL
+        || prover_ctx.mu_pows == NULL || prover_ctx.mu_inv_pows == NULL )
+    {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+
+    /* Initialze the transcript by committing to all the public data */
+    secp256k1_bppp_commit_initial_data(
+        &transcript,
+        num_digits,
+        digit_base,
+        min_value,
+        commitp,
+        asset_genp,
+        extra_commit,
+        extra_commit_len
+    );
+
+    n_proof_bytes_written = 0;
+    secp256k1_bppp_rangeproof_prove_round1_impl(
+        &prover_ctx,
+        gens,
+        asset_genp,
+        &proof[n_proof_bytes_written],
+        &transcript,
+        num_digits,
+        digit_base,
+        value - min_value,
+        nonce
+    );
+    n_proof_bytes_written += 33 *2;
+
+    secp256k1_bppp_rangeproof_prove_round2_impl(
+        &prover_ctx,
+        gens,
+        asset_genp,
+        &proof[n_proof_bytes_written],
+        &transcript,
+        num_digits,
+        digit_base,
+        nonce
+    );
+    n_proof_bytes_written += 33;
+
+    secp256k1_bppp_rangeproof_prove_round3_impl(
+        &prover_ctx,
+        gens,
+        asset_genp,
+        &proof[n_proof_bytes_written],
+        &transcript,
+        num_digits,
+        digit_base,
+        gamma,
+        nonce
+    );
+    n_proof_bytes_written += 33;
+
+    /* Calculate the remaining buffer size. We have already checked that buffer is of correct size */
+    norm_proof_len = *proof_len - n_proof_bytes_written;
+    res = secp256k1_bppp_rangeproof_prove_round4_impl(
+        ctx,
+        scratch,
+        gens,
+        asset_genp,
+        &prover_ctx,
+        &proof[n_proof_bytes_written],
+        &norm_proof_len,
+        &transcript,
+        gamma,
+        num_digits,
+        digit_base
+    );
+    /* No need to worry about constant time-ness from this point. All data is public */
+    if (res) {
+        *proof_len = n_proof_bytes_written + norm_proof_len;
+    }
+    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+    return res;
+}
+
 #endif
