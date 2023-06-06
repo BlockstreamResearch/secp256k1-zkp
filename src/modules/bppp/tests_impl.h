@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 #include "../../../include/secp256k1_bppp.h"
-#include "bppp_norm_product_impl.h"
-#include "bppp_util.h"
-#include "bppp_transcript_impl.h"
+#include "../bppp/bppp_norm_product_impl.h"
+#include "../bppp/bppp_util.h"
+#include "../bppp/bppp_transcript_impl.h"
 #include "test_vectors/verify.h"
 #include "test_vectors/prove.h"
 
@@ -604,7 +604,7 @@ static void rangeproof_test(size_t digit_base, size_t num_bits, uint64_t value, 
     const unsigned char extra_commit[] = "Shock of teal blue beneath clouds gathering, and the light of empty black on the waves at the horizon";
     const size_t extra_commit_len = sizeof(extra_commit);
     secp256k1_sha256 transcript;
-    const secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n + 8);
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n + 8);
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     unsigned char proof[1000];
     plen = 1000;
@@ -622,6 +622,8 @@ static void rangeproof_test(size_t digit_base, size_t num_bits, uint64_t value, 
     proof[plen - 1] ^= 1;
     res = secp256k1_bppp_rangeproof_verify(CTX, scratch, gs, &asset_genp, proof, plen, num_bits, digit_base, min_value, &commit, extra_commit, extra_commit_len);
     CHECK(res == 0);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+    secp256k1_scratch_space_destroy(CTX, scratch);
 }
 
 static void run_bppp_tests(void) {

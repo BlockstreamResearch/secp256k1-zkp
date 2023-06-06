@@ -511,7 +511,7 @@ static int secp256k1_bppp_rangeproof_prove_round4_impl(
     const size_t num_digits,
     const size_t digit_base
 ) {
-    size_t i, scratch_checkpoint;
+    size_t i, scratch_checkpoint, ret;
     size_t g_offset = digit_base > num_digits ? digit_base : num_digits;
     /* Compute w = s/t + m + t*d + t^2*r + t^3*c_m. Store w in s*/
     secp256k1_scalar t_pows[8], c_poly[8], t_inv;
@@ -590,7 +590,7 @@ static int secp256k1_bppp_rangeproof_prove_round4_impl(
     }
     memcpy(gs, gens->gens, (gens->n) * sizeof(secp256k1_ge));
 
-    return secp256k1_bppp_rangeproof_norm_product_prove(
+    ret = secp256k1_bppp_rangeproof_norm_product_prove(
         ctx,
         scratch,
         output,
@@ -607,6 +607,8 @@ static int secp256k1_bppp_rangeproof_prove_round4_impl(
         c_poly,
         8
     );
+    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+    return ret;
 }
 
 static int secp256k1_bppp_rangeproof_prove_impl(
@@ -826,6 +828,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
     const unsigned char* extra_commit,
     size_t extra_commit_len
 ) {
+    int res;
     size_t scratch_checkpoint;
     secp256k1_sha256 transcript;
     size_t num_digits = n_bits / secp256k1_bppp_log2(digit_base);
@@ -982,6 +985,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
         num_points = 6 + g_offset;
 
         if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &c_commj, NULL, secp256k1_bppp_verify_cb, (void*) &cb_data, num_points)) {
+            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
             return 0;
         }
 
@@ -999,7 +1003,7 @@ static int secp256k1_bppp_rangeproof_verify_impl(
         }
         secp256k1_scalar_clear(&c_poly[7]);
 
-        return secp256k1_bppp_rangeproof_norm_product_verify(
+        res = secp256k1_bppp_rangeproof_norm_product_verify(
             ctx,
             scratch,
             &proof[33*4],
@@ -1013,6 +1017,8 @@ static int secp256k1_bppp_rangeproof_verify_impl(
             8,
             &c_comm
         );
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return res;
     }
 }
 
