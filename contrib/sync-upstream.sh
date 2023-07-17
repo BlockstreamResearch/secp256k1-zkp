@@ -79,13 +79,13 @@ case $1 in
         shift
         setup
         range "$@"
-        REPRODUCE_COMMAND="$0 range -b $LOCAL_BRANCH $RANGEEND_COMMIT"
+        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH range $RANGEEND_COMMIT"
         ;;
     select)
         shift
         setup
         COMMITS=$*
-        REPRODUCE_COMMAND="$0 select -b $LOCAL_BRANCH $@"
+        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH select $@"
         ;;
     help)
         help
