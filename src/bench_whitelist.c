@@ -11,6 +11,7 @@
 #include "util.h"
 #include "bench.h"
 #include "hash_impl.h"
+#include "int128_impl.h"
 #include "scalar_impl.h"
 #include "testrand_impl.h"
 
