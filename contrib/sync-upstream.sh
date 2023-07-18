@@ -104,8 +104,7 @@ do
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
-
-BODY=$(printf "%s\n\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`.")
+BODY=$(printf "%s\n\n%s\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`." "Tip: Use \`git show --remerge-diff\` to show the changes manually added to the merge commit.")
 
 echo "-----------------------------------"
 echo "$TITLE"
