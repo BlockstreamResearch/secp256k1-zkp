@@ -20,6 +20,7 @@ schnorr_example
 *.csv
 *.log
 *.trs
+*.sage.py
 
 Makefile
 configure

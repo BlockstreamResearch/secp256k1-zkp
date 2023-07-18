@@ -93,7 +93,7 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
 /** Compute a whitelist signature
  * Returns 1: signature was successfully created
  *         0: signature was not successfully created
- * In:     ctx: pointer to a context object, initialized for signing and verification
+ * In:     ctx: pointer to a context object (not secp256k1_context_static)
  *         online_pubkeys: list of all online pubkeys
  *         offline_pubkeys: list of all offline pubkeys
  *         n_keys: the number of entries in each of the above two arrays
@@ -125,7 +125,7 @@ SECP256K1_API int secp256k1_whitelist_sign(
 /** Verify a whitelist signature
  * Returns 1: signature is valid
  *         0: signature is not valid
- * In:     ctx: pointer to a context object, initialized for signing and verification
+ * In:     ctx: pointer to a context object (not secp256k1_context_static)
  *         sig: the signature to be verified
  *         online_pubkeys: list of all online pubkeys
  *         offline_pubkeys: list of all offline pubkeys

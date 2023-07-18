@@ -69,7 +69,7 @@ int main(void) {
     secp256k1_scalar ssub;
     int iters = get_iters(5);
 
-    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
     /* Start with subkey */
     random_scalar_order(&ssub);

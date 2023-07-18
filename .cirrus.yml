@@ -32,6 +32,11 @@ env:
   # Compile and run the tests
   EXAMPLES: yes
 
+# https://cirrus-ci.org/pricing/#compute-credits
+credits_snippet: &CREDITS
+  # Don't use any credits for now.
+  use_compute_credits: false
+
 cat_logs_snippet: &CAT_LOGS
   always:
     cat_tests_log_script:
@@ -148,6 +153,7 @@ task:
   test_script:
     - ./ci/cirrus.sh
   << : *CAT_LOGS
+  << : *CREDITS
 
 task:
   name: "s390x (big-endian): Linux (Debian stable, QEMU)"

@@ -63,7 +63,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_opening_seria
  *
  *  Returns: 1: signature created
  *           0: the nonce generation function failed, or the private key was invalid.
- *  Args:    ctx:  pointer to a context object, initialized for signing (cannot be NULL)
+ *  Args:    ctx:  pointer to a context object (not secp256k1_context_static)
  *  Out:     sig:  pointer to an array where the signature will be placed (cannot be NULL)
  *   s2c_opening:  if non-NULL, pointer to an secp256k1_ecdsa_s2c_opening structure to populate
  *  In:    msg32: the 32-byte message hash being signed (cannot be NULL)
@@ -84,7 +84,7 @@ SECP256K1_API int secp256k1_ecdsa_s2c_sign(
  *  Returns: 1: the signature contains a commitment to data32 (though it does
  *              not necessarily need to be a valid siganture!)
  *           0: incorrect opening
- *  Args:    ctx: a secp256k1 context object, initialized for verification.
+ *  Args:    ctx: a secp256k1 context object
  *  In:      sig: the signature containing the sign-to-contract commitment (cannot be NULL)
  *        data32: the 32-byte data that was committed to (cannot be NULL)
  *       opening: pointer to the opening created during signing (cannot be NULL)
@@ -173,7 +173,7 @@ SECP256K1_API int secp256k1_ecdsa_anti_exfil_host_commit(
 /** Compute signer's original nonce. Part of the ECDSA Anti-Exfil Protocol.
  *
  *  Returns 1 on success, 0 on failure.
- *  Args:           ctx: pointer to a context object, initialized for signing (cannot be NULL)
+ *  Args:           ctx: pointer to a context object (not secp256k1_context_static)
  *  Out:    s2c_opening: pointer to an s2c_opening where the signer's public nonce will be
  *                       placed. (cannot be NULL)
  *  In:           msg32: the 32-byte message hash to be signed (cannot be NULL)
@@ -193,7 +193,7 @@ SECP256K1_API int secp256k1_ecdsa_anti_exfil_signer_commit(
  *
  *  Returns: 1: signature created
  *           0: the nonce generation function failed, or the private key was invalid.
- *  Args:    ctx:  pointer to a context object, initialized for signing (cannot be NULL)
+ *  Args:    ctx:  pointer to a context object (not secp256k1_context_static)
  *  Out:     sig:  pointer to an array where the signature will be placed (cannot be NULL)
  *  In:    msg32: the 32-byte message hash being signed (cannot be NULL)
  *        seckey: pointer to a 32-byte secret key (cannot be NULL)
@@ -211,7 +211,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_anti_exfil_sign(
  *
  *  Returns: 1: the signature is valid and contains a commitment to host_data32
  *           0: incorrect opening
- *  Args:    ctx: a secp256k1 context object, initialized for verification.
+ *  Args:    ctx: a secp256k1 context object
  *  In:      sig: the signature produced by the signer (cannot be NULL)
  *     msghash32: the 32-byte message hash being verified (cannot be NULL)
  *        pubkey: pointer to the signer's public key (cannot be NULL)

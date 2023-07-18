@@ -33,8 +33,6 @@ static void test_ecdsa_s2c_tagged_hash(void) {
 void run_s2c_opening_test(void) {
     int i = 0;
     unsigned char output[33];
-    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-
     unsigned char input[33] = {
             0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -45,39 +43,39 @@ void run_s2c_opening_test(void) {
     secp256k1_ecdsa_s2c_opening opening;
     int32_t ecount = 0;
 
-    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(ctx, counting_illegal_callback_fn, &ecount);
 
     /* First parsing, then serializing works */
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 1);
-    CHECK(secp256k1_ecdsa_s2c_opening_serialize(none, output, &opening) == 1);
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 1);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 1);
+    CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, output, &opening) == 1);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 1);
     CHECK(ecount == 0);
 
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, NULL, input) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, NULL, input) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, NULL) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 1);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 1);
 
-    CHECK(secp256k1_ecdsa_s2c_opening_serialize(none, NULL, &opening) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, NULL, &opening) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_opening_serialize(none, output, NULL) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, output, NULL) == 0);
 
     CHECK(ecount == 4);
     /* Invalid pubkey makes parsing fail */
     input[0] = 0;  /* bad oddness bit */
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 0);
     input[0] = 2;
     input[31] = 1; /* point not on the curve */
-    CHECK(secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 0);
+    CHECK(secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 0);
     CHECK(ecount == 4); /* neither of the above are API errors */
 
     /* Try parsing and serializing a bunch of openings */
     for (i = 0; i < count; i++) {
         /* This is expected to fail in about 50% of iterations because the
          * points' x-coordinates are uniformly random */
-        if (secp256k1_ecdsa_s2c_opening_parse(none, &opening, input) == 1) {
-            CHECK(secp256k1_ecdsa_s2c_opening_serialize(none, output, &opening) == 1);
+        if (secp256k1_ecdsa_s2c_opening_parse(ctx, &opening, input) == 1) {
+            CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, output, &opening) == 1);
             CHECK(secp256k1_memcmp_var(output, input, sizeof(output)) == 0);
         }
         secp256k1_testrand256(&input[1]);
@@ -85,15 +83,10 @@ void run_s2c_opening_test(void) {
         input[0] = (input[1] & 1) + 2;
     }
 
-    secp256k1_context_destroy(none);
 }
 
 static void test_ecdsa_s2c_api(void) {
-    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-    secp256k1_context *both = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_no_precomp);
+    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_static);
 
     secp256k1_ecdsa_s2c_opening s2c_opening;
     secp256k1_ecdsa_signature sig;
@@ -105,27 +98,22 @@ static void test_ecdsa_s2c_api(void) {
     secp256k1_pubkey pk;
 
     int32_t ecount;
-    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(ctx, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(sttc, counting_illegal_callback_fn, &ecount);
     CHECK(secp256k1_ec_pubkey_create(ctx, &pk, sec));
 
     ecount = 0;
-    CHECK(secp256k1_ecdsa_s2c_sign(both, NULL, &s2c_opening, msg, sec, s2c_data) == 0);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, NULL, &s2c_opening, msg, sec, s2c_data) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, NULL, msg, sec, s2c_data) == 1);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, NULL, msg, sec, s2c_data) == 1);
     CHECK(ecount == 1); /* NULL opening is not an API error */
-    CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, &s2c_opening, NULL, sec, s2c_data) == 0);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, &s2c_opening, NULL, sec, s2c_data) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, &s2c_opening, msg, NULL, s2c_data) == 0);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, &s2c_opening, msg, NULL, s2c_data) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_sign(both, &sig, &s2c_opening, msg, sec, NULL) == 0);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_s2c_sign(none, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
-    CHECK(secp256k1_ecdsa_s2c_sign(vrfy, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
-    CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, &s2c_opening, msg, sec, s2c_data) == 1);
     CHECK(ecount == 4);
     CHECK(secp256k1_ecdsa_s2c_sign(sttc, &sig, &s2c_opening, msg, sec, s2c_data) == 0);
     CHECK(ecount == 5);
@@ -133,84 +121,72 @@ static void test_ecdsa_s2c_api(void) {
     CHECK(secp256k1_ecdsa_verify(ctx, &sig, msg, &pk) == 1);
 
     ecount = 0;
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(both, NULL, s2c_data, &s2c_opening) == 0);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, NULL, s2c_data, &s2c_opening) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(both, &sig, NULL, &s2c_opening) == 0);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &sig, NULL, &s2c_opening) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(both, &sig, s2c_data, NULL) == 0);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &sig, s2c_data, NULL) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(none, &sig, s2c_data, &s2c_opening) == 1);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(sign, &sig, s2c_data, &s2c_opening) == 1);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, s2c_data, &s2c_opening) == 1);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &sig, s2c_data, &s2c_opening) == 1);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, sec, &s2c_opening) == 0);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &sig, sec, &s2c_opening) == 0);
     CHECK(ecount == 3); /* wrong data is not an API error */
 
     /* Signing with NULL s2c_opening gives the same result */
-    CHECK(secp256k1_ecdsa_s2c_sign(sign, &sig, NULL, msg, sec, s2c_data) == 1);
-    CHECK(secp256k1_ecdsa_s2c_verify_commit(vrfy, &sig, s2c_data, &s2c_opening) == 1);
+    CHECK(secp256k1_ecdsa_s2c_sign(ctx, &sig, NULL, msg, sec, s2c_data) == 1);
+    CHECK(secp256k1_ecdsa_s2c_verify_commit(ctx, &sig, s2c_data, &s2c_opening) == 1);
 
     /* anti-exfil */
     ecount = 0;
-    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(none, NULL, hostrand) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(ctx, NULL, hostrand) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(none, hostrand_commitment, NULL) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(ctx, hostrand_commitment, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(none, hostrand_commitment, hostrand) == 1);
+    CHECK(secp256k1_ecdsa_anti_exfil_host_commit(ctx, hostrand_commitment, hostrand) == 1);
     CHECK(ecount == 2);
 
     ecount = 0;
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, NULL, msg, sec, hostrand_commitment) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, NULL, msg, sec, hostrand_commitment) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, &s2c_opening, NULL, sec, hostrand_commitment) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, NULL, sec, hostrand_commitment) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, &s2c_opening, msg, NULL, hostrand_commitment) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, NULL, hostrand_commitment) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(both, &s2c_opening, msg, sec, NULL) == 0);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(none, &s2c_opening, msg, sec, hostrand_commitment) == 1);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(vrfy, &s2c_opening, msg, sec, hostrand_commitment) == 1);
-    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(sign, &s2c_opening, msg, sec, hostrand_commitment) == 1);
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, sec, hostrand_commitment) == 1);
     CHECK(ecount == 4);
     CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(sttc, &s2c_opening, msg, sec, hostrand_commitment) == 0);
     CHECK(ecount == 5);
 
     ecount = 0;
-    CHECK(secp256k1_anti_exfil_sign(both, NULL, msg, sec, hostrand) == 0);
+    CHECK(secp256k1_anti_exfil_sign(ctx, NULL, msg, sec, hostrand) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_anti_exfil_sign(both, &sig, NULL, sec, hostrand) == 0);
+    CHECK(secp256k1_anti_exfil_sign(ctx, &sig, NULL, sec, hostrand) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, NULL, hostrand) == 0);
+    CHECK(secp256k1_anti_exfil_sign(ctx, &sig, msg, NULL, hostrand) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, NULL) == 0);
+    CHECK(secp256k1_anti_exfil_sign(ctx, &sig, msg, sec, NULL) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_anti_exfil_sign(none, &sig, msg, sec, hostrand) == 1);
-    CHECK(secp256k1_anti_exfil_sign(vrfy, &sig, msg, sec, hostrand) == 1);
-    CHECK(secp256k1_anti_exfil_sign(both, &sig, msg, sec, hostrand) == 1);
+    CHECK(secp256k1_anti_exfil_sign(ctx, &sig, msg, sec, hostrand) == 1);
     CHECK(ecount == 4);
     CHECK(secp256k1_anti_exfil_sign(sttc, &sig, msg, sec, hostrand) == 0);
     CHECK(ecount == 5);
 
     ecount = 0;
-    CHECK(secp256k1_anti_exfil_host_verify(both, NULL, msg, &pk, hostrand, &s2c_opening) == 0);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, NULL, msg, &pk, hostrand, &s2c_opening) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_anti_exfil_host_verify(both, &sig, NULL, &pk, hostrand, &s2c_opening) == 0);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, &sig, NULL, &pk, hostrand, &s2c_opening) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_anti_exfil_host_verify(both, &sig, msg, NULL, hostrand, &s2c_opening) == 0);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, &sig, msg, NULL, hostrand, &s2c_opening) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_anti_exfil_host_verify(both, &sig, msg, &pk, NULL, &s2c_opening) == 0);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, &sig, msg, &pk, NULL, &s2c_opening) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_anti_exfil_host_verify(both, &sig, msg, &pk, hostrand, NULL) == 0);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, &sig, msg, &pk, hostrand, NULL) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_anti_exfil_host_verify(none, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
-    CHECK(secp256k1_anti_exfil_host_verify(sign, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
-    CHECK(secp256k1_anti_exfil_host_verify(vrfy, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
+    CHECK(secp256k1_anti_exfil_host_verify(ctx, &sig, msg, &pk, hostrand, &s2c_opening) == 1);
     CHECK(ecount == 5);
 
-    secp256k1_context_destroy(both);
-    secp256k1_context_destroy(vrfy);
-    secp256k1_context_destroy(sign);
-    secp256k1_context_destroy(none);
     secp256k1_context_destroy(sttc);
 }
 

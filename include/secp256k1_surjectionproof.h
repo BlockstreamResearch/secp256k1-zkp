@@ -222,7 +222,7 @@ SECP256K1_API void secp256k1_surjectionproof_destroy(
  * Returns 0: proof could not be created
  *         1: proof was successfully created
  *
- * In:                   ctx: pointer to a context object, initialized for signing and verification
+ * In:                   ctx: pointer to a context object (not secp256k1_context_static)
  *      ephemeral_input_tags: the ephemeral asset tag of all inputs
  *    n_ephemeral_input_tags: the number of entries in the ephemeral_input_tags array
  *      ephemeral_output_tag: the ephemeral asset tag of the output
@@ -248,7 +248,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_generat
  * Returns 0: proof was invalid
  *         1: proof was valid
  *
- * In:     ctx: pointer to a context object, initialized for signing and verification
+ * In:     ctx: pointer to a context object (not secp256k1_context_static)
  *         proof: proof to be verified
  *      ephemeral_input_tags: the ephemeral asset tag of all inputs
  *    n_ephemeral_input_tags: the number of entries in the ephemeral_input_tags array

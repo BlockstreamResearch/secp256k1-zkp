@@ -170,8 +170,8 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
 
-    /* Create a context for signing and verification */
-    ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    /* Create a secp256k1 context */
+    ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
         if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {

@@ -22,7 +22,7 @@ extern "C" {
 /** Verify a proof that a committed value is within a range.
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.
  *         0: Proof failed or other error.
- * In:   ctx: pointer to a context object, initialized for range-proof and commitment (cannot be NULL)
+ * In:   ctx: pointer to a context object (not secp256k1_context_static)
  *       commit: the commitment being proved. (cannot be NULL)
  *       proof: pointer to character array with the proof. (cannot be NULL)
  *       plen: length of proof in bytes.
@@ -47,7 +47,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
 /** Verify a range proof proof and rewind the proof to recover information sent by its author.
  *  Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs, and the value and blinding were recovered.
  *          0: Proof failed, rewind failed, or other error.
- *  In:   ctx: pointer to a context object, initialized for range-proof and Pedersen commitment (cannot be NULL)
+ *  In:   ctx: pointer to a context object (not secp256k1_context_static)
  *        commit: the commitment being proved. (cannot be NULL)
  *        proof: pointer to character array with the proof. (cannot be NULL)
  *        plen: length of proof in bytes.
@@ -84,7 +84,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
 /** Author a proof that a committed value is within a range.
  *  Returns 1: Proof successfully created.
  *          0: Error
- *  In:     ctx:    pointer to a context object, initialized for range-proof, signing, and Pedersen commitment (cannot be NULL)
+ *  In:     ctx:    pointer to a context object (not secp256k1_context_static)
  *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
  *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
  *          commit: the commitment being proved.

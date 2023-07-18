@@ -75,7 +75,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *
  *  Returns: 0 in the highly unlikely case the seed is not acceptable or when
  *           blind is out of range. 1 otherwise.
- *  Args: ctx:     a secp256k1 context object, initialized for signing
+ *  Args: ctx:     a secp256k1 context object (not secp256k1_context_static)
  *  Out:  gen:     a generator object
  *  In:   seed32:  a 32-byte seed
  *        blind32: a 32-byte secret value to blind the generator with.
@@ -136,7 +136,7 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
  *          0: Error. The blinding factor is larger than the group order
  *             (probability for random 32 byte number < 2^-127) or results in the
  *             point at infinity. Retry with a different factor.
- *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
+ *  In:     ctx:        pointer to a context object (not secp256k1_context_static)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
  *          gen:        additional generator 'h'

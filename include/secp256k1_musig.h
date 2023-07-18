@@ -192,7 +192,7 @@ SECP256K1_API int secp256k1_musig_partial_sig_parse(
  *  does not affect the aggregate public key.
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
- *  Args:        ctx: pointer to a context object initialized for verification
+ *  Args:        ctx: pointer to a context object
  *           scratch: should be NULL because it is not yet implemented. If it
  *                    was implemented then the scratch space would be used to
  *                    compute the aggregate pubkey by multiexponentiation.
@@ -260,7 +260,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_get(
  *  Returns: 0 if the arguments are invalid or the resulting public key would be
  *           invalid (only when the tweak is the negation of the corresponding
  *           secret key). 1 otherwise.
- *  Args:            ctx: pointer to a context object initialized for verification
+ *  Args:            ctx: pointer to a context object
  *  Out:   output_pubkey: pointer to a public key to store the result. Will be set
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
@@ -300,7 +300,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_ec_tweak_a
  *  Returns: 0 if the arguments are invalid or the resulting public key would be
  *           invalid (only when the tweak is the negation of the corresponding
  *           secret key). 1 otherwise.
- *  Args:            ctx: pointer to a context object initialized for verification
+ *  Args:            ctx: pointer to a context object
  *  Out:   output_pubkey: pointer to a public key to store the result. Will be set
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
@@ -345,7 +345,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_xonly_twea
  *  Note that using the same seckey for multiple MuSig sessions is fine.
  *
  *  Returns: 0 if the arguments are invalid and 1 otherwise
- *  Args:         ctx: pointer to a context object, initialized for signing
+ *  Args:         ctx: pointer to a context object (not secp256k1_context_static)
  *  Out:     secnonce: pointer to a structure to store the secret nonce
  *           pubnonce: pointer to a structure to store the public nonce
  *  In:  session_id32: a 32-byte session_id32 as explained above. Must be unique to this
@@ -409,7 +409,7 @@ SECP256K1_API int secp256k1_musig_nonce_agg(
  *
  *  Returns: 0 if the arguments are invalid or if some signer sent invalid
  *           pubnonces, 1 otherwise
- *  Args:          ctx: pointer to a context object, initialized for verification
+ *  Args:          ctx: pointer to a context object
  *  Out:       session: pointer to a struct to store the session
  *  In:       aggnonce: pointer to an aggregate public nonce object that is the
  *                      output of musig_nonce_agg
@@ -492,7 +492,7 @@ SECP256K1_API int secp256k1_musig_partial_sign(
  *
  *  Returns: 0 if the arguments are invalid or the partial signature does not
  *           verify, 1 otherwise
- *  Args         ctx: pointer to a context object, initialized for verification
+ *  Args         ctx: pointer to a context object
  *  In:  partial_sig: pointer to partial signature to verify, sent by
  *                    the signer associated with `pubnonce` and `pubkey`
  *          pubnonce: public nonce of the signer in the signing session
