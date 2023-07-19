@@ -25,51 +25,51 @@ static void test_bppp_generators_api(void) {
     int32_t ecount = 0;
 
     /* The BP generator API requires no precomp */
-    secp256k1_context_set_error_callback(ctx, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(ctx, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
 
     /* Create */
-    gens = secp256k1_bppp_generators_create(ctx, 10);
+    gens = secp256k1_bppp_generators_create(CTX, 10);
     CHECK(gens != NULL && ecount == 0);
     gens_orig = gens; /* Preserve for round-trip test */
 
     /* Serialize */
     ecount = 0;
-    CHECK(!secp256k1_bppp_generators_serialize(ctx, NULL, gens_ser, &len));
+    CHECK(!secp256k1_bppp_generators_serialize(CTX, NULL, gens_ser, &len));
     CHECK(ecount == 1);
-    CHECK(!secp256k1_bppp_generators_serialize(ctx, gens, NULL, &len));
+    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, NULL, &len));
     CHECK(ecount == 2);
-    CHECK(!secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, NULL));
+    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, NULL));
     CHECK(ecount == 3);
     len = 0;
-    CHECK(!secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
+    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     CHECK(ecount == 4);
     len = sizeof(gens_ser) - 1;
-    CHECK(!secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
+    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     CHECK(ecount == 5);
     len = sizeof(gens_ser);
     {
         /* Output buffer can be greater than minimum needed */
         unsigned char gens_ser_tmp[331];
         size_t len_tmp = sizeof(gens_ser_tmp);
-        CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser_tmp, &len_tmp));
+        CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser_tmp, &len_tmp));
         CHECK(len_tmp == sizeof(gens_ser_tmp) - 1);
         CHECK(ecount == 5);
     }
 
     /* Parse */
-    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
+    CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     ecount = 0;
-    gens = secp256k1_bppp_generators_parse(ctx, NULL, sizeof(gens_ser));
+    gens = secp256k1_bppp_generators_parse(CTX, NULL, sizeof(gens_ser));
     CHECK(gens == NULL && ecount == 1);
     /* Not a multiple of 33 */
-    gens = secp256k1_bppp_generators_parse(ctx, gens_ser, sizeof(gens_ser) - 1);
+    gens = secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser) - 1);
     CHECK(gens == NULL && ecount == 1);
-    gens = secp256k1_bppp_generators_parse(ctx, gens_ser, sizeof(gens_ser));
+    gens = secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser));
     CHECK(gens != NULL && ecount == 1);
     /* Not valid generators */
     memset(gens_ser, 1, sizeof(gens_ser));
-    CHECK(secp256k1_bppp_generators_parse(ctx, gens_ser, sizeof(gens_ser)) == NULL);
+    CHECK(secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser)) == NULL);
     CHECK(ecount == 1);
 
     /* Check that round-trip succeeded */
@@ -80,14 +80,17 @@ static void test_bppp_generators_api(void) {
 
     /* Destroy (we allow destroying a NULL context, it's just a noop. like free().) */
     ecount = 0;
-    secp256k1_bppp_generators_destroy(ctx, NULL);
-    secp256k1_bppp_generators_destroy(ctx, gens);
-    secp256k1_bppp_generators_destroy(ctx, gens_orig);
+    secp256k1_bppp_generators_destroy(CTX, NULL);
+    secp256k1_bppp_generators_destroy(CTX, gens);
+    secp256k1_bppp_generators_destroy(CTX, gens_orig);
     CHECK(ecount == 0);
+
+    secp256k1_context_set_error_callback(CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
 }
 
 static void test_bppp_generators_fixed(void) {
-    secp256k1_bppp_generators *gens = secp256k1_bppp_generators_create(ctx, 3);
+    secp256k1_bppp_generators *gens = secp256k1_bppp_generators_create(CTX, 3);
     unsigned char gens_ser[330];
     const unsigned char fixed_first_3[99] = {
         0x0b,
@@ -109,14 +112,14 @@ static void test_bppp_generators_fixed(void) {
     size_t len;
 
     len = 99;
-    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
+    CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     CHECK(memcmp(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
 
     len = sizeof(gens_ser);
-    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, gens_ser, &len));
+    CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     CHECK(memcmp(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
 
-    secp256k1_bppp_generators_destroy(ctx, gens);
+    secp256k1_bppp_generators_destroy(CTX, gens);
 }
 
 static void test_bppp_tagged_hash(void) {
@@ -224,19 +227,19 @@ void test_serialize_two_points(void) {
     secp256k1_ge X, R;
     int i;
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < COUNT; i++) {
         random_group_element_test(&X);
         random_group_element_test(&R);
         test_serialize_two_points_roundtrip(&X, &R);
     }
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < COUNT; i++) {
         random_group_element_test(&X);
         secp256k1_ge_set_infinity(&R);
         test_serialize_two_points_roundtrip(&X, &R);
     }
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < COUNT; i++) {
         secp256k1_ge_set_infinity(&X);
         random_group_element_test(&R);
         test_serialize_two_points_roundtrip(&X, &R);
@@ -258,7 +261,7 @@ void test_serialize_two_points(void) {
         CHECK(!secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 0));
     }
     /* Check that sign bit is 0 for point at infinity */
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < COUNT; i++) {
         secp256k1_ge X_tmp, R_tmp;
         unsigned char buf[65];
         int expect;
@@ -333,10 +336,10 @@ static void copy_vectors_into_scratch(secp256k1_scratch_space* scratch,
                                       const secp256k1_ge *gens_vec,
                                       size_t g_len,
                                       size_t h_len) {
-    *ns = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_len * sizeof(secp256k1_scalar));
-    *ls = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, h_len * sizeof(secp256k1_scalar));
-    *cs = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, h_len * sizeof(secp256k1_scalar));
-    *gs = (secp256k1_ge*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, (g_len + h_len) * sizeof(secp256k1_ge));
+    *ns = (secp256k1_scalar*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, g_len * sizeof(secp256k1_scalar));
+    *ls = (secp256k1_scalar*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, h_len * sizeof(secp256k1_scalar));
+    *cs = (secp256k1_scalar*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, h_len * sizeof(secp256k1_scalar));
+    *gs = (secp256k1_ge*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, (g_len + h_len) * sizeof(secp256k1_ge));
     CHECK(ns != NULL && ls != NULL && cs != NULL && gs != NULL);
     memcpy(*ns, n_vec, g_len * sizeof(secp256k1_scalar));
     memcpy(*ls, l_vec, h_len * sizeof(secp256k1_scalar));
@@ -366,10 +369,10 @@ static int secp256k1_bppp_rangeproof_norm_product_prove_const(
     size_t g_len = n_vec_len, h_len = l_vec_len;
     int res;
 
-    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&CTX->error_callback, scratch);
     copy_vectors_into_scratch(scratch, &ns, &ls, &cs, &gs, n_vec, l_vec, c_vec, g_vec, g_len, h_len);
     res = secp256k1_bppp_rangeproof_norm_product_prove(
-        ctx,
+        CTX,
         scratch,
         proof,
         proof_len,
@@ -384,7 +387,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove_const(
         cs,
         c_vec_len
     );
-    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+    secp256k1_scratch_apply_checkpoint(&CTX->error_callback, scratch, scratch_checkpoint);
     return res;
 }
 
@@ -434,7 +437,7 @@ static int secp256k1_norm_arg_verify(
     secp256k1_norm_arg_commit_initial_data(&transcript, rho, gens_vec, g_len, c_vec, c_vec_len, &comm);
 
     res = secp256k1_bppp_rangeproof_norm_product_verify(
-        ctx,
+        CTX,
         scratch,
         proof,
         proof_len,
@@ -454,11 +457,11 @@ void norm_arg_verify_zero_len(void) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar rho, mu;
     secp256k1_ge commit;
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*10); /* shouldn't need much */
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*10); /* shouldn't need much */
     unsigned char proof[1000];
     unsigned int n_vec_len = 1;
     unsigned int c_vec_len = 1;
-    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n_vec_len + c_vec_len);
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n_vec_len + c_vec_len);
     size_t plen = sizeof(proof);
 
     random_scalar_order(&rho);
@@ -467,14 +470,14 @@ void norm_arg_verify_zero_len(void) {
     random_scalar_order(&n_vec[0]);
     random_scalar_order(&c_vec[0]);
     random_scalar_order(&l_vec[0]);
-    CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
     CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
     CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
     CHECK(!secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, 0, &commit));
 
-    secp256k1_bppp_generators_destroy(ctx, gs);
+    secp256k1_bppp_generators_destroy(CTX, gs);
 
-    secp256k1_scratch_space_destroy(ctx, scratch);
+    secp256k1_scratch_space_destroy(CTX, scratch);
 }
 
 void norm_arg_test(unsigned int n, unsigned int m) {
@@ -483,8 +486,8 @@ void norm_arg_test(unsigned int n, unsigned int m) {
     secp256k1_ge commit;
     size_t i, plen;
     int res;
-    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(ctx, n + m);
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n + m);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     unsigned char proof[1000];
     plen = 1000;
     random_scalar_order(&rho);
@@ -499,7 +502,7 @@ void norm_arg_test(unsigned int n, unsigned int m) {
         random_scalar_order(&c_vec[i]);
     }
 
-    res = secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n, l_vec, m, c_vec, m, &mu);
+    res = secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n, l_vec, m, c_vec, m, &mu);
     CHECK(res == 1);
     res = secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n, l_vec, m, c_vec, m, &commit);
     CHECK(res == 1);
@@ -515,8 +518,8 @@ void norm_arg_test(unsigned int n, unsigned int m) {
     res = secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n, c_vec, m, &commit);
     CHECK(res == 0);
 
-    secp256k1_scratch_space_destroy(ctx, scratch);
-    secp256k1_bppp_generators_destroy(ctx, gs);
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
 }
 
 /* Parses generators from points compressed as pubkeys */
@@ -524,19 +527,16 @@ secp256k1_bppp_generators* bppp_generators_parse_regular(const unsigned char* da
     size_t n = data_len / 33;
     secp256k1_bppp_generators* ret;
 
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(data != NULL);
-
     if (data_len % 33 != 0) {
         return NULL;
     }
 
-    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    ret = (secp256k1_bppp_generators *)checked_malloc(&CTX->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
     ret->n = n;
-    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
+    ret->gens = (secp256k1_ge*)checked_malloc(&CTX->error_callback, n * sizeof(*ret->gens));
     if (ret->gens == NULL) {
         free(ret);
         return NULL;
@@ -572,16 +572,16 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         CHECK(!overflow);
     }
     CHECK(secp256k1_ge_parse_ext(&commit, commit33));
-    ret = secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
+    ret = secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
 
-    secp256k1_bppp_generators_destroy(ctx, gs);
+    secp256k1_bppp_generators_destroy(CTX, gs);
     return ret;
 }
 
 #define IDX_TO_TEST(i) (norm_arg_verify_vectors_helper(scratch, verify_vector_gens, verify_vector_##i##_proof, sizeof(verify_vector_##i##_proof), verify_vector_##i##_r32, verify_vector_##i##_n_vec_len, verify_vector_##i##_c_vec32, verify_vector_##i##_c_vec, sizeof(verify_vector_##i##_c_vec)/sizeof(secp256k1_scalar), verify_vector_##i##_commit33) == verify_vector_##i##_result)
 
 void norm_arg_verify_vectors(void) {
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     size_t alloc = scratch->alloc_size;
 
     CHECK(IDX_TO_TEST(0));
@@ -599,7 +599,7 @@ void norm_arg_verify_vectors(void) {
     CHECK(IDX_TO_TEST(12));
 
     CHECK(alloc == scratch->alloc_size);
-    secp256k1_scratch_space_destroy(ctx, scratch);
+    secp256k1_scratch_space_destroy(CTX, scratch);
 }
 #undef IDX_TO_TEST
 
@@ -632,16 +632,16 @@ void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
 
     CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, myproof, &myplen, &transcript, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
     if (!result) {
-        secp256k1_bppp_generators_destroy(ctx, gs);
+        secp256k1_bppp_generators_destroy(CTX, gs);
         return;
     }
     CHECK(plen == myplen);
     CHECK(secp256k1_memcmp_var(proof, myproof, plen) == 0);
 
-    CHECK(secp256k1_bppp_commit(ctx, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
     secp256k1_sha256_initialize(&transcript);
-    CHECK(secp256k1_bppp_rangeproof_norm_product_verify(ctx, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
-    secp256k1_bppp_generators_destroy(ctx, gs);
+    CHECK(secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
+    secp256k1_bppp_generators_destroy(CTX, gs);
 }
 
 
@@ -652,7 +652,7 @@ void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
     prove_vector_##i##_result))
 
 void norm_arg_prove_vectors(void) {
-    secp256k1_scratch *scratch = secp256k1_scratch_space_create(ctx, 1000*1000); /* shouldn't need much */
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     size_t alloc = scratch->alloc_size;
 
     IDX_TO_TEST(0);
@@ -662,7 +662,7 @@ void norm_arg_prove_vectors(void) {
     IDX_TO_TEST(4);
 
     CHECK(alloc == scratch->alloc_size);
-    secp256k1_scratch_space_destroy(ctx, scratch);
+    secp256k1_scratch_space_destroy(CTX, scratch);
 }
 
 #undef IDX_TO_TEST

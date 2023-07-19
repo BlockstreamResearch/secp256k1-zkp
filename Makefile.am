@@ -75,7 +75,7 @@ noinst_HEADERS += examples/random.h
 PRECOMPUTED_LIB = libsecp256k1_precomputed.la
 noinst_LTLIBRARIES = $(PRECOMPUTED_LIB)
 libsecp256k1_precomputed_la_SOURCES =  src/precomputed_ecmult.c src/precomputed_ecmult_gen.c
-libsecp256k1_precomputed_la_CPPFLAGS = $(SECP_INCLUDES)
+libsecp256k1_precomputed_la_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 
 if USE_EXTERNAL_ASM
 COMMON_LIB = libsecp256k1_common.la
@@ -94,7 +94,7 @@ endif
 endif
 
 libsecp256k1_la_SOURCES = src/secp256k1.c
-libsecp256k1_la_CPPFLAGS = $(SECP_INCLUDES)
+libsecp256k1_la_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 libsecp256k1_la_LIBADD = $(SECP_LIBS) $(COMMON_LIB) $(PRECOMPUTED_LIB)
 libsecp256k1_la_LDFLAGS = -no-undefined -version-info $(LIB_VERSION_CURRENT):$(LIB_VERSION_REVISION):$(LIB_VERSION_AGE)
 
@@ -107,37 +107,43 @@ if USE_BENCHMARK
 noinst_PROGRAMS += bench bench_internal bench_ecmult
 bench_SOURCES = src/bench.c
 bench_LDADD = libsecp256k1.la $(SECP_LIBS) $(SECP_TEST_LIBS) $(COMMON_LIB)
+bench_CPPFLAGS = $(SECP_CONFIG_DEFINES)
 bench_internal_SOURCES = src/bench_internal.c
 bench_internal_LDADD = $(SECP_LIBS) $(COMMON_LIB) $(PRECOMPUTED_LIB)
-bench_internal_CPPFLAGS = $(SECP_INCLUDES)
+bench_internal_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 bench_ecmult_SOURCES = src/bench_ecmult.c
 bench_ecmult_LDADD = $(SECP_LIBS) $(COMMON_LIB) $(PRECOMPUTED_LIB)
-bench_ecmult_CPPFLAGS = $(SECP_INCLUDES)
+bench_ecmult_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 endif
 
 TESTS =
 if USE_TESTS
-noinst_PROGRAMS += tests
-tests_SOURCES = src/tests.c
-tests_CPPFLAGS = $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
+TESTS += noverify_tests
+noinst_PROGRAMS += noverify_tests
+noverify_tests_SOURCES = src/tests.c
+noverify_tests_CPPFLAGS = $(SECP_INCLUDES) $(SECP_TEST_INCLUDES) $(SECP_CONFIG_DEFINES)
+noverify_tests_LDADD = $(SECP_LIBS) $(SECP_TEST_LIBS) $(COMMON_LIB) $(PRECOMPUTED_LIB)
+noverify_tests_LDFLAGS = -static
 if VALGRIND_ENABLED
-tests_CPPFLAGS += -DVALGRIND
+noverify_tests_CPPFLAGS += -DVALGRIND
 noinst_PROGRAMS += valgrind_ctime_test
 valgrind_ctime_test_SOURCES = src/valgrind_ctime_test.c
 valgrind_ctime_test_LDADD = libsecp256k1.la $(SECP_LIBS) $(COMMON_LIB)
 endif
 if !ENABLE_COVERAGE
-tests_CPPFLAGS += -DVERIFY
-endif
-tests_LDADD = $(SECP_LIBS) $(SECP_TEST_LIBS) $(COMMON_LIB) $(PRECOMPUTED_LIB)
-tests_LDFLAGS = -static
 TESTS += tests
+noinst_PROGRAMS += tests
+tests_SOURCES  = $(noverify_tests_SOURCES)
+tests_CPPFLAGS = $(noverify_tests_CPPFLAGS) -DVERIFY
+tests_LDADD    = $(noverify_tests_LDADD)
+tests_LDFLAGS  = $(noverify_tests_LDFLAGS)
+endif
 endif
 
 if USE_EXHAUSTIVE_TESTS
 noinst_PROGRAMS += exhaustive_tests
 exhaustive_tests_SOURCES = src/tests_exhaustive.c
-exhaustive_tests_CPPFLAGS = $(SECP_INCLUDES)
+exhaustive_tests_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 if !ENABLE_COVERAGE
 exhaustive_tests_CPPFLAGS += -DVERIFY
 endif
@@ -197,11 +203,11 @@ EXTRA_PROGRAMS = precompute_ecmult precompute_ecmult_gen
 CLEANFILES = $(EXTRA_PROGRAMS)
 
 precompute_ecmult_SOURCES = src/precompute_ecmult.c
-precompute_ecmult_CPPFLAGS = $(SECP_INCLUDES)
+precompute_ecmult_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 precompute_ecmult_LDADD = $(SECP_LIBS) $(COMMON_LIB)
 
 precompute_ecmult_gen_SOURCES = src/precompute_ecmult_gen.c
-precompute_ecmult_gen_CPPFLAGS = $(SECP_INCLUDES)
+precompute_ecmult_gen_CPPFLAGS = $(SECP_INCLUDES) $(SECP_CONFIG_DEFINES)
 precompute_ecmult_gen_LDADD = $(SECP_LIBS) $(COMMON_LIB)
 
 # See Automake manual, Section "Errors with distclean".
