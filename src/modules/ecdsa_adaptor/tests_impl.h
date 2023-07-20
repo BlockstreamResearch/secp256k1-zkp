@@ -3,13 +3,13 @@
 
 #include "../../../include/secp256k1_ecdsa_adaptor.h"
 
-void rand_scalar(secp256k1_scalar *scalar) {
+static void rand_scalar(secp256k1_scalar *scalar) {
     unsigned char buf32[32];
     secp256k1_testrand256(buf32);
     secp256k1_scalar_set_b32(scalar, buf32, NULL);
 }
 
-void rand_point(secp256k1_ge *point) {
+static void rand_point(secp256k1_ge *point) {
     secp256k1_scalar x;
     secp256k1_gej pointj;
     rand_scalar(&x);
@@ -18,7 +18,7 @@ void rand_point(secp256k1_ge *point) {
     secp256k1_ge_set_gej(point, &pointj);
 }
 
-void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
+static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     secp256k1_scalar k1, k2;
 
     CHECK(secp256k1_dleq_nonce(&k1, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
@@ -27,7 +27,7 @@ void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     CHECK(secp256k1_scalar_eq(&k1, &k2) == 0);
 }
 
-void dleq_tests(void) {
+static void dleq_tests(void) {
     secp256k1_scalar s, e, sk, k;
     secp256k1_ge gen2, p1, p2;
     unsigned char *args[5];
@@ -100,13 +100,13 @@ void dleq_tests(void) {
     CHECK(secp256k1_dleq_nonce(&k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 }
 
-void rand_flip_bit(unsigned char *array, size_t n) {
+static void rand_flip_bit(unsigned char *array, size_t n) {
     array[secp256k1_testrand_int(n)] ^= 1 << secp256k1_testrand_int(8);
 }
 
 /* Helper function for test_ecdsa_adaptor_spec_vectors
  * Checks that the adaptor signature is valid for the public and encryption keys. */
-void test_ecdsa_adaptor_spec_vectors_check_verify(const unsigned char *adaptor_sig162, const unsigned char *msg32, const unsigned char *pubkey33, const unsigned char *encryption_key33, int expected) {
+static void test_ecdsa_adaptor_spec_vectors_check_verify(const unsigned char *adaptor_sig162, const unsigned char *msg32, const unsigned char *pubkey33, const unsigned char *encryption_key33, int expected) {
     secp256k1_pubkey pubkey;
     secp256k1_ge pubkey_ge;
     secp256k1_pubkey encryption_key;
@@ -122,7 +122,7 @@ void test_ecdsa_adaptor_spec_vectors_check_verify(const unsigned char *adaptor_s
 
 /* Helper function for test_ecdsa_adaptor_spec_vectors
  * Checks that the signature can be decrypted from the adaptor signature and the decryption key. */
-void test_ecdsa_adaptor_spec_vectors_check_decrypt(const unsigned char *adaptor_sig162, const unsigned char *decryption_key32, const unsigned char *signature64, int expected) {
+static void test_ecdsa_adaptor_spec_vectors_check_decrypt(const unsigned char *adaptor_sig162, const unsigned char *decryption_key32, const unsigned char *signature64, int expected) {
     unsigned char signature[64];
     secp256k1_ecdsa_signature s;
 
@@ -134,7 +134,7 @@ void test_ecdsa_adaptor_spec_vectors_check_decrypt(const unsigned char *adaptor_
 
 /* Helper function for test_ecdsa_adaptor_spec_vectors
  * Checks that the decryption key can be recovered from the adaptor signature, encryption key, and the signature. */
-void test_ecdsa_adaptor_spec_vectors_check_recover(const unsigned char *adaptor_sig162, const unsigned char *encryption_key33, const unsigned char *decryption_key32, const unsigned char *signature64, int expected) {
+static void test_ecdsa_adaptor_spec_vectors_check_recover(const unsigned char *adaptor_sig162, const unsigned char *encryption_key33, const unsigned char *decryption_key32, const unsigned char *signature64, int expected) {
     unsigned char deckey32[32] = { 0 };
     secp256k1_ecdsa_signature sig;
     secp256k1_pubkey encryption_key;
@@ -152,7 +152,7 @@ void test_ecdsa_adaptor_spec_vectors_check_recover(const unsigned char *adaptor_
 
 /* Helper function for test_ecdsa_adaptor_spec_vectors
  * Checks deserialization and serialization. */
-void test_ecdsa_adaptor_spec_vectors_check_serialization(const unsigned char *adaptor_sig162, int expected) {
+static void test_ecdsa_adaptor_spec_vectors_check_serialization(const unsigned char *adaptor_sig162, int expected) {
     unsigned char buf[162];
     secp256k1_scalar dleq_proof_s, dleq_proof_e;
     secp256k1_ge r, rp;
@@ -168,7 +168,7 @@ void test_ecdsa_adaptor_spec_vectors_check_serialization(const unsigned char *ad
 
 /* Test vectors according to ECDSA adaptor signature spec. See
  * https://github.com/discreetlogcontracts/dlcspecs/blob/596a177375932a47306f07e7385f398f52519a83/test/ecdsa_adaptor.json. */
-void test_ecdsa_adaptor_spec_vectors(void) {
+static void test_ecdsa_adaptor_spec_vectors(void) {
     {
         /* Test vector 0 */
         /* kind: verification test */
@@ -710,7 +710,7 @@ static int ecdsa_adaptor_nonce_function_overflowing(unsigned char *nonce32, cons
 /* Checks that a bit flip in the n_flip-th argument (that has n_bytes many
  * bytes) changes the hash function
  */
-void nonce_function_ecdsa_adaptor_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes, size_t algolen) {
+static void nonce_function_ecdsa_adaptor_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes, size_t algolen) {
     unsigned char nonces[2][32];
     CHECK(nonce_function_ecdsa_adaptor(nonces[0], args[0], args[1], args[2], args[3], algolen, args[4]) == 1);
     secp256k1_testrand_flip(args[n_flip], n_bytes);
@@ -721,7 +721,7 @@ void nonce_function_ecdsa_adaptor_bitflip(unsigned char **args, size_t n_flip, s
 /* Tests for the equality of two sha256 structs. This function only produces a
  * correct result if an integer multiple of 64 many bytes have been written
  * into the hash functions. */
-void ecdsa_adaptor_test_sha256_eq(const secp256k1_sha256 *sha1, const secp256k1_sha256 *sha2) {
+static void ecdsa_adaptor_test_sha256_eq(const secp256k1_sha256 *sha1, const secp256k1_sha256 *sha2) {
     /* Is buffer fully consumed? */
     CHECK((sha1->bytes & 0x3F) == 0);
 
@@ -729,7 +729,7 @@ void ecdsa_adaptor_test_sha256_eq(const secp256k1_sha256 *sha1, const secp256k1_
     CHECK(secp256k1_memcmp_var(sha1->s, sha2->s, sizeof(sha1->s)) == 0);
 }
 
-void run_nonce_function_ecdsa_adaptor_tests(void) {
+static void run_nonce_function_ecdsa_adaptor_tests(void) {
     unsigned char tag[16] = "ECDSAadaptor/non";
     unsigned char aux_tag[16] = "ECDSAadaptor/aux";
     unsigned char algo[16] = "ECDSAadaptor/non";
@@ -813,7 +813,7 @@ void run_nonce_function_ecdsa_adaptor_tests(void) {
     CHECK(nonce_function_ecdsa_adaptor(nonce, msg, key, pk, algo, algolen, NULL) == 1);
 }
 
-void test_ecdsa_adaptor_api(void) {
+static void test_ecdsa_adaptor_api(void) {
     secp256k1_pubkey pubkey;
     secp256k1_pubkey enckey;
     secp256k1_pubkey zero_pk;
@@ -905,7 +905,7 @@ void test_ecdsa_adaptor_api(void) {
     secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
-void adaptor_tests(void) {
+static void adaptor_tests(void) {
     unsigned char seckey[32];
     secp256k1_pubkey pubkey;
     unsigned char msg[32];
@@ -1105,7 +1105,7 @@ void adaptor_tests(void) {
     }
 }
 
-void multi_hop_lock_tests(void) {
+static void multi_hop_lock_tests(void) {
     unsigned char seckey_a[32];
     unsigned char seckey_b[32];
     unsigned char pop[32];
@@ -1179,7 +1179,7 @@ void multi_hop_lock_tests(void) {
     CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
 }
 
-void run_ecdsa_adaptor_tests(void) {
+static void run_ecdsa_adaptor_tests(void) {
     int i;
     run_nonce_function_ecdsa_adaptor_tests();
 

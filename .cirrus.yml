@@ -1,4 +1,6 @@
 env:
+  ### cirrus config
+  CIRRUS_CLONE_DEPTH: 1
   ### compiler options
   HOST:
   WRAPPER_CMD:
@@ -29,7 +31,7 @@ env:
   SECP256K1_TEST_ITERS:
   BENCH: yes
   SECP256K1_BENCH_ITERS: 2
-  CTIMETEST: yes
+  CTIMETESTS: yes
   # Compile and run the tests
   EXAMPLES: yes
 
@@ -46,8 +48,8 @@ cat_logs_snippet: &CAT_LOGS
       - cat noverify_tests.log || true
     cat_exhaustive_tests_log_script:
       - cat exhaustive_tests.log || true
-    cat_valgrind_ctime_test_log_script:
-      - cat valgrind_ctime_test.log || true
+    cat_ctime_tests_log_script:
+      - cat ctime_tests.log || true
     cat_bench_log_script:
       - cat bench.log || true
     cat_config_log_script:
@@ -60,10 +62,8 @@ cat_logs_snippet: &CAT_LOGS
 merge_base_script_snippet: &MERGE_BASE
   merge_base_script:
     - if [ "$CIRRUS_PR" = "" ]; then exit 0; fi
-    - git fetch $CIRRUS_REPO_CLONE_URL $CIRRUS_BASE_BRANCH
-    - git config --global user.email "ci@ci.ci"
-    - git config --global user.name "ci"
-    - git merge FETCH_HEAD  # Merge base to detect silent merge conflicts
+    - git fetch --depth=1 $CIRRUS_REPO_CLONE_URL "pull/${CIRRUS_PR}/merge"
+    - git checkout FETCH_HEAD  # Use merged changes to detect silent merge conflicts
 
 linux_container_snippet: &LINUX_CONTAINER
   container:
@@ -87,9 +87,10 @@ task:
     - env: {WIDEMUL: int128,                 ECDH: yes, SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
     - env: {WIDEMUL: int128,  ASM: x86_64}
     - env: {                  RECOVERY: yes,            SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
-    - env: {BUILD: distcheck, WITH_VALGRIND: no, CTIMETEST: no, BENCH: no}
+    - env: {CTIMETESTS: no,    RECOVERY: yes, ECDH: yes, SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes, CPPFLAGS: -DVERIFY}
+    - env: {BUILD: distcheck, WITH_VALGRIND: no, CTIMETESTS: no, BENCH: no}
     - env: {CPPFLAGS: -DDETERMINISTIC}
-    - env: {CFLAGS: -O0, CTIMETEST: no}
+    - env: {CFLAGS: -O0, CTIMETESTS: no}
     - env: { ECMULTGENPRECISION: 2, ECMULTWINDOW: 2 }
     - env: { ECMULTGENPRECISION: 8, ECMULTWINDOW: 4 }
   matrix:
@@ -144,7 +145,7 @@ task:
   env:
     ASM: no
     WITH_VALGRIND: no
-    CTIMETEST: no
+    CTIMETESTS: no
   matrix:
     - env:
         CC: gcc
@@ -177,7 +178,7 @@ task:
     MUSIG: yes
     ECDSAADAPTOR: yes
     BPPP: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   << : *MERGE_BASE
   test_script:
     # https://sourceware.org/bugzilla/show_bug.cgi?id=27008
@@ -196,7 +197,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   matrix:
     - env: {}
     - env: {EXPERIMENTAL: yes, ASM: arm}
@@ -216,7 +217,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   << : *MERGE_BASE
   test_script:
     - ./ci/cirrus.sh
@@ -233,7 +234,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   << : *MERGE_BASE
   test_script:
     - ./ci/cirrus.sh
@@ -247,7 +248,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   matrix:
     - name: "x86_64 (mingw32-w64): Windows (Debian stable, Wine)"
       env:
@@ -277,7 +278,7 @@ task:
     MUSIG: yes
     ECDSAADAPTOR: yes
     BPPP: yes
-    CTIMETEST: no
+    CTIMETESTS: no
     # Use a MinGW-w64 host to tell ./configure we're building for Windows.
     # This will detect some MinGW-w64 tools but then make will need only
     # the MSVC tools CC, AR and NM as specified below.
@@ -288,7 +289,7 @@ task:
     # Set non-essential options that affect the CLI messages here.
     # (They depend on the user's taste, so we don't want to set them automatically in configure.ac.)
     CFLAGS: -nologo -diagnostics:caret
-    LDFLAGS: -XCClinker -nologo -XCClinker -diagnostics:caret
+    LDFLAGS: -Xlinker -Xlinker -Xlinker -nologo
   matrix:
     - name: "x86_64 (MSVC): Windows (Debian stable, Wine)"
     - name: "x86_64 (MSVC): Windows (Debian stable, Wine, int128_struct)"
@@ -325,7 +326,7 @@ task:
     MUSIG: yes
     ECDSAADAPTOR: yes
     BPPP: yes
-    CTIMETEST: no
+    CTIMETESTS: no
   matrix:
     - name: "Valgrind (memcheck)"
       container:
@@ -378,10 +379,11 @@ task:
     MUSIG: yes
     ECDSAADAPTOR: yes
     BPPP: yes
-    CTIMETEST: no
+    CTIMETESTS: yes
     CC: clang
     SECP256K1_TEST_ITERS: 32
     ASM: no
+    WITH_VALGRIND: no
   container:
     memory: 2G
   matrix:

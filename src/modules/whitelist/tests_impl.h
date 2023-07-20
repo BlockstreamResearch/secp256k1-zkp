@@ -9,7 +9,7 @@
 
 #include "../../../include/secp256k1_whitelist.h"
 
-void test_whitelist_end_to_end_internal(const unsigned char *summed_seckey, const unsigned char *online_seckey, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const secp256k1_pubkey *sub_pubkey, const size_t signer_i, const size_t n_keys) {
+static void test_whitelist_end_to_end_internal(const unsigned char *summed_seckey, const unsigned char *online_seckey, const secp256k1_pubkey *online_pubkeys, const secp256k1_pubkey *offline_pubkeys, const secp256k1_pubkey *sub_pubkey, const size_t signer_i, const size_t n_keys) {
         unsigned char serialized[32 + 4 + 32 * SECP256K1_WHITELIST_MAX_N_KEYS] = {0};
         size_t slen = sizeof(serialized);
         secp256k1_whitelist_signature sig;
@@ -41,7 +41,7 @@ void test_whitelist_end_to_end_internal(const unsigned char *summed_seckey, cons
         sig.n_keys = n_keys;
 }
 
-void test_whitelist_end_to_end(const size_t n_keys, int test_all_keys) {
+static void test_whitelist_end_to_end(const size_t n_keys, int test_all_keys) {
     unsigned char **online_seckey = (unsigned char **) malloc(n_keys * sizeof(*online_seckey));
     unsigned char **summed_seckey = (unsigned char **) malloc(n_keys * sizeof(*summed_seckey));
     secp256k1_pubkey *online_pubkeys = (secp256k1_pubkey *) malloc(n_keys * sizeof(*online_pubkeys));
@@ -104,7 +104,7 @@ void test_whitelist_end_to_end(const size_t n_keys, int test_all_keys) {
     free(offline_pubkeys);
 }
 
-void test_whitelist_bad_parse(void) {
+static void test_whitelist_bad_parse(void) {
     secp256k1_whitelist_signature sig;
 
     const unsigned char serialized0[] = { 1+32*(0+1) };
@@ -131,7 +131,7 @@ void test_whitelist_bad_parse(void) {
     CHECK(secp256k1_whitelist_signature_parse(CTX, &sig, serialized2, sizeof(serialized2)) == 0);
 }
 
-void test_whitelist_bad_serialize(void) {
+static void test_whitelist_bad_serialize(void) {
     unsigned char serialized[] = {
         0x00,
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -148,7 +148,7 @@ void test_whitelist_bad_serialize(void) {
     CHECK(secp256k1_whitelist_signature_serialize(CTX, serialized, &serialized_len, &sig) == 0);
 }
 
-void run_whitelist_tests(void) {
+static void run_whitelist_tests(void) {
     int i;
     test_whitelist_bad_parse();
     test_whitelist_bad_serialize();

@@ -21,6 +21,7 @@
 #include "../include/secp256k1_preallocated.h"
 
 #include "assumptions.h"
+#include "checkmem.h"
 #include "util.h"
 
 #include "field_impl.h"
@@ -39,10 +40,6 @@
 
 #ifdef SECP256K1_NO_BUILD
 # error "secp256k1.h processed without SECP256K1_BUILD defined while building secp256k1.c"
-#endif
-
-#if defined(VALGRIND)
-# include <valgrind/memcheck.h>
 #endif
 
 #ifdef ENABLE_MODULE_GENERATOR
@@ -123,13 +120,19 @@ size_t secp256k1_context_preallocated_size(unsigned int flags) {
             return 0;
     }
 
+    if (EXPECT(!SECP256K1_CHECKMEM_RUNNING() && (flags & SECP256K1_FLAGS_BIT_CONTEXT_DECLASSIFY), 0)) {
+            secp256k1_callback_call(&default_illegal_callback,
+                                    "Declassify flag requires running with memory checking");
+            return 0;
+    }
+
     return ret;
 }
 
 size_t secp256k1_context_preallocated_clone_size(const secp256k1_context* ctx) {
-    size_t ret = sizeof(secp256k1_context);
     VERIFY_CHECK(ctx != NULL);
-    return ret;
+    ARG_CHECK(secp256k1_context_is_proper(ctx));
+    return sizeof(secp256k1_context);
 }
 
 secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigned int flags) {
@@ -170,6 +173,7 @@ secp256k1_context* secp256k1_context_preallocated_clone(const secp256k1_context*
     secp256k1_context* ret;
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(prealloc != NULL);
+    ARG_CHECK(secp256k1_context_is_proper(ctx));
 
     ret = (secp256k1_context*)prealloc;
     *ret = *ctx;
@@ -181,6 +185,8 @@ secp256k1_context* secp256k1_context_clone(const secp256k1_context* ctx) {
     size_t prealloc_size;
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_context_is_proper(ctx));
+
     prealloc_size = secp256k1_context_preallocated_clone_size(ctx);
     ret = (secp256k1_context*)checked_malloc(&ctx->error_callback, prealloc_size);
     ret = secp256k1_context_preallocated_clone(ctx, ret);
@@ -188,17 +194,26 @@ secp256k1_context* secp256k1_context_clone(const secp256k1_context* ctx) {
 }
 
 void secp256k1_context_preallocated_destroy(secp256k1_context* ctx) {
-    ARG_CHECK_VOID(ctx != secp256k1_context_static);
-    if (ctx != NULL) {
-        secp256k1_ecmult_gen_context_clear(&ctx->ecmult_gen_ctx);
+    ARG_CHECK_VOID(ctx == NULL || secp256k1_context_is_proper(ctx));
+
+    /* Defined as noop */
+    if (ctx == NULL) {
+        return;
     }
+
+    secp256k1_ecmult_gen_context_clear(&ctx->ecmult_gen_ctx);
 }
 
 void secp256k1_context_destroy(secp256k1_context* ctx) {
-    if (ctx != NULL) {
-        secp256k1_context_preallocated_destroy(ctx);
-        free(ctx);
+    ARG_CHECK_VOID(ctx == NULL || secp256k1_context_is_proper(ctx));
+
+    /* Defined as noop */
+    if (ctx == NULL) {
+        return;
     }
+
+    secp256k1_context_preallocated_destroy(ctx);
+    free(ctx);
 }
 
 void secp256k1_context_set_illegal_callback(secp256k1_context* ctx, void (*fun)(const char* message, void* data), const void* data) {
@@ -236,17 +251,10 @@ void secp256k1_scratch_space_destroy(const secp256k1_context *ctx, secp256k1_scr
 }
 
 /* Mark memory as no-longer-secret for the purpose of analysing constant-time behaviour
- *  of the software. This is setup for use with valgrind but could be substituted with
- *  the appropriate instrumentation for other analysis tools.
+ *  of the software.
  */
 static SECP256K1_INLINE void secp256k1_declassify(const secp256k1_context* ctx, const void *p, size_t len) {
-#if defined(VALGRIND)
-    if (EXPECT(ctx->declassify,0)) VALGRIND_MAKE_MEM_DEFINED(p, len);
-#else
-    (void)ctx;
-    (void)p;
-    (void)len;
-#endif
+    if (EXPECT(ctx->declassify, 0)) SECP256K1_CHECKMEM_DEFINE(p, len);
 }
 
 static int secp256k1_pubkey_load(const secp256k1_context* ctx, secp256k1_ge* ge, const secp256k1_pubkey* pubkey) {
@@ -791,6 +799,8 @@ int secp256k1_ec_pubkey_tweak_mul(const secp256k1_context* ctx, secp256k1_pubkey
 
 int secp256k1_context_randomize(secp256k1_context* ctx, const unsigned char *seed32) {
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_context_is_proper(ctx));
+
     if (secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx)) {
         secp256k1_ecmult_gen_blind(&ctx->ecmult_gen_ctx, seed32);
     }

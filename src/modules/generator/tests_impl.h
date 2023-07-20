@@ -17,7 +17,7 @@
 
 #include "../../../include/secp256k1_generator.h"
 
-void test_generator_api(void) {
+static void test_generator_api(void) {
     unsigned char key[32];
     unsigned char blind[32];
     unsigned char sergen[33];
@@ -70,7 +70,7 @@ void test_generator_api(void) {
     secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
-void test_shallue_van_de_woestijne(void) {
+static void test_shallue_van_de_woestijne(void) {
     /* Matches with the output of the shallue_van_de_woestijne.sage SAGE program */
     static const secp256k1_ge_storage results[32] = {
         SECP256K1_GE_STORAGE_CONST(0xedd1fd3e, 0x327ce90c, 0xc7a35426, 0x14289aee, 0x9682003e, 0x9cf7dcc9, 0xcf2ca974, 0x3be5aa0c, 0x0225f529, 0xee75acaf, 0xccfc4560, 0x26c5e46b, 0xf80237a3, 0x3924655a, 0x16f90e88, 0x085ed52a),
@@ -127,7 +127,7 @@ void test_shallue_van_de_woestijne(void) {
     }
 }
 
-void test_generator_generate(void) {
+static void test_generator_generate(void) {
     static const secp256k1_ge_storage results[32] = {
         SECP256K1_GE_STORAGE_CONST(0x806cd8ed, 0xd6c153e3, 0x4aa9b9a0, 0x8755c4be, 0x4718b1ef, 0xb26cb93f, 0xfdd99e1b, 0x21f2af8e, 0xc7062208, 0xcc649a03, 0x1bdc1a33, 0x9d01f115, 0x4bcd0dca, 0xfe0b875d, 0x62f35f73, 0x28673006),
         SECP256K1_GE_STORAGE_CONST(0xd91b15ec, 0x47a811f4, 0xaa189561, 0xd13f5c4d, 0x4e81f10d, 0xc7dc551f, 0x4fea9b84, 0x610314c4, 0x9b0ada1e, 0xb38efd67, 0x8bff0b6c, 0x7d7315f7, 0xb49b8cc5, 0xa679fad4, 0xc94f9dc6, 0x9da66382),
@@ -192,7 +192,7 @@ void test_generator_generate(void) {
     CHECK(!secp256k1_generator_generate_blinded(CTX, &gen, v, s));
 }
 
-void test_generator_fixed_vector(void) {
+static void test_generator_fixed_vector(void) {
     const unsigned char two_g[33] = {
         0x0b,
         0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d, 0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c, 0xd8,
@@ -337,7 +337,7 @@ static void test_pedersen(void) {
     CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[1], 1, &cptr[1], 1));
 }
 
-void test_pedersen_commitment_fixed_vector(void) {
+static void test_pedersen_commitment_fixed_vector(void) {
     const unsigned char two_g[33] = {
         0x09,
         0xc6, 0x04, 0x7f, 0x94, 0x41, 0xed, 0x7d, 0x6d, 0x30, 0x45, 0x40, 0x6e, 0x95, 0xc0, 0x7c, 0xd8,
@@ -357,7 +357,7 @@ void test_pedersen_commitment_fixed_vector(void) {
 }
 
 
-void run_generator_tests(void) {
+static void run_generator_tests(void) {
     int i;
 
     test_shallue_van_de_woestijne();
