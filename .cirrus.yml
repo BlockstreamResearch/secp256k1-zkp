@@ -14,6 +14,7 @@ env:
   WITH_VALGRIND: yes
   EXTRAFLAGS:
   ### secp256k1 modules
+  EXPERIMENTAL: no
   ECDH: no
   RECOVERY: no
   SCHNORRSIG: no
