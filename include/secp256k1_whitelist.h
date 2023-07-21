@@ -58,7 +58,7 @@ typedef struct {
  *  to fail validation for any set of keys.
  */
 SECP256K1_API int secp256k1_whitelist_signature_parse(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_whitelist_signature *sig,
     const unsigned char *input,
     size_t input_len
@@ -84,7 +84,7 @@ SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
  *  See secp256k1_whitelist_signature_parse for details about the encoding.
  */
 SECP256K1_API int secp256k1_whitelist_signature_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *output,
     size_t *output_len,
     const secp256k1_whitelist_signature *sig
@@ -111,7 +111,7 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
  * compressed serialization of the key.
  */
 SECP256K1_API int secp256k1_whitelist_sign(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,
@@ -133,7 +133,7 @@ SECP256K1_API int secp256k1_whitelist_sign(
  *         sub_pubkey: the key to be whitelisted
  */
 SECP256K1_API int secp256k1_whitelist_verify(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   const secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,

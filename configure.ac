@@ -29,6 +29,11 @@ AM_INIT_AUTOMAKE([1.11.2 foreign subdir-objects])
 # Make the compilation flags quiet unless V=1 is used.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+if test "${CFLAGS+set}" = "set"; then
+  CFLAGS_overridden=yes
+else
+  CFLAGS_overridden=no
+fi
 AC_PROG_CC
 AM_PROG_AS
 AM_PROG_AR
@@ -88,11 +93,14 @@ esac
 AC_DEFUN([SECP_TRY_APPEND_DEFAULT_CFLAGS], [
     # GCC and compatible (incl. clang)
     if test "x$GCC" = "xyes"; then
-      # Try to append -Werror=unknown-warning-option to CFLAGS temporarily. Otherwise clang will
-      # not error out if it gets unknown warning flags and the checks here will always succeed
-      # no matter if clang knows the flag or not.
+      # Try to append -Werror to CFLAGS temporarily. Otherwise checks for some unsupported
+      # flags will succeed.
+      # Note that failure to append -Werror does not necessarily mean that -Werror is not
+      # supported. The compiler may already be warning about something unrelated, for example
+      # about some path issue. If that is the case, -Werror cannot be used because all
+      # of those warnings would be turned into errors.
       SECP_TRY_APPEND_DEFAULT_CFLAGS_saved_CFLAGS="$CFLAGS"
-      SECP_TRY_APPEND_CFLAGS([-Werror=unknown-warning-option], CFLAGS)
+      SECP_TRY_APPEND_CFLAGS([-Werror], CFLAGS)
 
       SECP_TRY_APPEND_CFLAGS([-std=c89 -pedantic -Wno-long-long -Wnested-externs -Wshadow -Wstrict-prototypes -Wundef], $1) # GCC >= 3.0, -Wlong-long is implied by -pedantic.
       SECP_TRY_APPEND_CFLAGS([-Wno-overlength-strings], $1) # GCC >= 4.2, -Woverlength-strings is implied by -pedantic.
@@ -286,6 +294,12 @@ fi
 if test x"$enable_coverage" = x"yes"; then
     SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DCOVERAGE=1"
     SECP_CFLAGS="-O0 --coverage $SECP_CFLAGS"
+    # If coverage is enabled, and the user has not overridden CFLAGS,
+    # override Autoconf's value "-g -O2" with "-g". Otherwise we'd end up
+    # with "-O0 --coverage -g -O2".
+    if test "$CFLAGS_overridden" = "no"; then
+      CFLAGS="-g"
+    fi
     LDFLAGS="--coverage $LDFLAGS"
 else
     # Most likely the CFLAGS already contain -O2 because that is autoconf's default.

@@ -33,7 +33,7 @@ extern "C" {
  *       max_value: pointer to a unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   uint64_t *min_value,
   uint64_t *max_value,
   const secp256k1_pedersen_commitment *commit,
@@ -41,7 +41,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
   size_t plen,
   const unsigned char *extra_commit,
   size_t extra_commit_len,
-  const secp256k1_generator* gen
+  const secp256k1_generator *gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(9);
 
 /** Verify a range proof proof and rewind the proof to recover information sent by its author.
@@ -65,7 +65,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   unsigned char *blind_out,
   uint64_t *value_out,
   unsigned char *message_out,
@@ -110,7 +110,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   unsigned char *proof,
   size_t *plen,
   uint64_t min_value,
@@ -139,7 +139,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   int *exp,
   int *mantissa,
   uint64_t *min_value,
@@ -170,7 +170,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
  *       min_bits: the value that will be passed as `min_bits` for the proof.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
-  const secp256k1_context* ctx,
+  const secp256k1_context *ctx,
   uint64_t max_value,
   int min_bits
 ) SECP256K1_ARG_NONNULL(1);
