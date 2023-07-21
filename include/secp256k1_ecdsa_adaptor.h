@@ -84,7 +84,7 @@ SECP256K1_API extern const secp256k1_nonce_function_hardened_ecdsa_adaptor secp2
  *                         as per BIP-340.
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_encrypt(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *adaptor_sig162,
     unsigned char *seckey32,
     const secp256k1_pubkey *enckey,
@@ -126,7 +126,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_verify(
  *          adaptor_sig162: pointer to 162-byte adaptor sig
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_ecdsa_signature *sig,
     const unsigned char *deckey32,
     const unsigned char *adaptor_sig162
@@ -148,7 +148,7 @@ SECP256K1_API int secp256k1_ecdsa_adaptor_decrypt(
  *                 enckey: pointer to the adaptor encryption public key
  */
 SECP256K1_API int secp256k1_ecdsa_adaptor_recover(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *deckey32,
     const secp256k1_ecdsa_signature *sig,
     const unsigned char *adaptor_sig162,
