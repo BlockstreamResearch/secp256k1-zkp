@@ -160,7 +160,7 @@ static void test_bppp_tagged_hash(void) {
     }
 }
 
-void test_log_exp(void) {
+static void test_log_exp(void) {
     CHECK(secp256k1_is_power_of_two(0) == 0);
     CHECK(secp256k1_is_power_of_two(1) == 1);
     CHECK(secp256k1_is_power_of_two(2) == 1);
@@ -175,7 +175,7 @@ void test_log_exp(void) {
     CHECK(secp256k1_bppp_log2(257) == 8);
 }
 
-void test_norm_util_helpers(void) {
+static void test_norm_util_helpers(void) {
     secp256k1_scalar a_vec[4], b_vec[4], rho_pows[4], res, res2, mu, rho;
     int i;
     /* a = {1, 2, 3, 4} b = {5, 6, 7, 8}, mu = 4, rho = 2 */
@@ -213,7 +213,7 @@ void test_norm_util_helpers(void) {
 }
 
 
-void test_serialize_two_points_roundtrip(secp256k1_ge *X, secp256k1_ge *R) {
+static void test_serialize_two_points_roundtrip(secp256k1_ge *X, secp256k1_ge *R) {
     secp256k1_ge X_tmp, R_tmp;
     unsigned char buf[65];
     secp256k1_bppp_serialize_points(buf, X, R);
@@ -223,7 +223,7 @@ void test_serialize_two_points_roundtrip(secp256k1_ge *X, secp256k1_ge *R) {
     ge_equals_ge(R, &R_tmp);
 }
 
-void test_serialize_two_points(void) {
+static void test_serialize_two_points(void) {
     secp256k1_ge X, R;
     int i;
 
@@ -453,7 +453,7 @@ static int secp256k1_norm_arg_verify(
 }
 
 /* Verify |c| = 0 */
-void norm_arg_verify_zero_len(void) {
+static void norm_arg_verify_zero_len(void) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar rho, mu;
     secp256k1_ge commit;
@@ -480,7 +480,7 @@ void norm_arg_verify_zero_len(void) {
     secp256k1_scratch_space_destroy(CTX, scratch);
 }
 
-void norm_arg_test(unsigned int n, unsigned int m) {
+static void norm_arg_test(unsigned int n, unsigned int m) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar rho, mu;
     secp256k1_ge commit;
@@ -580,7 +580,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
 
 #define IDX_TO_TEST(i) (norm_arg_verify_vectors_helper(scratch, verify_vector_gens, verify_vector_##i##_proof, sizeof(verify_vector_##i##_proof), verify_vector_##i##_r32, verify_vector_##i##_n_vec_len, verify_vector_##i##_c_vec32, verify_vector_##i##_c_vec, sizeof(verify_vector_##i##_c_vec)/sizeof(secp256k1_scalar), verify_vector_##i##_commit33) == verify_vector_##i##_result)
 
-void norm_arg_verify_vectors(void) {
+static void norm_arg_verify_vectors(void) {
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     size_t alloc = scratch->alloc_size;
 
@@ -603,7 +603,7 @@ void norm_arg_verify_vectors(void) {
 }
 #undef IDX_TO_TEST
 
-void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned char *gens, const unsigned char *proof, size_t plen, const unsigned char *r32, const unsigned char n_vec32[][32], secp256k1_scalar *n_vec, size_t n_vec_len, const unsigned char l_vec32[][32], secp256k1_scalar *l_vec, const unsigned char c_vec32[][32], secp256k1_scalar *c_vec, size_t c_vec_len, int result) {
+static void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned char *gens, const unsigned char *proof, size_t plen, const unsigned char *r32, const unsigned char n_vec32[][32], secp256k1_scalar *n_vec, size_t n_vec_len, const unsigned char l_vec32[][32], secp256k1_scalar *l_vec, const unsigned char c_vec32[][32], secp256k1_scalar *c_vec, size_t c_vec_len, int result) {
     secp256k1_sha256 transcript;
     secp256k1_bppp_generators *gs = bppp_generators_parse_regular(gens, 33*(n_vec_len + c_vec_len));
     secp256k1_scalar rho, mu;
@@ -651,7 +651,7 @@ void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
     prove_vector_##i##_c_vec32, prove_vector_##i##_c_vec, sizeof(prove_vector_##i##_c_vec)/sizeof(secp256k1_scalar), \
     prove_vector_##i##_result))
 
-void norm_arg_prove_vectors(void) {
+static void norm_arg_prove_vectors(void) {
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     size_t alloc = scratch->alloc_size;
 
@@ -667,7 +667,7 @@ void norm_arg_prove_vectors(void) {
 
 #undef IDX_TO_TEST
 
-void run_bppp_tests(void) {
+static void run_bppp_tests(void) {
     test_log_exp();
     test_norm_util_helpers();
     test_serialize_two_points();

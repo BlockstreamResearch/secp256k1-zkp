@@ -9,6 +9,7 @@
 
 #include <string.h>
 
+#include "checkmem.h"
 #include "modinv32_impl.h"
 
 /* Limbs of the secp256k1 order. */
@@ -736,7 +737,7 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r,
 static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag) {
     uint32_t mask0, mask1;
     volatile int vflag = flag;
-    VG_CHECK_VERIFY(r->d, sizeof(r->d));
+    SECP256K1_CHECKMEM_CHECK_VERIFY(r->d, sizeof(r->d));
     mask0 = vflag + ~((uint32_t)0);
     mask1 = ~mask0;
     r->d[0] = (r->d[0] & mask0) | (a->d[0] & mask1);

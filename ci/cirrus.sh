@@ -14,7 +14,7 @@ print_environment() {
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
             EXPERIMENTAL ECDH RECOVERY SCHNORRSIG \
             ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
-            SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETEST\
+            SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
             HOST WRAPPER_CMD \
             CC CFLAGS CPPFLAGS AR NM
@@ -35,6 +35,8 @@ print_environment
 # This speeds up jobs with many invocations of wine (e.g., ./configure with MSVC) tremendously.
 case "$WRAPPER_CMD" in
     *wine*)
+        # Make sure to shutdown wineserver whenever we exit.
+        trap "wineserver -k || true" EXIT INT HUP
         # This is apparently only reliable when we run a dummy command such as "hh.exe" afterwards.
         wineserver -p && wine hh.exe
         ;;
@@ -67,6 +69,7 @@ fi
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
     --enable-examples="$EXAMPLES" \
+    --enable-ctime-tests="$CTIMETESTS" \
     --with-valgrind="$WITH_VALGRIND" \
     --host="$HOST" $EXTRAFLAGS
 
@@ -83,14 +86,15 @@ export LOG_COMPILER="$WRAPPER_CMD"
 
 make "$BUILD"
 
+# Using the local `libtool` because on macOS the system's libtool has nothing to do with GNU libtool
+EXEC='./libtool --mode=execute'
+if [ -n "$WRAPPER_CMD" ]
+then
+    EXEC="$EXEC $WRAPPER_CMD"
+fi
+
 if [ "$BENCH" = "yes" ]
 then
-    # Using the local `libtool` because on macOS the system's libtool has nothing to do with GNU libtool
-    EXEC='./libtool --mode=execute'
-    if [ -n "$WRAPPER_CMD" ]
-    then
-        EXEC="$EXEC $WRAPPER_CMD"
-    fi
     {
         $EXEC ./bench_ecmult
         $EXEC ./bench_internal
@@ -102,9 +106,13 @@ then
     } >> bench.log 2>&1
 fi
 
-if [ "$CTIMETEST" = "yes" ]
+if [ "$CTIMETESTS" = "yes" ]
 then
-    ./libtool --mode=execute valgrind --error-exitcode=42 ./valgrind_ctime_test > valgrind_ctime_test.log 2>&1
+    if [ "$WITH_VALGRIND" = "yes" ]; then
+        ./libtool --mode=execute valgrind --error-exitcode=42 ./ctime_tests > ctime_tests.log 2>&1
+    else
+        $EXEC ./ctime_tests > ctime_tests.log 2>&1
+    fi
 fi
 
 # Rebuild precomputed files (if not cross-compiling).
@@ -113,9 +121,6 @@ then
     make clean-precomp
     make precomp
 fi
-
-# Shutdown wineserver again
-wineserver -k || true
 
 # Check that no repo files have been modified by the build.
 # (This fails for example if the precomp files need to be updated in the repo.)

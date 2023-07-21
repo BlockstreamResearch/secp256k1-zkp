@@ -493,7 +493,7 @@ static void test_no_used_inputs_verify(void) {
     CHECK(result == 0);
 }
 
-void test_bad_serialize(void) {
+static void test_bad_serialize(void) {
     secp256k1_surjectionproof proof;
     unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
     size_t serialized_len;
@@ -504,7 +504,7 @@ void test_bad_serialize(void) {
     CHECK(secp256k1_surjectionproof_serialize(CTX, serialized_proof, &serialized_len, &proof) == 0);
 }
 
-void test_bad_parse(void) {
+static void test_bad_parse(void) {
     secp256k1_surjectionproof proof;
     unsigned char serialized_proof0[] = { 0x00 };
     unsigned char serialized_proof1[] = { 0x01, 0x00 };
@@ -518,7 +518,7 @@ void test_bad_parse(void) {
     CHECK(secp256k1_surjectionproof_parse(CTX, &proof, serialized_proof2, sizeof(serialized_proof2)) == 0);
 }
 
-void test_input_eq_output(void) {
+static void test_input_eq_output(void) {
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag fixed_tag;
     secp256k1_generator ephemeral_tag;
@@ -543,7 +543,7 @@ void test_input_eq_output(void) {
     CHECK(!secp256k1_surjectionproof_generate(CTX, &proof, &ephemeral_tag, 1, &ephemeral_tag, input_index, blinding_key, blinding_key));
 }
 
-void test_fixed_vectors(void) {
+static void test_fixed_vectors(void) {
     const unsigned char tag0_ser[] = {
         0x0a,
         0x1c, 0xa3, 0xdd, 0x12, 0x48, 0xdd, 0x4d, 0xd0, 0x04, 0x30, 0x47, 0x48, 0x75, 0xf5, 0xf5, 0xff,
@@ -689,7 +689,7 @@ void test_fixed_vectors(void) {
     CHECK(!secp256k1_surjectionproof_parse(CTX, &proof, bad, total5_used3_len));
 }
 
-void run_surjection_tests(void) {
+static void run_surjection_tests(void) {
     test_surjectionproof_api();
     test_input_eq_output();
     test_fixed_vectors();

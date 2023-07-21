@@ -49,7 +49,7 @@ static void run_test(bench_data* data, int iters) {
     run_benchmark(str, bench_whitelist, bench_whitelist_setup, NULL, data, 100, iters);
 }
 
-void random_scalar_order(secp256k1_scalar *num) {
+static void random_scalar_order(secp256k1_scalar *num) {
     do {
         unsigned char b32[32];
         int overflow = 0;

@@ -620,7 +620,7 @@ static void test_multiple_generators(void) {
     }
 }
 
-void test_rangeproof_fixed_vectors(void) {
+static void test_rangeproof_fixed_vectors(void) {
     size_t i;
     unsigned char blind[32];
     uint64_t value;
@@ -885,7 +885,7 @@ static unsigned char vector_nonce[] = {
 };
 
 /* Maximum length of a message that can be embedded into a rangeproof */
-void test_rangeproof_fixed_vectors_reproducible_helper(unsigned char *vector, size_t vector_len, unsigned char *commit, uint64_t *value_r, uint64_t *min_value_r, uint64_t *max_value_r, unsigned char *message_r, size_t *m_len_r) {
+static void test_rangeproof_fixed_vectors_reproducible_helper(unsigned char *vector, size_t vector_len, unsigned char *commit, uint64_t *value_r, uint64_t *min_value_r, uint64_t *max_value_r, unsigned char *message_r, size_t *m_len_r) {
     secp256k1_pedersen_commitment pc;
     unsigned char blind_r[32];
 
@@ -914,7 +914,7 @@ void test_rangeproof_fixed_vectors_reproducible_helper(unsigned char *vector, si
     CHECK(secp256k1_memcmp_var(blind_r, vector_blind, sizeof(vector_blind)) == 0);
 }
 
-void test_rangeproof_fixed_vectors_reproducible(void) {
+static void test_rangeproof_fixed_vectors_reproducible(void) {
     uint64_t value_r;
     uint64_t min_value_r;
     uint64_t max_value_r;
@@ -1382,7 +1382,7 @@ void test_rangeproof_fixed_vectors_reproducible(void) {
     }
 }
 
-void run_rangeproof_tests(void) {
+static void run_rangeproof_tests(void) {
     int i;
     test_api();
 

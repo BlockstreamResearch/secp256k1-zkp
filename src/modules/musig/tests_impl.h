@@ -38,7 +38,7 @@ static int create_keypair_and_pk(secp256k1_keypair *keypair, secp256k1_pubkey *p
 
 /* Just a simple (non-adaptor, non-tweaked) 2-of-2 MuSig aggregate, sign, verify
  * test. */
-void musig_simple_test(secp256k1_scratch_space *scratch) {
+static void musig_simple_test(secp256k1_scratch_space *scratch) {
     unsigned char sk[2][32];
     secp256k1_keypair keypair[2];
     secp256k1_musig_pubnonce pubnonce[2];
@@ -82,7 +82,7 @@ void musig_simple_test(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_schnorrsig_verify(CTX, final_sig, msg, sizeof(msg), &agg_pk) == 1);
 }
 
-void pubnonce_summing_to_inf(secp256k1_musig_pubnonce *pubnonce) {
+static void pubnonce_summing_to_inf(secp256k1_musig_pubnonce *pubnonce) {
     secp256k1_ge ge[2];
     int i;
     secp256k1_gej summed_nonces[2];
@@ -113,7 +113,7 @@ int memcmp_and_randomize(unsigned char *value, const unsigned char *expected, si
     return ret;
 }
 
-void musig_api_tests(secp256k1_scratch_space *scratch) {
+static void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_scratch_space *scratch_small;
     secp256k1_musig_partial_sig partial_sig[2];
     const secp256k1_musig_partial_sig *partial_sig_ptr[2];
@@ -598,7 +598,7 @@ void musig_api_tests(secp256k1_scratch_space *scratch) {
     secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
-void musig_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
+static void musig_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     secp256k1_scalar k1[2], k2[2];
 
     secp256k1_nonce_function_musig(k1, args[0], args[1], args[2], args[3], args[4], args[5]);
@@ -608,7 +608,7 @@ void musig_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     CHECK(secp256k1_scalar_eq(&k1[1], &k2[1]) == 0);
 }
 
-void musig_nonce_test(void) {
+static void musig_nonce_test(void) {
     unsigned char *args[6];
     unsigned char session_id[32];
     unsigned char sk[32];
@@ -663,7 +663,7 @@ void musig_nonce_test(void) {
     }
 }
 
-void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
+static void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     /* Throughout this test "a" and "b" refer to two hypothetical blockchains,
      * while the indices 0 and 1 refer to the two signers. Here signer 0 is
      * sending a-coins to signer 1, while signer 1 is sending b-coins to signer
@@ -768,7 +768,7 @@ void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     CHECK(secp256k1_schnorrsig_verify(CTX, final_sig_a, msg32_a, sizeof(msg32_a), &agg_pk_a) == 1);
 }
 
-void sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char *tag, size_t taglen) {
+static void sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char *tag, size_t taglen) {
     secp256k1_sha256 sha;
     unsigned char buf[32];
     unsigned char buf2[32];
@@ -798,7 +798,7 @@ void sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char *tag, 
 
 /* Checks that the initialized tagged hashes initialized have the expected
  * state. */
-void sha256_tag_test(void) {
+static void sha256_tag_test(void) {
     secp256k1_sha256 sha_tagged;
     {
         char tag[11] = "KeyAgg list";
@@ -814,7 +814,7 @@ void sha256_tag_test(void) {
 
 /* Attempts to create a signature for the aggregate public key using given secret
  * keys and keyagg_cache. */
-void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigned char *sk0, const unsigned char *sk1, secp256k1_musig_keyagg_cache *keyagg_cache) {
+static void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigned char *sk0, const unsigned char *sk1, secp256k1_musig_keyagg_cache *keyagg_cache) {
     secp256k1_pubkey pk[2];
     unsigned char session_id[2][32];
     unsigned char msg[32];
@@ -857,7 +857,7 @@ void musig_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const unsigne
 
 /* Create aggregate public key P[0], tweak multiple times (using xonly and
  * plain tweaking) and test signing. */
-void musig_tweak_test(secp256k1_scratch_space *scratch) {
+static void musig_tweak_test(secp256k1_scratch_space *scratch) {
     unsigned char sk[2][32];
     secp256k1_pubkey pk[2];
     const secp256k1_pubkey *pk_ptr[2];
@@ -971,7 +971,7 @@ int musig_vectors_keyagg_and_tweak(enum MUSIG_ERROR *error,
     return 1;
 }
 
-void musig_test_vectors_keyagg(void) {
+static void musig_test_vectors_keyagg(void) {
     size_t i;
     const struct musig_key_agg_vector *vector = &musig_key_agg_vector;
 
@@ -995,7 +995,7 @@ void musig_test_vectors_keyagg(void) {
     }
 }
 
-void musig_test_vectors_noncegen(void) {
+static void musig_test_vectors_noncegen(void) {
     size_t i;
     const struct musig_nonce_gen_vector *vector = &musig_nonce_gen_vector;
 
@@ -1043,7 +1043,7 @@ void musig_test_vectors_noncegen(void) {
 }
 
 
-void musig_test_vectors_nonceagg(void) {
+static void musig_test_vectors_nonceagg(void) {
     size_t i;
     int j;
     const struct musig_nonce_agg_vector *vector = &musig_nonce_agg_vector;
@@ -1073,7 +1073,7 @@ void musig_test_vectors_nonceagg(void) {
     }
 }
 
-void musig_test_set_secnonce(secp256k1_musig_secnonce *secnonce, const unsigned char *secnonce64, const secp256k1_pubkey *pubkey) {
+static void musig_test_set_secnonce(secp256k1_musig_secnonce *secnonce, const unsigned char *secnonce64, const secp256k1_pubkey *pubkey) {
     secp256k1_ge pk;
     secp256k1_scalar k[2];
 
@@ -1083,7 +1083,7 @@ void musig_test_set_secnonce(secp256k1_musig_secnonce *secnonce, const unsigned 
     secp256k1_musig_secnonce_save(secnonce, k, &pk);
 }
 
-void musig_test_vectors_signverify(void) {
+static void musig_test_vectors_signverify(void) {
     size_t i;
     const struct musig_sign_verify_vector *vector = &musig_sign_verify_vector;
 
@@ -1214,7 +1214,7 @@ void musig_test_vectors_signverify(void) {
     }
 }
 
-void musig_test_vectors_tweak(void) {
+static void musig_test_vectors_tweak(void) {
     size_t i;
     const struct musig_tweak_vector *vector = &musig_tweak_vector;
     secp256k1_pubkey pubkey;
@@ -1257,7 +1257,7 @@ void musig_test_vectors_tweak(void) {
     }
 }
 
-void musig_test_vectors_sigagg(void) {
+static void musig_test_vectors_sigagg(void) {
     size_t i, j;
     const struct musig_sig_agg_vector *vector = &musig_sig_agg_vector;
 
@@ -1297,7 +1297,7 @@ void musig_test_vectors_sigagg(void) {
     }
 }
 
-void run_musig_tests(void) {
+static void run_musig_tests(void) {
     int i;
     secp256k1_scratch_space *scratch = secp256k1_scratch_space_create(CTX, 1024 * 1024);
 

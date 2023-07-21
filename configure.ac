@@ -22,9 +22,6 @@ AC_INIT([libsecp256k1],m4_join([.], _PKG_VERSION_MAJOR, _PKG_VERSION_MINOR, _PKG
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 AC_CANONICAL_HOST
-AH_TOP([#ifndef LIBSECP256K1_CONFIG_H])
-AH_TOP([#define LIBSECP256K1_CONFIG_H])
-AH_BOTTOM([#endif /*LIBSECP256K1_CONFIG_H*/])
 
 # Require Automake 1.11.2 for AM_PROG_AR
 AM_INIT_AUTOMAKE([1.11.2 foreign subdir-objects])
@@ -105,6 +102,7 @@ AC_DEFUN([SECP_TRY_APPEND_DEFAULT_CFLAGS], [
       SECP_TRY_APPEND_CFLAGS([-Wcast-align], $1) # GCC >= 2.95
       SECP_TRY_APPEND_CFLAGS([-Wcast-align=strict], $1) # GCC >= 8.0
       SECP_TRY_APPEND_CFLAGS([-Wconditional-uninitialized], $1) # Clang >= 3.0 only
+      SECP_TRY_APPEND_CFLAGS([-Wreserved-identifier], $1) # Clang >= 13.0 only
       SECP_TRY_APPEND_CFLAGS([-fvisibility=hidden], $1) # GCC >= 4.0
 
       CFLAGS="$SECP_TRY_APPEND_DEFAULT_CFLAGS_saved_CFLAGS"
@@ -117,6 +115,12 @@ AC_DEFUN([SECP_TRY_APPEND_DEFAULT_CFLAGS], [
     if test x"$GCC" != x"yes" && test x"$build_windows" = x"yes"; then
       SECP_TRY_APPEND_CFLAGS([-W2 -wd4146], $1) # Moderate warning level, disable warning C4146 "unary minus operator applied to unsigned type, result still unsigned"
       SECP_TRY_APPEND_CFLAGS([-external:anglebrackets -external:W0], $1) # Suppress warnings from #include <...> files
+      # We pass -ignore:4217 to the MSVC linker to suppress warning 4217 when
+      # importing variables from a statically linked secp256k1.
+      # (See the libtool manual, section "Windows DLLs" for background.)
+      # Unfortunately, libtool tries to be too clever and strips "-Xlinker arg"
+      # into "arg", so this will be " -Xlinker -ignore:4217" after stripping.
+      LDFLAGS="-Xlinker -Xlinker -Xlinker -ignore:4217 $LDFLAGS" 
     fi
 ])
 SECP_TRY_APPEND_DEFAULT_CFLAGS(SECP_CFLAGS)
@@ -141,6 +145,10 @@ AC_ARG_ENABLE(coverage,
 AC_ARG_ENABLE(tests,
     AS_HELP_STRING([--enable-tests],[compile tests [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_tests], [yes], [yes])])
+
+AC_ARG_ENABLE(ctime_tests,
+    AS_HELP_STRING([--enable-ctime-tests],[compile constant-time tests [default=yes if valgrind enabled]]), [],
+    [SECP_SET_DEFAULT([enable_ctime_tests], [auto], [auto])])
 
 AC_ARG_ENABLE(experimental,
     AS_HELP_STRING([--enable-experimental],[allow experimental configure options [default=no]]), [],
@@ -270,7 +278,10 @@ else
     enable_valgrind=yes
   fi
 fi
-AM_CONDITIONAL([VALGRIND_ENABLED],[test "$enable_valgrind" = "yes"])
+
+if test x"$enable_ctime_tests" = x"auto"; then
+    enable_ctime_tests=$enable_valgrind
+fi
 
 if test x"$enable_coverage" = x"yes"; then
     SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DCOVERAGE=1"
@@ -401,7 +412,7 @@ case $set_ecmult_gen_precision in
 esac
 
 if test x"$enable_valgrind" = x"yes"; then
-  SECP_INCLUDES="$SECP_INCLUDES $VALGRIND_CPPFLAGS"
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES $VALGRIND_CPPFLAGS -DVALGRIND"
 fi
 
 # Add -Werror and similar flags passed from the outside (for testing, e.g., in CI).
@@ -527,14 +538,11 @@ fi
 ###
 
 AC_CONFIG_FILES([Makefile libsecp256k1.pc])
-AC_SUBST(SECP_INCLUDES)
-AC_SUBST(SECP_LIBS)
-AC_SUBST(SECP_TEST_LIBS)
-AC_SUBST(SECP_TEST_INCLUDES)
 AC_SUBST(SECP_CFLAGS)
 AC_SUBST(SECP_CONFIG_DEFINES)
 AM_CONDITIONAL([ENABLE_COVERAGE], [test x"$enable_coverage" = x"yes"])
 AM_CONDITIONAL([USE_TESTS], [test x"$enable_tests" != x"no"])
+AM_CONDITIONAL([USE_CTIME_TESTS], [test x"$enable_ctime_tests" = x"yes"])
 AM_CONDITIONAL([USE_EXHAUSTIVE_TESTS], [test x"$enable_exhaustive_tests" != x"no"])
 AM_CONDITIONAL([USE_EXAMPLES], [test x"$enable_examples" != x"no"])
 AM_CONDITIONAL([USE_BENCHMARK], [test x"$enable_benchmark" = x"yes"])
@@ -565,6 +573,7 @@ echo "Build Options:"
 echo "  with external callbacks = $enable_external_default_callbacks"
 echo "  with benchmarks         = $enable_benchmark"
 echo "  with tests              = $enable_tests"
+echo "  with ctime tests        = $enable_ctime_tests"
 echo "  with coverage           = $enable_coverage"
 echo "  with examples           = $enable_examples"
 echo "  module ecdh             = $enable_module_ecdh"

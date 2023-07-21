@@ -30,7 +30,7 @@ static void test_ecdsa_s2c_tagged_hash(void) {
     CHECK(secp256k1_memcmp_var(output, output_optimized, 32) == 0);
 }
 
-void run_s2c_opening_test(void) {
+static void run_s2c_opening_test(void) {
     int i = 0;
     unsigned char output[33];
     unsigned char input[33] = {
