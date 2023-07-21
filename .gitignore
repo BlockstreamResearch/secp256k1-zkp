@@ -66,3 +66,6 @@ libsecp256k1.pc
 contrib/gh-pr-create.sh
 
 musig_example
+
+# Default CMake build directory.
+/build
