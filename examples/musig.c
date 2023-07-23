@@ -19,6 +19,7 @@
 #include <secp256k1_musig.h>
 
 #include "random.h"
+#include <string.h>
 
 struct signer_secrets {
     secp256k1_keypair keypair;
@@ -98,6 +99,19 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     /* The same for all signers */
     secp256k1_musig_session session;
 
+    /* For adapter signature, committing to random scalar */
+	unsigned char presig[64];
+    int nonce_parity;
+    unsigned char adaptor_key[32];
+	unsigned char extracted_adaptor[32];
+    secp256k1_pubkey adaptor;
+    if (!fill_random(adaptor_key, sizeof(adaptor_key))) {
+        return 0;
+    }
+    if (!secp256k1_ec_pubkey_create(ctx, &adaptor, adaptor_key)) {
+        return 0;
+    }
+
     for (i = 0; i < N_SIGNERS; i++) {
         unsigned char seckey[32];
         unsigned char session_id[32];
@@ -126,7 +140,7 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
         if (!secp256k1_musig_nonce_agg(ctx, &agg_pubnonce, pubnonces, N_SIGNERS)) {
             return 0;
         }
-        if (!secp256k1_musig_nonce_process(ctx, &session, &agg_pubnonce, msg32, cache, NULL)) {
+        if (!secp256k1_musig_nonce_process(ctx, &session, &agg_pubnonce, msg32, cache, &adaptor)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
@@ -156,7 +170,25 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
             return 0;
         }
     }
-    return secp256k1_musig_partial_sig_agg(ctx, sig64, &session, partial_sigs, N_SIGNERS);
+
+    /* Since we are doing adaptor sig, complete pre-signature */
+    if (!secp256k1_musig_nonce_parity(ctx, &nonce_parity, &session)) {
+        return 0;
+    }
+    if (!secp256k1_musig_partial_sig_agg(ctx, presig, &session, partial_sigs, N_SIGNERS)){
+        return 0;
+    }
+    if (!secp256k1_musig_adapt(ctx, sig64, presig, adaptor_key, nonce_parity)) {
+        return 0;
+    }
+	/* With sig64 "on-chain" now, other party can grab the revealed adaptor secret */
+    if (!secp256k1_musig_extract_adaptor(ctx, extracted_adaptor, sig64, presig, nonce_parity)) {
+        return 0;
+    }
+    if (memcmp(extracted_adaptor, adaptor_key, sizeof(adaptor_key)) != 0) {
+        return 0;
+    }
+    return 1;
 }
 
  int main(void) {
@@ -201,7 +233,7 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
         return 1;
     }
     printf("ok\n");
-    printf("Verifying signature.....");
+    printf("Verifying signature and revealed adaptor.....");
     if (!secp256k1_schnorrsig_verify(ctx, sig, msg, 32, &agg_pk)) {
         printf("FAILED\n");
         return 1;
