@@ -407,8 +407,7 @@ SECP256K1_API int secp256k1_musig_nonce_agg(
  *  signature. In order to create a valid signature, the pre-signature and the
  *  secret adaptor must be provided to `musig_adapt`.
  *
- *  Returns: 0 if the arguments are invalid or if some signer sent invalid
- *           pubnonces, 1 otherwise
+ *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:          ctx: pointer to a context object, initialized for verification
  *  Out:       session: pointer to a struct to store the session
  *  In:       aggnonce: pointer to an aggregate public nonce object that is the
