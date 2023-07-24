@@ -67,5 +67,7 @@ contrib/gh-pr-create.sh
 
 musig_example
 
+### CMake
+/CMakeUserPresets.json
 # Default CMake build directory.
 /build

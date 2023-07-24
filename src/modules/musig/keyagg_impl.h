@@ -41,8 +41,8 @@ static void secp256k1_point_load(secp256k1_ge *ge, const unsigned char *data) {
     } else {
         /* Otherwise, fall back to 32-byte big endian for X and Y. */
         secp256k1_fe x, y;
-        secp256k1_fe_set_b32(&x, data);
-        secp256k1_fe_set_b32(&y, data + 32);
+        secp256k1_fe_set_b32_mod(&x, data);
+        secp256k1_fe_set_b32_mod(&y, data + 32);
         secp256k1_ge_set_xy(ge, &x, &y);
     }
 }
