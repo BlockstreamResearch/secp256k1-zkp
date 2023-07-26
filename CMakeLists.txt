@@ -11,7 +11,7 @@ project(libsecp256k1
   # The package (a.k.a. release) version is based on semantic versioning 2.0.0 of
   # the API. All changes in experimental modules are treated as
   # backwards-compatible and therefore at most increase the minor version.
-  VERSION 0.3.2
+  VERSION 0.3.3
   DESCRIPTION "Optimized C library for ECDSA signatures and secret/public key operations on curve secp256k1."
   HOMEPAGE_URL "https://github.com/bitcoin-core/secp256k1"
   LANGUAGES C
@@ -35,7 +35,7 @@ endif()
 # All changes in experimental modules are treated as if they don't affect the
 # interface and therefore only increase the revision.
 set(${PROJECT_NAME}_LIB_VERSION_CURRENT 2)
-set(${PROJECT_NAME}_LIB_VERSION_REVISION 2)
+set(${PROJECT_NAME}_LIB_VERSION_REVISION 3)
 set(${PROJECT_NAME}_LIB_VERSION_AGE 0)
 
 set(CMAKE_C_STANDARD 90)
@@ -69,6 +69,11 @@ if(SECP256K1_ENABLE_MODULE_SCHNORRSIG)
 endif()
 if(SECP256K1_ENABLE_MODULE_EXTRAKEYS)
   add_compile_definitions(ENABLE_MODULE_EXTRAKEYS=1)
+endif()
+
+option(SECP256K1_ENABLE_MODULE_ELLSWIFT "Enable ElligatorSwift module." ON)
+if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
+  add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
 endif()
 
 option(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS "Enable external default callback functions." OFF)
@@ -212,8 +217,12 @@ endif()
 include(TryAppendCFlags)
 if(MSVC)
   # Keep the following commands ordered lexicographically.
-  try_append_c_flags(/W2) # Moderate warning level.
+  try_append_c_flags(/W3) # Production quality warning level.
   try_append_c_flags(/wd4146) # Disable warning C4146 "unary minus operator applied to unsigned type, result still unsigned".
+  try_append_c_flags(/wd4244) # Disable warning C4244 "'conversion' conversion from 'type1' to 'type2', possible loss of data".
+  try_append_c_flags(/wd4267) # Disable warning C4267 "'var' : conversion from 'size_t' to 'type', possible loss of data".
+  # Eliminate deprecation warnings for the older, less secure functions.
+  add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
   # Keep the following commands ordered lexicographically.
   try_append_c_flags(-pedantic)
@@ -266,6 +275,7 @@ message("  ECDH ................................ ${SECP256K1_ENABLE_MODULE_ECDH}
 message("  ECDSA pubkey recovery ............... ${SECP256K1_ENABLE_MODULE_RECOVERY}")
 message("  extrakeys ........................... ${SECP256K1_ENABLE_MODULE_EXTRAKEYS}")
 message("  schnorrsig .......................... ${SECP256K1_ENABLE_MODULE_SCHNORRSIG}")
+message("  ElligatorSwift ...................... ${SECP256K1_ENABLE_MODULE_ELLSWIFT}")
 message("Parameters:")
 message("  ecmult window size .................. ${SECP256K1_ECMULT_WINDOW_SIZE}")
 message("  ecmult gen precision bits ........... ${SECP256K1_ECMULT_GEN_PREC_BITS}")

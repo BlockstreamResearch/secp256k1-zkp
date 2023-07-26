@@ -223,7 +223,7 @@ static void secp256k1_fe_negate(secp256k1_fe *r, const secp256k1_fe *a, int m);
 /** Add a small integer to a field element.
  *
  * Performs {r += a}. The magnitude of r increases by 1, and normalized is cleared.
- * a must be in range [0,0xFFFF].
+ * a must be in range [0,0x7FFF].
  */
 static void secp256k1_fe_add_int(secp256k1_fe *r, int a);
 
@@ -267,8 +267,10 @@ static void secp256k1_fe_sqr(secp256k1_fe *r, const secp256k1_fe *a);
 /** Compute a square root of a field element.
  *
  * On input, a must be a valid field element with magnitude<=8; r need not be initialized.
- * Performs {r = sqrt(a)} or {r = sqrt(-a)}, whichever exists. The resulting value
- * represented by r will be a square itself. Variables r and a must not point to the same object.
+ * If sqrt(a) exists, performs {r = sqrt(a)} and returns 1.
+ * Otherwise, sqrt(-a) exists. The function performs {r = sqrt(-a)} and returns 0.
+ * The resulting value represented by r will be a square itself.
+ * Variables r and a must not point to the same object.
  * On output, r will have magnitude 1 but will not be normalized.
  */
 static int secp256k1_fe_sqrt(secp256k1_fe * SECP256K1_RESTRICT r, const secp256k1_fe * SECP256K1_RESTRICT a);
@@ -310,7 +312,9 @@ static void secp256k1_fe_storage_cmov(secp256k1_fe_storage *r, const secp256k1_f
  *
  * On input, both r and a must be valid field elements. Flag must be 0 or 1.
  * Performs {r = flag ? a : r}.
- * On output, r's magnitude and normalized will equal a's in case of flag=1, unchanged otherwise.
+ *
+ * On output, r's magnitude will be the maximum of both input magnitudes.
+ * It will be normalized if and only if both inputs were normalized.
  */
 static void secp256k1_fe_cmov(secp256k1_fe *r, const secp256k1_fe *a, int flag);
 

@@ -21,6 +21,7 @@ env:
   ECDH: no
   RECOVERY: no
   SCHNORRSIG: no
+  ELLSWIFT: no
   ECDSA_S2C: no
   GENERATOR: no
   RANGEPROOF: no
@@ -81,12 +82,12 @@ task:
   << : *LINUX_CONTAINER
   matrix: &ENV_MATRIX
     - env: {WIDEMUL:  int64,  RECOVERY: yes}
-    - env: {WIDEMUL:  int64,                 ECDH: yes, SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes,  RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
+    - env: {WIDEMUL:  int64,                 ECDH: yes, SCHNORRSIG: yes, ELLSWIFT: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes,  RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
     - env: {WIDEMUL: int128}
     - env: {WIDEMUL: int128_struct}
-    - env: {WIDEMUL: int128,  RECOVERY: yes,            SCHNORRSIG: yes}
+    - env: {WIDEMUL: int128,  RECOVERY: yes,            SCHNORRSIG: yes, ELLSWIFT: yes}
     - env: {WIDEMUL: int128,                 ECDH: yes, SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
-    - env: {WIDEMUL: int128,  ASM: x86_64}
+    - env: {WIDEMUL: int128,  ASM: x86_64                              , ELLSWIFT: yes}
     - env: {                  RECOVERY: yes,            SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes}
     - env: {CTIMETESTS: no,    RECOVERY: yes, ECDH: yes, SCHNORRSIG: yes, EXPERIMENTAL: yes, ECDSA_S2C: yes, RANGEPROOF: yes, WHITELIST: yes, GENERATOR: yes, MUSIG: yes, ECDSAADAPTOR: yes, BPPP: yes, CPPFLAGS: -DVERIFY}
     - env: {BUILD: distcheck, WITH_VALGRIND: no, CTIMETESTS: no, BENCH: no}
@@ -171,6 +172,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     EXPERIMENTAL: yes
     ECDSA_S2C: yes
     RANGEPROOF: yes
@@ -198,6 +200,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     CTIMETESTS: no
   matrix:
     - env: {}
@@ -218,6 +221,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     CTIMETESTS: no
   << : *MERGE_BASE
   test_script:
@@ -235,6 +239,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     CTIMETESTS: no
   << : *MERGE_BASE
   test_script:
@@ -272,6 +277,7 @@ task:
     RECOVERY: yes
     EXPERIMENTAL: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     ECDSA_S2C: yes
     GENERATOR: yes
     RANGEPROOF: yes
@@ -319,6 +325,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
     EXPERIMENTAL: yes
     ECDSA_S2C: yes
     RANGEPROOF: yes
@@ -410,6 +417,7 @@ task:
     ECDH: yes
     RECOVERY: yes
     SCHNORRSIG: yes
+    ELLSWIFT: yes
   << : *MERGE_BASE
   test_script:
     - ./ci/cirrus.sh

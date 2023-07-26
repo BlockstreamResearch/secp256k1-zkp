@@ -121,7 +121,12 @@ AC_DEFUN([SECP_TRY_APPEND_DEFAULT_CFLAGS], [
     # libtool makes the same assumption internally.
     # Note that "/opt" and "-opt" are equivalent for MSVC; we use "-opt" because "/opt" looks like a path.
     if test x"$GCC" != x"yes" && test x"$build_windows" = x"yes"; then
-      SECP_TRY_APPEND_CFLAGS([-W2 -wd4146], $1) # Moderate warning level, disable warning C4146 "unary minus operator applied to unsigned type, result still unsigned"
+      SECP_TRY_APPEND_CFLAGS([-W3], $1) # Production quality warning level.
+      SECP_TRY_APPEND_CFLAGS([-wd4146], $1) # Disable warning C4146 "unary minus operator applied to unsigned type, result still unsigned".
+      SECP_TRY_APPEND_CFLAGS([-wd4244], $1) # Disable warning C4244 "'conversion' conversion from 'type1' to 'type2', possible loss of data".
+      SECP_TRY_APPEND_CFLAGS([-wd4267], $1) # Disable warning C4267 "'var' : conversion from 'size_t' to 'type', possible loss of data".
+      # Eliminate deprecation warnings for the older, less secure functions.
+      CPPFLAGS="-D_CRT_SECURE_NO_WARNINGS $CPPFLAGS"
       # We pass -ignore:4217 to the MSVC linker to suppress warning 4217 when
       # importing variables from a statically linked secp256k1.
       # (See the libtool manual, section "Windows DLLs" for background.)
@@ -209,6 +214,10 @@ AC_ARG_ENABLE(module_extrakeys,
 AC_ARG_ENABLE(module_schnorrsig,
     AS_HELP_STRING([--enable-module-schnorrsig],[enable schnorrsig module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_schnorrsig], [yes], [yes])])
+
+AC_ARG_ENABLE(module_ellswift,
+    AS_HELP_STRING([--enable-module-ellswift],[enable ElligatorSwift module [default=yes]]), [],
+    [SECP_SET_DEFAULT([enable_module_ellswift], [yes], [yes])])
 
 AC_ARG_ENABLE(module_ecdsa_s2c,
     AS_HELP_STRING([--enable-module-ecdsa-s2c],[enable ECDSA sign-to-contract module [default=no]]),
@@ -487,6 +496,12 @@ if test x"$enable_module_schnorrsig" = x"yes"; then
   enable_module_extrakeys=yes
 fi
 
+if test x"$enable_module_ellswift" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_ELLSWIFT, 1, [Define this symbol to enable the ElligatorSwift module])
+fi
+
+# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
+# module to set enable_module_extrakeys=yes
 if test x"$enable_module_extrakeys" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_EXTRAKEYS=1"
 fi
@@ -572,6 +587,7 @@ AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = 
 AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_ELLSWIFT], [test x"$enable_module_ellswift" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
@@ -597,6 +613,7 @@ echo "  module ecdh             = $enable_module_ecdh"
 echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
+echo "  module ellswift         = $enable_module_ellswift"
 echo "  module generator        = $enable_module_generator"
 echo "  module rangeproof       = $enable_module_rangeproof"
 echo "  module surjectionproof  = $enable_module_surjectionproof"

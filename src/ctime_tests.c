@@ -31,6 +31,10 @@
 #include "../include/secp256k1_schnorrsig.h"
 #endif
 
+#ifdef ENABLE_MODULE_ELLSWIFT
+#include "../include/secp256k1_ellswift.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDSA_S2C
 #include "../include/secp256k1_ecdsa_s2c.h"
 #endif
@@ -92,6 +96,10 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
 #endif
 #ifdef ENABLE_MODULE_EXTRAKEYS
     secp256k1_keypair keypair;
+#endif
+#ifdef ENABLE_MODULE_ELLSWIFT
+    unsigned char ellswift[64];
+    static const unsigned char prefix[64] = {'t', 'e', 's', 't'};
 #endif
 
     for (i = 0; i < 32; i++) {
@@ -185,27 +193,49 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
     CHECK(ret == 1);
 #endif
 
+#ifdef ENABLE_MODULE_ELLSWIFT
+    SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+    ret = secp256k1_ellswift_create(ctx, ellswift, key, NULL);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+
+    SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+    ret = secp256k1_ellswift_create(ctx, ellswift, key, ellswift);
+    SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+    CHECK(ret == 1);
+
+    for (i = 0; i < 2; i++) {
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_DEFINE(&ellswift, sizeof(ellswift));
+        ret = secp256k1_ellswift_xdh(ctx, msg, ellswift, ellswift, key, i, secp256k1_ellswift_xdh_hash_function_bip324, NULL);
+        SECP256K1_CHECKMEM_DEFINE(&ellswift, sizeof(ellswift));
+        ret = secp256k1_ellswift_xdh(ctx, msg, ellswift, ellswift, key, i, secp256k1_ellswift_xdh_hash_function_prefix, (void *)prefix);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+    }
+#endif
+
 #ifdef ENABLE_MODULE_ECDSA_S2C
     {
         unsigned char s2c_data[32] = {0};
         unsigned char s2c_data_comm[32] = {0};
         secp256k1_ecdsa_s2c_opening s2c_opening;
 
-        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
-        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(s2c_data, 32);
         ret = secp256k1_ecdsa_s2c_sign(ctx, &signature, &s2c_opening, msg, key, s2c_data);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(s2c_data, 32);
         ret = secp256k1_ecdsa_anti_exfil_host_commit(ctx, s2c_data_comm, s2c_data);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
-        VALGRIND_MAKE_MEM_UNDEFINED(s2c_data, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(s2c_data, 32);
         ret = secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &s2c_opening, msg, key, s2c_data);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
     }
 #endif
@@ -224,26 +254,26 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_ec_pubkey_create(ctx, &enckey, deckey);
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
         ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, NULL, NULL);
-        VALGRIND_MAKE_MEM_DEFINED(adaptor_sig, sizeof(adaptor_sig));
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(adaptor_sig, sizeof(adaptor_sig));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_UNDEFINED(deckey, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(deckey, 32);
         ret = secp256k1_ecdsa_adaptor_decrypt(ctx, &signature, deckey, adaptor_sig);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_UNDEFINED(&signature, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(&signature, 32);
         ret = secp256k1_ecdsa_adaptor_recover(ctx, expected_deckey, &signature, adaptor_sig, &enckey);
-        VALGRIND_MAKE_MEM_DEFINED(expected_deckey, sizeof(expected_deckey));
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(expected_deckey, sizeof(expected_deckey));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_DEFINED(deckey, sizeof(deckey));
+        SECP256K1_CHECKMEM_DEFINE(deckey, sizeof(deckey));
         ret = secp256k1_memcmp_var(deckey, expected_deckey, sizeof(expected_deckey));
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 0);
     }
 #endif
@@ -270,7 +300,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
 
         pk_ptr[0] = &pk;
         pubnonce_ptr[0] = &pubnonce;
-        VALGRIND_MAKE_MEM_DEFINED(key, 32);
+        SECP256K1_CHECKMEM_DEFINE(key, 32);
         memcpy(session_id, key, sizeof(session_id));
         session_id[0] = session_id[0] + 1;
         memcpy(extra_input, key, sizeof(extra_input));
@@ -283,33 +313,35 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         CHECK(secp256k1_keypair_pub(ctx, &pk, &keypair));
         CHECK(secp256k1_musig_pubkey_agg(ctx, NULL, &agg_pk, &cache, pk_ptr, 1));
         CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor));
-        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
-        VALGRIND_MAKE_MEM_UNDEFINED(session_id, sizeof(session_id));
-        VALGRIND_MAKE_MEM_UNDEFINED(extra_input, sizeof(extra_input));
-        VALGRIND_MAKE_MEM_UNDEFINED(sec_adaptor, sizeof(sec_adaptor));
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(session_id, sizeof(session_id));
+        SECP256K1_CHECKMEM_UNDEFINE(extra_input, sizeof(extra_input));
+        SECP256K1_CHECKMEM_UNDEFINE(sec_adaptor, sizeof(sec_adaptor));
         ret = secp256k1_musig_nonce_gen(ctx, &secnonce, &pubnonce, session_id, key, &pk, msg, &cache, extra_input);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         CHECK(secp256k1_musig_nonce_agg(ctx, &aggnonce, pubnonce_ptr, 1));
+        /* Make sure that previous tests don't undefine msg. It's not used as a secret here. */
+        SECP256K1_CHECKMEM_DEFINE(msg, sizeof(msg));
         CHECK(secp256k1_musig_nonce_process(ctx, &session, &aggnonce, msg, &cache, &adaptor) == 1);
 
         ret = secp256k1_keypair_create(ctx, &keypair, key);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_musig_partial_sign(ctx, &partial_sig, &secnonce, &keypair, &cache, &session);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_DEFINED(&partial_sig, sizeof(partial_sig));
+        SECP256K1_CHECKMEM_DEFINE(&partial_sig, sizeof(partial_sig));
         CHECK(secp256k1_musig_partial_sig_agg(ctx, pre_sig, &session, partial_sig_ptr, 1));
-        VALGRIND_MAKE_MEM_DEFINED(pre_sig, sizeof(pre_sig));
+        SECP256K1_CHECKMEM_DEFINE(pre_sig, sizeof(pre_sig));
 
         CHECK(secp256k1_musig_nonce_parity(ctx, &nonce_parity, &session));
         ret = secp256k1_musig_adapt(ctx, sig, pre_sig, sec_adaptor, nonce_parity);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_musig_extract_adaptor(ctx, sec_adaptor, sig, pre_sig, nonce_parity);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
     }
 #endif
