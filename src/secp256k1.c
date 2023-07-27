@@ -268,8 +268,8 @@ static int secp256k1_pubkey_load(const secp256k1_context* ctx, secp256k1_ge* ge,
     } else {
         /* Otherwise, fall back to 32-byte big endian for X and Y. */
         secp256k1_fe x, y;
-        secp256k1_fe_set_b32_mod(&x, pubkey->data);
-        secp256k1_fe_set_b32_mod(&y, pubkey->data + 32);
+        ARG_CHECK(secp256k1_fe_set_b32_limit(&x, pubkey->data));
+        ARG_CHECK(secp256k1_fe_set_b32_limit(&y, pubkey->data + 32));
         secp256k1_ge_set_xy(ge, &x, &y);
     }
     ARG_CHECK(!secp256k1_fe_is_zero(&ge->x));
@@ -892,6 +892,10 @@ static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
 # include "modules/schnorrsig/main_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_ELLSWIFT
+# include "modules/ellswift/main_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDSA_S2C
 # include "modules/ecdsa_s2c/main_impl.h"
 #endif
@@ -919,4 +923,3 @@ static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
 #ifdef ENABLE_MODULE_SURJECTIONPROOF
 # include "modules/surjection/main_impl.h"
 #endif
-

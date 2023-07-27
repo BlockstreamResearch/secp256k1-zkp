@@ -328,7 +328,19 @@ int secp256k1_pubkey_sort(const secp256k1_context* ctx, const secp256k1_pubkey *
     ARG_CHECK(pubkeys != NULL);
 
     cmp_data.ctx = ctx;
+
+    /* Suppress wrong warning (fixed in MSVC 19.33) */
+    #if defined(_MSC_VER) && (_MSC_VER < 1933)
+    #pragma warning(push)
+    #pragma warning(disable: 4090)
+    #endif
+
     secp256k1_hsort(pubkeys, n_pubkeys, sizeof(*pubkeys), secp256k1_pubkey_sort_cmp, &cmp_data);
+
+    #if defined(_MSC_VER) && (_MSC_VER < 1933)
+    #pragma warning(pop)
+    #endif
+
     return 1;
 }
 

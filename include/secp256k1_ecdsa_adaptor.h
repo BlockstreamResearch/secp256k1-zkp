@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "secp256k1.h"
+
 /** This module implements single signer ECDSA adaptor signatures following
  *  "One-Time Verifiably Encrypted Signatures A.K.A. Adaptor Signatures" by
  *  Lloyd Fournier
