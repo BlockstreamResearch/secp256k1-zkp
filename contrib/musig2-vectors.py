@@ -94,7 +94,7 @@ enum MUSIG_ERROR {
 """
 
 # key agg vectors
-with open(sys.argv[1] + "/key_agg_vectors.json", "r") as f:
+with open(sys.argv[1] + "/key_agg_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     max_key_indices = max(
@@ -186,7 +186,7 @@ struct musig_key_agg_vector {
     s += finish_init()
 
 # nonce gen vectors
-with open(sys.argv[1] + "/nonce_gen_vectors.json", "r") as f:
+with open(sys.argv[1] + "/nonce_gen_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     # The MuSig2 implementation only allows messages of length 32
@@ -248,7 +248,7 @@ struct musig_nonce_gen_vector {
     s += finish_init()
 
 # nonce agg vectors
-with open(sys.argv[1] + "/nonce_agg_vectors.json", "r") as f:
+with open(sys.argv[1] + "/nonce_agg_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     num_pnonces = len(data["pnonces"])
@@ -298,7 +298,7 @@ struct musig_nonce_agg_vector {
     s += finish_init()
 
 # sign/verify vectors
-with open(sys.argv[1] + "/sign_verify_vectors.json", "r") as f:
+with open(sys.argv[1] + "/sign_verify_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     # The MuSig2 implementation only allows messages of length 32
@@ -481,7 +481,7 @@ struct musig_sign_verify_vector {
     s += finish_init()
 
 # tweak vectors
-with open(sys.argv[1] + "/tweak_vectors.json", "r") as f:
+with open(sys.argv[1] + "/tweak_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     num_pubkeys = len(data["pubkeys"])
@@ -573,7 +573,7 @@ struct musig_tweak_vector {
     s += finish_init()
 
 # sigagg vectors
-with open(sys.argv[1] + "/sig_agg_vectors.json", "r") as f:
+with open(sys.argv[1] + "/sig_agg_vectors.json", "r", encoding="utf8") as f:
     data = json.load(f)
 
     num_pubkeys = len(data["pubkeys"])
