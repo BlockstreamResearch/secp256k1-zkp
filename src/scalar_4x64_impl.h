@@ -254,9 +254,10 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
 #define muladd2(a,b) { \
     uint64_t tl, th, th2, tl2; \
     { \
-        uint128_t t = (uint128_t)a * b; \
-        th = t >> 64;               /* at most 0xFFFFFFFFFFFFFFFE */ \
-        tl = t; \
+        secp256k1_uint128 t; \
+        secp256k1_u128_mul(&t, a, b); \
+        th = secp256k1_u128_hi_u64(&t);  /* at most 0xFFFFFFFFFFFFFFFE */ \
+        tl = secp256k1_u128_to_u64(&t); \
     } \
     th2 = th + th;                  /* at most 0xFFFFFFFFFFFFFFFE (in case th was 0x7FFFFFFFFFFFFFFF) */ \
     c2 += (th2 < th);               /* never overflows by contract (verified the next line) */ \
