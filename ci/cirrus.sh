@@ -4,7 +4,8 @@ set -eux
 
 export LC_ALL=C
 
-# Print relevant CI environment to allow reproducing the job outside of CI.
+# Print commit and relevant CI environment to allow reproducing the job outside of CI.
+git show --no-patch
 print_environment() {
     # Turn off -x because it messes up the output
     set +x
@@ -12,7 +13,7 @@ print_environment() {
     # does not rely on bash.
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
-            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG \
+            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG ELLSWIFT \
             ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \

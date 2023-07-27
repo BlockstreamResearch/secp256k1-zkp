@@ -24,7 +24,7 @@ typedef struct {
 /**
  * Static constant generator 'h' maintained for historical reasons.
  */
-SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
+SECP256K1_API const secp256k1_generator *secp256k1_generator_h;
 
 /** Parse a 33-byte generator byte sequence into a generator object.
  *

@@ -61,7 +61,7 @@ typedef int (*secp256k1_nonce_function_hardened_ecdsa_adaptor)(
  *  assumed to be a pointer to 32 bytes of auxiliary random data as defined in BIP-340.
  *  The hash will be tagged with algo after removing all terminating null bytes.
  */
-SECP256K1_API extern const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_nonce_function_ecdsa_adaptor;
+SECP256K1_API const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_nonce_function_ecdsa_adaptor;
 
 /** Encrypted Signing
  *
