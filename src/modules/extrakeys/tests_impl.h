@@ -580,7 +580,7 @@ static void test_hsort(void) {
      * [-interval/2, interval/2] */
     for (i = 0; i < COUNT; i++) {
         int n = secp256k1_testrand_int(NUM);
-        int interval = secp256k1_testrand_int(64);
+        int interval = secp256k1_testrand_int(63) + 1;
         for (j = 0; j < n; j++) {
             ints[j] = secp256k1_testrand_int(interval) - interval/2;
         }
