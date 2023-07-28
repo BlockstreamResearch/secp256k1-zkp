@@ -187,7 +187,7 @@ endif
 if ENABLE_MODULE_MUSIG
 noinst_PROGRAMS += musig_example
 musig_example_SOURCES = examples/musig.c
-musig_example_CPPFLAGS = -I$(top_srcdir)/include
+musig_example_CPPFLAGS = -I$(top_srcdir)/include -DSECP256K1_STATIC
 musig_example_LDADD = libsecp256k1.la
 musig_example_LDFLAGS = -static
 if BUILD_WINDOWS
