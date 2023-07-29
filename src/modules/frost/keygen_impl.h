@@ -117,7 +117,7 @@ int secp256k1_frost_share_parse(const secp256k1_context* ctx, secp256k1_frost_sh
     return 1;
 }
 
-int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss, unsigned char *pok64, const unsigned char *session_id, size_t threshold) {
+int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss, unsigned char *pok64, const unsigned char *seed32, size_t threshold) {
     secp256k1_sha256 sha;
     unsigned char rngseed[32];
     unsigned char buf[32];
@@ -131,12 +131,12 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss,
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(vss != NULL);
     ARG_CHECK(pok64 != NULL);
-    ARG_CHECK(session_id != NULL);
+    ARG_CHECK(seed32 != NULL);
     ARG_CHECK(threshold > 1);
 
-    /* Compute seed which commits to threshold and session ID */
+    /* Commit to threshold and seed */
     secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(&sha, session_id, 32);
+    secp256k1_sha256_write(&sha, seed32, 32);
     for (i = 0; i < 8; i++) {
         rngseed[i] = threshold / (1ull << (i * 8));
     }
@@ -170,7 +170,7 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss,
     return 1;
 }
 
-int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_share *share, const secp256k1_pubkey *vss, const unsigned char *pok64, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
+int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_share *share, const secp256k1_pubkey *vss, const unsigned char *pok64, const unsigned char *seed32, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
     secp256k1_sha256 sha;
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
@@ -186,7 +186,7 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_shar
     memset(share, 0, sizeof(*share));
     ARG_CHECK(vss != NULL);
     ARG_CHECK(pok64 != NULL);
-    ARG_CHECK(session_id != NULL);
+    ARG_CHECK(seed32 != NULL);
     ARG_CHECK(recipient_pk != NULL);
     ARG_CHECK(threshold > 1);
 
@@ -201,9 +201,8 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_shar
         return 0;
     }
 
-    /* Compute seed which commits to threshold and session ID */
     secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(&sha, session_id, 32);
+    secp256k1_sha256_write(&sha, seed32, 32);
     for (i = 0; i < 8; i++) {
         rngseed[i] = threshold / (1ull << (i * 8));
     }
@@ -348,20 +347,20 @@ static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, siz
     return secp256k1_gej_is_infinity(&tmpj);
 }
 
-int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const secp256k1_xonly_pubkey *pk, const secp256k1_frost_share *share, const secp256k1_pubkey * const* vss_commitment) {
+int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const secp256k1_xonly_pubkey *pk, const secp256k1_frost_share *share, const secp256k1_pubkey * const* vss) {
     secp256k1_scalar share_i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(pk != NULL);
     ARG_CHECK(share != NULL);
-    ARG_CHECK(vss_commitment != NULL);
+    ARG_CHECK(vss != NULL);
     ARG_CHECK(threshold > 1);
 
     if (!secp256k1_frost_share_load(ctx, &share_i, share)) {
         return 0;
     }
 
-    return secp256k1_frost_vss_verify_internal(ctx, threshold, pk, &share_i, vss_commitment);
+    return secp256k1_frost_vss_verify_internal(ctx, threshold, pk, &share_i, vss);
 }
 
 int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const secp256k1_xonly_pubkey *pk, const secp256k1_pubkey * const* vss_commitments, size_t n_participants) {

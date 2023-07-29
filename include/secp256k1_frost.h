@@ -191,9 +191,9 @@ SECP256K1_API int secp256k1_frost_share_parse(
  * threshold, and creates a proof of knowledge of the first coefficient.
  *
  * Returns: 0 if the arguments are invalid, 1 otherwise
- * Args:            ctx:  pointer to a context object initialized for
+ * Args:             ctx: pointer to a context object initialized for
  *                        verification
- *  Out:  vss_commitment: the coefficient commitments. The length of this array
+ *  Out:             vss: the coefficient commitments. The length of this array
  *                        must be equal to the threshold (can be NULL).
                    pok64: pointer to the proof of knowledge of the first
  *                        coefficient
@@ -203,7 +203,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
  */
 SECP256K1_API int secp256k1_frost_vss_gen(
     const secp256k1_context *ctx,
-    secp256k1_pubkey *vss_commitment,
+    secp256k1_pubkey *vss,
     unsigned char *pok64,
     const unsigned char *seed32,
     size_t threshold
@@ -220,17 +220,16 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  Each participant _must_ have a secure channel with each other participant
  *  with which they can transmit shares to each other.
  *
- *  A new session_id32 _must_ be used for each key generation session. For
- *  example, in the case of 2 participants, Alice and Bob, Alice will generate
- *  a session_id32 and use it for each of the 2 calls to
- *  secp256k1_frost_share_gen and Bob will generate a session_id32 and use it
- *  for each of the 2 calls to secp256k1_frost_share_gen. Both Alice and Bob
- *  must NOT REUSE there respective session_id32 again for subsequent key
- *  generation sessions. If Alice and Bob fail to complete this session or
- *  start a new session to generate a new key, they must NOT REUSE their
- *  respective session_id32 again, but instead generate a new one. It is
- *  recommended to always choose session_id32 uniformly at random to avoid
- *  their reuse.
+ *  A new seed32 _must_ be used for each key generation session. For example,
+ *  in the case of 2 participants, Alice and Bob, Alice will generate a seed32
+ *  and use it for each of the 2 calls to secp256k1_frost_share_gen and Bob
+ *  will generate a seed32 and use it for each of the 2 calls to
+ *  secp256k1_frost_share_gen. Both Alice and Bob must NOT REUSE there
+ *  respective seed32 again for subsequent key generation sessions. If Alice
+ *  and Bob fail to complete this session or start a new session to generate a
+ *  new key, they must NOT REUSE their respective seed32 again, but instead
+ *  generate a new one. It is recommended to always choose seed32 uniformly at
+ *  random to avoid their reuse.
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object initialized for
@@ -239,7 +238,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *   In:             vss: pointer to the VSS commitments
  *                 pok64: pointer to the proof of knowledge of the first VSS
  *                        commitment
- *          session_id32: a 32-byte session_id32 as explained above
+ *                seed32: a 32-byte seed as explained above
  *          recipient_pk: pointer to the public key of the share recipient
  *             threshold: the minimum number of signers required to produce a
  *                        signature
@@ -249,7 +248,7 @@ SECP256K1_API int secp256k1_frost_share_gen(
     secp256k1_frost_share *share,
     const secp256k1_pubkey *vss,
     const unsigned char *pok64,
-    const unsigned char *session_id32,
+    const unsigned char *seed32,
     const secp256k1_xonly_pubkey *recipient_pk,
     size_t threshold
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
@@ -314,7 +313,7 @@ SECP256K1_API int secp256k1_frost_share_agg(
  *                    signature
  *                pk: pointer to the public key of the share recipient
  *             share: pointer to a key generation share
- *    vss_commitment: the commitments to the coeffcieints used to generate the
+ *               vss: the commitments to the coefficients used to generate the
  *                    share
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
@@ -322,7 +321,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     size_t threshold,
     const secp256k1_xonly_pubkey *pk,
     const secp256k1_frost_share *share,
-    const secp256k1_pubkey * const* vss_commitment
+    const secp256k1_pubkey * const* vss
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Obtain the aggregate public key from a FROST x-only aggregate public key.
