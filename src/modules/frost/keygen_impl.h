@@ -197,6 +197,10 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_shar
     secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/KeygenPoK", sizeof("FROST/KeygenPoK") - 1);
     secp256k1_sha256_finalize(&sha, buf);
 
+    if (!secp256k1_schnorrsig_verify(ctx, pok64, buf, 32, &vss_pk)) {
+        return 0;
+    }
+
     /* Compute seed which commits to threshold and session ID */
     secp256k1_sha256_initialize(&sha);
     secp256k1_sha256_write(&sha, session_id, 32);

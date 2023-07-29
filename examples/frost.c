@@ -27,6 +27,7 @@ struct signer_secrets {
     secp256k1_keypair keypair;
     secp256k1_frost_share agg_share;
     secp256k1_frost_secnonce secnonce;
+    unsigned char seed[32];
 };
 
 struct signer {
@@ -64,33 +65,37 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
     return 1;
 }
 
- /* Create shares and coefficient commitments */
+int create_vss(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
+    FILE *frand;
+    /* Create random seed. It is absolutely necessary that the seed be unique
+     * for every distributed key generation session. */
+    frand = fopen("/dev/urandom", "r");
+    if(frand == NULL) {
+        return 0;
+    }
+    if (!fread(signer_secrets->seed, 32, 1, frand)) {
+        fclose(frand);
+        return 0;
+    }
+    fclose(frand);
+    /* Create VSS commitment */
+    if (!secp256k1_frost_vss_gen(ctx, signer->vss_commitment, signer->pok, signer_secrets->seed, THRESHOLD)) {
+        return 0;
+    }
+    return 1;
+}
+
+/* Create shares and coefficient commitments */
 int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, secp256k1_xonly_pubkey *agg_pk) {
     int i, j;
     secp256k1_frost_share shares[N_SIGNERS][N_SIGNERS];
     const secp256k1_pubkey *vss_commitments[N_SIGNERS];
 
     for (i = 0; i < N_SIGNERS; i++) {
-        FILE *frand;
-        unsigned char session_id[32];
-        /* Create random session ID. It is absolutely necessary that the session ID
-         * is unique for every call of secp256k1_frost_share_gen for a given pubkey. */
-        frand = fopen("/dev/urandom", "r");
-        if(frand == NULL) {
-            return 0;
-        }
-        if (!fread(session_id, 32, 1, frand)) {
-            fclose(frand);
-            return 0;
-        }
-        fclose(frand);
-        if (!secp256k1_frost_vss_gen(ctx, signer[i].vss_commitment, signer[i].pok, session_id, THRESHOLD)) {
-            return 0;
-        }
         vss_commitments[i] = signer[i].vss_commitment;
         for (j = 0; j < N_SIGNERS; j++) {
             /* Generate a polynomial share for the participants */
-            if (!secp256k1_frost_share_gen(ctx, &shares[i][j], signer[j].vss_commitment, signer[j].pok, session_id, &signer[j].pubkey, THRESHOLD)) {
+            if (!secp256k1_frost_share_gen(ctx, &shares[i][j], signer[j].vss_commitment, signer[j].pok, signer_secrets[i].seed, &signer[j].pubkey, THRESHOLD)) {
                 return 0;
             }
         }
@@ -295,6 +300,14 @@ int main(void) {
     printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
         if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {
+            printf("FAILED\n");
+            return 1;
+        }
+    }
+    printf("ok\n");
+    printf("Creating VSS............");
+    for (i = 0; i < N_SIGNERS; i++) {
+        if (!create_vss(ctx, &signer_secrets[i], &signers[i])) {
             printf("FAILED\n");
             return 1;
         }
