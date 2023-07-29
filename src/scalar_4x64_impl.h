@@ -110,8 +110,9 @@ static int secp256k1_scalar_add(secp256k1_scalar *r, const secp256k1_scalar *a, 
 
 static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int flag) {
     uint128_t t;
+    volatile int vflag = flag;
     VERIFY_CHECK(bit < 256);
-    bit += ((uint32_t) flag - 1) & 0x100;  /* forcing (bit >> 6) > 3 makes this a noop */
+    bit += ((uint32_t) vflag - 1) & 0x100;  /* forcing (bit >> 6) > 3 makes this a noop */
     t = (uint128_t)r->d[0] + (((uint64_t)((bit >> 6) == 0)) << (bit & 0x3F));
     r->d[0] = t & 0xFFFFFFFFFFFFFFFFULL; t >>= 64;
     t += (uint128_t)r->d[1] + (((uint64_t)((bit >> 6) == 1)) << (bit & 0x3F));
@@ -180,7 +181,8 @@ static int secp256k1_scalar_is_high(const secp256k1_scalar *a) {
 static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
     /* If we are flag = 0, mask = 00...00 and this is a no-op;
      * if we are flag = 1, mask = 11...11 and this is identical to secp256k1_scalar_negate */
-    uint64_t mask = !flag - 1;
+    volatile int vflag = flag;
+    uint64_t mask = -vflag;
     uint64_t nonzero = (secp256k1_scalar_is_zero(r) != 0) - 1;
     uint128_t t = (uint128_t)(r->d[0] ^ mask) + ((SECP256K1_N_0 + 1) & mask);
     r->d[0] = t & nonzero; t >>= 64;
@@ -387,7 +389,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "movq %%r10, %q5\n"
     /* extract m6 */
     "movq %%r8, %q6\n"
-    : "=g"(m0), "=g"(m1), "=g"(m2), "=g"(m3), "=g"(m4), "=g"(m5), "=g"(m6)
+    : "=&g"(m0), "=&g"(m1), "=&g"(m2), "=g"(m3), "=g"(m4), "=g"(m5), "=g"(m6)
     : "S"(l), "i"(SECP256K1_N_C_0), "i"(SECP256K1_N_C_1)
     : "rax", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "cc");
 
@@ -958,101 +960,15 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r,
 
 static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag) {
     uint64_t mask0, mask1;
+    volatile int vflag = flag;
     VG_CHECK_VERIFY(r->d, sizeof(r->d));
-    mask0 = flag + ~((uint64_t)0);
+    mask0 = vflag + ~((uint64_t)0);
     mask1 = ~mask0;
     r->d[0] = (r->d[0] & mask0) | (a->d[0] & mask1);
     r->d[1] = (r->d[1] & mask0) | (a->d[1] & mask1);
     r->d[2] = (r->d[2] & mask0) | (a->d[2] & mask1);
     r->d[3] = (r->d[3] & mask0) | (a->d[3] & mask1);
 }
-
-#define ROTL32(x,n) ((x) << (n) | (x) >> (32-(n)))
-#define QUARTERROUND(a,b,c,d) \
-  a += b; d = ROTL32(d ^ a, 16); \
-  c += d; b = ROTL32(b ^ c, 12); \
-  a += b; d = ROTL32(d ^ a, 8); \
-  c += d; b = ROTL32(b ^ c, 7);
-
-#if defined(SECP256K1_BIG_ENDIAN)
-#define LE32(p) ((((p) & 0xFF) << 24) | (((p) & 0xFF00) << 8) | (((p) & 0xFF0000) >> 8) | (((p) & 0xFF000000) >> 24))
-#elif defined(SECP256K1_LITTLE_ENDIAN)
-#define LE32(p) (p)
-#endif
-
-static void secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx) {
-    size_t n;
-    size_t over_count = 0;
-    uint32_t seed32[8];
-    uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
-    int over1, over2;
-
-    memcpy((void *) seed32, (const void *) seed, 32);
-    do {
-        x0 = 0x61707865;
-        x1 = 0x3320646e;
-        x2 = 0x79622d32;
-        x3 = 0x6b206574;
-        x4 = LE32(seed32[0]);
-        x5 = LE32(seed32[1]);
-        x6 = LE32(seed32[2]);
-        x7 = LE32(seed32[3]);
-        x8 = LE32(seed32[4]);
-        x9 = LE32(seed32[5]);
-        x10 = LE32(seed32[6]);
-        x11 = LE32(seed32[7]);
-        x12 = idx;
-        x13 = idx >> 32;
-        x14 = 0;
-        x15 = over_count;
-
-        n = 10;
-        while (n--) {
-            QUARTERROUND(x0, x4, x8,x12)
-            QUARTERROUND(x1, x5, x9,x13)
-            QUARTERROUND(x2, x6,x10,x14)
-            QUARTERROUND(x3, x7,x11,x15)
-            QUARTERROUND(x0, x5,x10,x15)
-            QUARTERROUND(x1, x6,x11,x12)
-            QUARTERROUND(x2, x7, x8,x13)
-            QUARTERROUND(x3, x4, x9,x14)
-        }
-
-        x0 += 0x61707865;
-        x1 += 0x3320646e;
-        x2 += 0x79622d32;
-        x3 += 0x6b206574;
-        x4 += LE32(seed32[0]);
-        x5 += LE32(seed32[1]);
-        x6 += LE32(seed32[2]);
-        x7 += LE32(seed32[3]);
-        x8 += LE32(seed32[4]);
-        x9 += LE32(seed32[5]);
-        x10 += LE32(seed32[6]);
-        x11 += LE32(seed32[7]);
-        x12 += idx;
-        x13 += idx >> 32;
-        x14 += 0;
-        x15 += over_count;
-
-        r1->d[3] = (((uint64_t)  x0) << 32) | x1;
-        r1->d[2] = (((uint64_t)  x2) << 32) | x3;
-        r1->d[1] = (((uint64_t)  x4) << 32) | x5;
-        r1->d[0] = (((uint64_t)  x6) << 32) | x7;
-        r2->d[3] = (((uint64_t)  x8) << 32) | x9;
-        r2->d[2] = (((uint64_t) x10) << 32) | x11;
-        r2->d[1] = (((uint64_t) x12) << 32) | x13;
-        r2->d[0] = (((uint64_t) x14) << 32) | x15;
-
-        over1 = secp256k1_scalar_check_overflow(r1);
-        over2 = secp256k1_scalar_check_overflow(r2);
-        over_count++;
-   } while (over1 | over2);
-}
-
-#undef ROTL32
-#undef QUARTERROUND
-#undef LE32
 
 static void secp256k1_scalar_from_signed62(secp256k1_scalar *r, const secp256k1_modinv64_signed62 *a) {
     const uint64_t a0 = a->v[0], a1 = a->v[1], a2 = a->v[2], a3 = a->v[3], a4 = a->v[4];

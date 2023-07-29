@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "include/secp256k1_generator.h"
+#include "../include/secp256k1_generator.h"
 #include "util.h"
 #include "bench.h"
 

@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include "include/secp256k1_rangeproof.h"
+#include "../include/secp256k1_rangeproof.h"
 #include "util.h"
 #include "bench.h"
 

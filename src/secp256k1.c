@@ -33,15 +33,15 @@
 #endif
 
 #ifdef ENABLE_MODULE_GENERATOR
-# include "include/secp256k1_generator.h"
+# include "../include/secp256k1_generator.h"
 #endif
 
 #ifdef ENABLE_MODULE_RANGEPROOF
-# include "include/secp256k1_rangeproof.h"
+# include "../include/secp256k1_rangeproof.h"
 #endif
 
 #ifdef ENABLE_MODULE_ECDSA_S2C
-# include "include/secp256k1_ecdsa_s2c.h"
+# include "../include/secp256k1_ecdsa_s2c.h"
 static void secp256k1_ecdsa_s2c_opening_save(secp256k1_ecdsa_s2c_opening* opening, secp256k1_ge* ge);
 #else
 typedef void secp256k1_ecdsa_s2c_opening;
@@ -798,6 +798,32 @@ int secp256k1_tagged_sha256(const secp256k1_context* ctx, unsigned char *hash32,
     secp256k1_sha256_write(&sha, msg, msglen);
     secp256k1_sha256_finalize(&sha, hash32);
     return 1;
+}
+
+/* Outputs 33 zero bytes if the given group element is the point at infinity and
+ * otherwise outputs the compressed serialization */
+static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
+    if (secp256k1_ge_is_infinity(ge)) {
+        memset(out33, 0, 33);
+    } else {
+        int ret;
+        size_t size = 33;
+        ret = secp256k1_eckey_pubkey_serialize(ge, out33, &size, 1);
+        /* Serialize must succeed because the point is not at infinity */
+        VERIFY_CHECK(ret && size == 33);
+    }
+}
+
+/* Outputs the point at infinity if the given byte array is all zero, otherwise
+ * attempts to parse compressed point serialization. */
+static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
+    unsigned char zeros[33] = { 0 };
+
+    if (memcmp(in33, zeros, sizeof(zeros)) == 0) {
+        secp256k1_ge_set_infinity(ge);
+        return 1;
+    }
+    return secp256k1_eckey_pubkey_parse(ge, in33, 33);
 }
 
 #ifdef ENABLE_MODULE_BPPP

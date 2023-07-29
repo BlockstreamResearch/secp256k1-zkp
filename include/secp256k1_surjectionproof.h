@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_SURJECTIONPROOF_
-#define _SECP256K1_SURJECTIONPROOF_
+#ifndef SECP256K1_SURJECTIONPROOF_H
+#define SECP256K1_SURJECTIONPROOF_H
 
 #include "secp256k1.h"
 #include "secp256k1_rangeproof.h"

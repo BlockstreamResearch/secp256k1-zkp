@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_MODULE_GENERATOR_MAIN
-#define SECP256K1_MODULE_GENERATOR_MAIN
+#ifndef SECP256K1_MODULE_GENERATOR_MAIN_H
+#define SECP256K1_MODULE_GENERATOR_MAIN_H
 
 #include <stdio.h>
 
@@ -14,7 +14,7 @@
 #include "../../hash.h"
 #include "../../scalar.h"
 
-#include "modules/generator/pedersen_impl.h"
+#include "../generator/pedersen_impl.h"
 
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after standard encoding (without compression),
