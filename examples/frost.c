@@ -90,7 +90,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
         vss_commitments[i] = signer[i].vss_commitment;
         for (j = 0; j < N_SIGNERS; j++) {
             /* Generate a polynomial share for the participants */
-            if (!secp256k1_frost_share_gen(ctx, &shares[i][j], signer[j].vss_commitment, session_id, &signer[j].pubkey, THRESHOLD)) {
+            if (!secp256k1_frost_share_gen(ctx, &shares[i][j], signer[j].vss_commitment, signer[j].pok, session_id, &signer[j].pubkey, THRESHOLD)) {
                 return 0;
             }
         }

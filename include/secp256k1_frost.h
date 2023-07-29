@@ -237,6 +237,8 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *                        verification
  *  Out:           share: pointer to the key generation share
  *   In:             vss: pointer to the VSS commitments
+ *                 pok64: pointer to the proof of knowledge of the first VSS
+ *                        commitment
  *          session_id32: a 32-byte session_id32 as explained above
  *          recipient_pk: pointer to the public key of the share recipient
  *             threshold: the minimum number of signers required to produce a
@@ -246,10 +248,11 @@ SECP256K1_API int secp256k1_frost_share_gen(
     const secp256k1_context *ctx,
     secp256k1_frost_share *share,
     const secp256k1_pubkey *vss,
+    const unsigned char *pok64,
     const unsigned char *session_id32,
     const secp256k1_xonly_pubkey *recipient_pk,
     size_t threshold
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 
 /** Aggregates shares
  *
