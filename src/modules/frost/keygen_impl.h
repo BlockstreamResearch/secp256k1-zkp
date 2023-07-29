@@ -170,7 +170,7 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss,
     return 1;
 }
 
-int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
+int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
     secp256k1_sha256 sha;
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
@@ -209,16 +209,6 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vs
         secp256k1_scalar_add(&share_i, &share_i, &rand[i % 2]);
         if (i < threshold - 1) {
             secp256k1_scalar_mul(&share_i, &share_i, &idx);
-        }
-        /* Derive coefficients commitments from the seed */
-        if (vss_commitment != NULL) {
-            secp256k1_gej rj;
-            secp256k1_ge rp;
-
-            /* Compute commitment to each coefficient */
-            secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &rand[i % 2]);
-            secp256k1_ge_set_gej(&rp, &rj);
-            secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
         }
     }
     secp256k1_frost_share_save(share, &share_i);

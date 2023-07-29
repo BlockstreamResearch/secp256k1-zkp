@@ -43,6 +43,7 @@ void frost_simple_test(void) {
     secp256k1_pubkey vss_commitment[5][3];
     const secp256k1_pubkey *vss_ptr[5];
     unsigned char vss_hash[32];
+    unsigned char pok[5][64];
     secp256k1_xonly_pubkey agg_pk;
     unsigned char session_id[5][32];
     secp256k1_frost_share share[5][5];
@@ -70,7 +71,8 @@ void frost_simple_test(void) {
     }
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 5; j++) {
-            CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[i], &share[i][j], session_id[i], &pk[j], 3) == 1);
+            CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[i], pok[i], session_id[i], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(ctx, &share[i][j], session_id[i], &pk[j], 3) == 1);
         }
     }
     for (i = 0; i < 5; i++) {
@@ -174,6 +176,7 @@ void frost_api_tests(void) {
     secp256k1_frost_share invalid_share;
     secp256k1_frost_share agg_share[5];
     unsigned char vss_hash[32];
+    unsigned char pok[5][64];
     const secp256k1_frost_share *share_ptr[5];
     const secp256k1_frost_share *invalid_share_ptr[5];
     secp256k1_pubkey pubshare[5];
@@ -239,35 +242,35 @@ void frost_api_tests(void) {
     /** Key generation **/
     ecount = 0;
     for (i = 0; i < 5; i++) {
+        /* TODO: add vss_gen tests */
+        CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[i], pok[i], session_id[i], 3) == 1);
+
         for (j = 0; j < 5; j++) {
-            CHECK(secp256k1_frost_share_gen(none, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(sign, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, NULL, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], NULL, session_id[i], pk_ptr[j], 3) == 0);
-            CHECK(ecount == (i*30)+(j*6)+1);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], NULL, pk_ptr[j], 3) == 0);
-            CHECK(ecount == (i*30)+(j*6)+2);
+            CHECK(secp256k1_frost_share_gen(none, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(sign, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(vrfy, NULL, session_id[i], pk_ptr[j], 3) == 0);
+            CHECK(ecount == (i*25)+(j*5)+1);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], NULL, pk_ptr[j], 3) == 0);
+            CHECK(ecount == (i*25)+(j*5)+2);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], session_id[i], NULL, 3) == 0);
-            CHECK(ecount == (i*30)+(j*6)+3);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], NULL, 3) == 0);
+            CHECK(ecount == (i*25)+(j*5)+3);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], session_id[i], &invalid_pk, 3) == 0);
-            CHECK(ecount == (i*30)+(j*6)+4);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], &invalid_pk, 3) == 0);
+            CHECK(ecount == (i*25)+(j*5)+4);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 0) == 0);
-            CHECK(ecount == (i*30)+(j*6)+5);
-            CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, NULL, &share[i][j], session_id[i], pk_ptr[j], 0) == 0);
-            CHECK(ecount == (i*30)+(j*6)+6);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], pk_ptr[j], 0) == 0);
+            CHECK(ecount == (i*25)+(j*5)+5);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
 
-            CHECK(secp256k1_frost_share_gen(none, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(sign, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, vss_commitment[i], &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(none, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(sign, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], session_id[i], pk_ptr[j], 3) == 1);
         }
     }
-    CHECK(ecount == 150);
+    CHECK(ecount == 125);
 
     /* Share aggregation */
     ecount = 0;
@@ -897,6 +900,7 @@ void frost_tweak_test(void) {
     secp256k1_pubkey vss_commitment[5][3];
     const secp256k1_pubkey *vss_ptr[5];
     unsigned char vss_hash[32];
+    unsigned char pok[5][64];
     secp256k1_frost_share share[5];
     secp256k1_frost_share agg_share[5];
     const secp256k1_frost_share *share_ptr[5];
@@ -913,11 +917,16 @@ void frost_tweak_test(void) {
         CHECK(frost_create_pk(&pk[i], sk[i]));
     }
     /* Signer 1 */
-    CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[0], &share[0], session_id[0], pk_ptr[0], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[1], &share[1], session_id[1], pk_ptr[0], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[2], &share[2], session_id[2], pk_ptr[0], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[3], &share[3], session_id[3], pk_ptr[0], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[4], &share[4], session_id[4], pk_ptr[0], 3) == 1);
+    CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[0], pok[0], session_id[0], 3) == 1);
+    CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[1], pok[0], session_id[1], 3) == 1);
+    CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[2], pok[0], session_id[2], 3) == 1);
+    CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[3], pok[0], session_id[3], 3) == 1);
+    CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[4], pok[0], session_id[4], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[0], session_id[0], pk_ptr[0], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[1], session_id[1], pk_ptr[0], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[2], session_id[2], pk_ptr[0], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[3], session_id[3], pk_ptr[0], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[4], session_id[4], pk_ptr[0], 3) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[0], share_ptr[0], &vss_ptr[0]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[0], share_ptr[1], &vss_ptr[1]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[0], share_ptr[2], &vss_ptr[2]) == 1);
@@ -926,11 +935,11 @@ void frost_tweak_test(void) {
     CHECK(secp256k1_frost_share_agg(ctx, &agg_share[0], &P_xonly[0], vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[0]) == 1);
     CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
     /* Signer 2 */
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[0], session_id[0], pk_ptr[1], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[1], session_id[1], pk_ptr[1], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[2], session_id[2], pk_ptr[1], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[3], session_id[3], pk_ptr[1], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[4], session_id[4], pk_ptr[1], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[0], session_id[0], pk_ptr[1], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[1], session_id[1], pk_ptr[1], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[2], session_id[2], pk_ptr[1], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[3], session_id[3], pk_ptr[1], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[4], session_id[4], pk_ptr[1], 3) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[1], share_ptr[0], &vss_ptr[0]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[1], share_ptr[1], &vss_ptr[1]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[1], share_ptr[2], &vss_ptr[2]) == 1);
@@ -939,11 +948,11 @@ void frost_tweak_test(void) {
     CHECK(secp256k1_frost_share_agg(ctx, &agg_share[1], &P_xonly[0], vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[1]) == 1);
     CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 3, pk_ptr[1], vss_ptr, 5) == 1);
     /* Signer 3 */
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[0], session_id[0], pk_ptr[2], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[1], session_id[1], pk_ptr[2], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[2], session_id[2], pk_ptr[2], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[3], session_id[3], pk_ptr[2], 3) == 1);
-    CHECK(secp256k1_frost_share_gen(ctx, NULL, &share[4], session_id[4], pk_ptr[2], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[0], session_id[0], pk_ptr[2], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[1], session_id[1], pk_ptr[2], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[2], session_id[2], pk_ptr[2], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[3], session_id[3], pk_ptr[2], 3) == 1);
+    CHECK(secp256k1_frost_share_gen(ctx, &share[4], session_id[4], pk_ptr[2], 3) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[2], share_ptr[0], &vss_ptr[0]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[2], share_ptr[1], &vss_ptr[1]) == 1);
     CHECK(secp256k1_frost_share_verify(ctx, 3, pk_ptr[2], share_ptr[2], &vss_ptr[2]) == 1);
@@ -993,6 +1002,7 @@ void frost_dkg_test_helper(secp256k1_frost_share *agg_share, secp256k1_xonly_pub
     secp256k1_pubkey vss_commitment[5][3];
     const secp256k1_pubkey *vss_ptr[5];
     unsigned char vss_hash[32];
+    unsigned char pok[5][64];
     unsigned char session_id[5][32];
     secp256k1_frost_share share[5][5];
     const secp256k1_frost_share *share_ptr[5];
@@ -1004,7 +1014,8 @@ void frost_dkg_test_helper(secp256k1_frost_share *agg_share, secp256k1_xonly_pub
     }
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 5; j++) {
-            CHECK(secp256k1_frost_share_gen(ctx, vss_commitment[i], &share[i][j], session_id[i], &pk[j], 3) == 1);
+            CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[i], pok[i], session_id[i], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(ctx, &share[i][j], session_id[i], &pk[j], 3) == 1);
         }
     }
     for (i = 0; i < 5; i++) {

@@ -210,8 +210,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 
-/** Creates a key generation share and verifiable secret sharing ("VSS")
- *  commitments.
+/** Creates a key generation share
  *
  *  To generate a key, each participant generates a share for each other
  *  participant. For example, in the case of 2 particpants, Alice and Bob, they
@@ -236,9 +235,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object initialized for
  *                        verification
- *  Out:  vss_commitment: the coefficient commitments. The length of this array
- *                        must be equal to the threshold (can be NULL).
- *                 share: pointer to the key generation share
+ *  Out:           share: pointer to the key generation share
  *   In:    session_id32: a 32-byte session_id32 as explained above
  *          recipient_pk: pointer to the public key of the share recipient
  *             threshold: the minimum number of signers required to produce a
@@ -246,12 +243,11 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  */
 SECP256K1_API int secp256k1_frost_share_gen(
     const secp256k1_context *ctx,
-    secp256k1_pubkey *vss_commitment,
     secp256k1_frost_share *share,
     const unsigned char *session_id32,
     const secp256k1_xonly_pubkey *recipient_pk,
     size_t threshold
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Aggregates shares
  *
