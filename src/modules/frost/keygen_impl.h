@@ -170,21 +170,31 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss,
     return 1;
 }
 
-int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
+int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_share *share, const secp256k1_pubkey *vss, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
     secp256k1_sha256 sha;
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
     unsigned char rngseed[32];
     secp256k1_scalar rand[2];
+    unsigned char buf[32];
+    secp256k1_xonly_pubkey vss_pk;
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(share != NULL);
     memset(share, 0, sizeof(*share));
+    ARG_CHECK(vss != NULL);
     ARG_CHECK(session_id != NULL);
     ARG_CHECK(recipient_pk != NULL);
     ARG_CHECK(threshold > 1);
+
+    if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &vss_pk, NULL, &vss[0])) {
+        return 0;
+    }
+
+    secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/KeygenPoK", sizeof("FROST/KeygenPoK") - 1);
+    secp256k1_sha256_finalize(&sha, buf);
 
     /* Compute seed which commits to threshold and session ID */
     secp256k1_sha256_initialize(&sha);
