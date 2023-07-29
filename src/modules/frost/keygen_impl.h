@@ -170,7 +170,7 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss,
     return 1;
 }
 
-int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_keypair *keypair, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
+int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, secp256k1_frost_share *share, const unsigned char *session_id, const secp256k1_xonly_pubkey *recipient_pk, size_t threshold) {
     secp256k1_sha256 sha;
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
@@ -183,7 +183,6 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_pubkey *vs
     ARG_CHECK(share != NULL);
     memset(share, 0, sizeof(*share));
     ARG_CHECK(session_id != NULL);
-    ARG_CHECK(keypair != NULL);
     ARG_CHECK(recipient_pk != NULL);
     ARG_CHECK(threshold > 1);
 

@@ -86,7 +86,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
         fclose(frand);
         /* Generate a polynomial share for the first participant and save the
          * vss commitment */
-        if (!secp256k1_frost_share_gen(ctx, NULL, &shares[i][0], session_id, &signer_secrets[i].keypair, &signer[0].pubkey, THRESHOLD)) {
+        if (!secp256k1_frost_share_gen(ctx, NULL, &shares[i][0], session_id, &signer[0].pubkey, THRESHOLD)) {
             return 0;
         }
         if (!secp256k1_frost_vss_gen(ctx, signer[i].vss_commitment, signer[i].pok, session_id, THRESHOLD)) {
@@ -95,7 +95,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
         vss_commitments[i] = signer[i].vss_commitment;
         for (j = 1; j < N_SIGNERS; j++) {
             /* Generate a polynomial share for the remaining participants */
-            if (!secp256k1_frost_share_gen(ctx, NULL, &shares[i][j], session_id, &signer_secrets[i].keypair, &signer[j].pubkey, THRESHOLD)) {
+            if (!secp256k1_frost_share_gen(ctx, NULL, &shares[i][j], session_id, &signer[j].pubkey, THRESHOLD)) {
                 return 0;
             }
         }
@@ -209,7 +209,6 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
 
     for (i = 0; i < N_SIGNERS; i++) {
         FILE *frand;
-        unsigned char seckey[32];
         unsigned char session_id[32];
         /* Create random session ID. It is absolutely necessary that the session ID
          * is unique for every call of secp256k1_frost_nonce_gen. Otherwise
@@ -223,9 +222,6 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
             return 0;
         }
         fclose(frand);
-        if (!secp256k1_keypair_sec(ctx, seckey, &signer_secrets[i].keypair)) {
-            return 0;
-        }
         /* Initialize session and create secret nonce for signing and public
          * nonce to send to the other signers. */
         if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, &signer_secrets[i].agg_share, msg32, agg_pk, NULL)) {
