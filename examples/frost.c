@@ -37,6 +37,7 @@ struct signer {
     secp256k1_frost_partial_sig partial_sig;
     secp256k1_pubkey vss_commitment[THRESHOLD];
     unsigned char vss_hash[32];
+    unsigned char pok[64];
 };
 
  /* Create a key pair and store it in seckey and pubkey */
@@ -85,7 +86,10 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
         fclose(frand);
         /* Generate a polynomial share for the first participant and save the
          * vss commitment */
-        if (!secp256k1_frost_share_gen(ctx, signer[i].vss_commitment, &shares[i][0], session_id, &signer_secrets[i].keypair, &signer[0].pubkey, THRESHOLD)) {
+        if (!secp256k1_frost_share_gen(ctx, NULL, &shares[i][0], session_id, &signer_secrets[i].keypair, &signer[0].pubkey, THRESHOLD)) {
+            return 0;
+        }
+        if (!secp256k1_frost_vss_gen(ctx, signer[i].vss_commitment, signer[i].pok, session_id, THRESHOLD)) {
             return 0;
         }
         vss_commitments[i] = signer[i].vss_commitment;

@@ -184,6 +184,32 @@ SECP256K1_API int secp256k1_frost_share_parse(
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
+/**
+ * Generates VSS commitments and a proof of knowledge of the first coefficient.
+ *
+ * This function generates the VSS commitments based on the given seed and
+ * threshold, and creates a proof of knowledge of the first coefficient.
+ *
+ * Returns: 0 if the arguments are invalid, 1 otherwise
+ * Args:            ctx:  pointer to a context object initialized for
+ *                        verification
+ *  Out:  vss_commitment: the coefficient commitments. The length of this array
+ *                        must be equal to the threshold (can be NULL).
+                   pok64: pointer to the proof of knowledge of the first
+ *                        coefficient
+ *   In:          seed32: a 32-byte seed used to generate the VSS commitments
+ *             threshold: the minimum number of signers required to produce a
+ *                        signature
+ */
+SECP256K1_API int secp256k1_frost_vss_gen(
+    const secp256k1_context *ctx,
+    secp256k1_pubkey *vss_commitment,
+    unsigned char *pok64,
+    const unsigned char *seed32,
+    size_t threshold
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+
 /** Creates a key generation share and verifiable secret sharing ("VSS")
  *  commitments.
  *
