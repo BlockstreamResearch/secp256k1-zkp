@@ -117,7 +117,7 @@ static int secp256k1_bppp_commit(
 ) {
     secp256k1_scalar v, l_c;
     /* First n_vec_len generators are Gs, rest are Hs*/
-    VERIFY_CHECK(g_vec->n == (n_vec_len + l_vec_len));
+    VERIFY_CHECK(g_vec->n >= (n_vec_len + l_vec_len));
     VERIFY_CHECK(l_vec_len == c_vec_len);
 
     /* It is possible to extend to support n_vec and c_vec to not be power of
@@ -224,7 +224,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     secp256k1_sha256* transcript, /* Transcript hash of the parent protocol */
     const secp256k1_scalar* rho,
     secp256k1_ge* g_vec,
-    size_t g_vec_len,
+    size_t gens_vec_len,
     secp256k1_scalar* n_vec,
     size_t n_vec_len,
     secp256k1_scalar* l_vec,
@@ -247,7 +247,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     num_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
     /* Check proof sizes.*/
     VERIFY_CHECK(*proof_len >= 65 * num_rounds + 64);
-    VERIFY_CHECK(g_vec_len == (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
+    VERIFY_CHECK(gens_vec_len >= (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
     VERIFY_CHECK(secp256k1_is_power_of_two(n_vec_len) && secp256k1_is_power_of_two(c_vec_len));
 
     x_cb_data.n = n_vec;
@@ -394,15 +394,15 @@ typedef struct ec_mult_verify_cb_data2 {
     const secp256k1_scalar *s_g;
     const secp256k1_scalar *s_h;
     const secp256k1_ge *g_vec;
-    size_t g_vec_len;
+    size_t n_vec_len;
 } ec_mult_verify_cb_data2;
 
 static int ec_mult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *cbdata) {
     ec_mult_verify_cb_data2 *data = (ec_mult_verify_cb_data2*) cbdata;
-    if (idx < data->g_vec_len) {
+    if (idx < data->n_vec_len) {
         *sc = data->s_g[idx];
     } else {
-        *sc = data->s_h[idx - data->g_vec_len];
+        *sc = data->s_h[idx - data->n_vec_len];
     }
     *pt = data->g_vec[idx];
     return 1;
@@ -440,7 +440,7 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     log_h_len = secp256k1_bppp_log2(c_vec_len);
     n_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
 
-    if (g_vec->n != (h_len + g_len) || (proof_len != 65 * n_rounds + 64)) {
+    if (g_vec->n < (h_len + g_len) || (proof_len != 65 * n_rounds + 64)) {
         return 0;
     }
 
@@ -524,7 +524,7 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     {
         ec_mult_verify_cb_data2 data;
         data.g_vec = g_vec->gens;
-        data.g_vec_len = g_len;
+        data.n_vec_len = g_len;
         data.s_g = s_g;
         data.s_h = s_h;
 
