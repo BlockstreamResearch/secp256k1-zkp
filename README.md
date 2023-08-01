@@ -2,6 +2,7 @@ libsecp256k1-zkp
 ================
 
 [![Build Status](https://api.cirrus-ci.com/github/BlockstreamResearch/secp256k1-zkp.svg?branch=master)](https://cirrus-ci.com/github/BlockstreamResearch/secp256k1-zkp)
+![Dependencies: None](https://img.shields.io/badge/dependencies-none-success)
 
 A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features such as Confidential Assets and MuSig2 
 
@@ -30,7 +31,14 @@ To compile optional modules (such as Schnorr signatures), you need to run `./con
 
 Usage examples
 -----------
-  Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
+
+Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
+  * [ECDSA example](examples/ecdsa.c)
+  * [Schnorr signatures example](examples/schnorr.c)
+  * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
+  * [MuSig example](examples/musig.c)
+
+To compile the Schnorr signature, ECDH and MuSig examples, you need to enable the corresponding module by providing a flag to the `configure` script, for example `--enable-module-schnorrsig`.
 
 Test coverage
 -----------

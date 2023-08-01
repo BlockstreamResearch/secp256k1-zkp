@@ -5,12 +5,13 @@ bench_generator
 bench_rangeproof
 bench_internal
 bench_whitelist
+noverify_tests
 tests
 example_musig
 exhaustive_tests
 precompute_ecmult_gen
 precompute_ecmult
-valgrind_ctime_test
+ctime_tests
 ecdh_example
 ecdsa_example
 schnorr_example
@@ -18,9 +19,9 @@ schnorr_example
 *.so
 *.a
 *.csv
-!.gitignore
 *.log
 *.trs
+*.sage.py
 
 Makefile
 configure
@@ -39,8 +40,6 @@ libtool
 *.lo
 *.o
 *~
-*.log
-*.trs
 
 coverage/
 coverage.html
@@ -49,8 +48,6 @@ coverage.*.html
 *.gcno
 *.gcov
 
-src/libsecp256k1-config.h
-src/libsecp256k1-config.h.in
 build-aux/ar-lib
 build-aux/config.guess
 build-aux/config.sub
@@ -65,8 +62,12 @@ build-aux/m4/ltversion.m4
 build-aux/missing
 build-aux/compile
 build-aux/test-driver
-src/stamp-h1
 libsecp256k1.pc
 contrib/gh-pr-create.sh
 
 musig_example
+
+### CMake
+/CMakeUserPresets.json
+# Default CMake build directory.
+/build
