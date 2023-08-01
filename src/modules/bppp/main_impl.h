@@ -49,60 +49,6 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
     return ret;
 }
 
-secp256k1_bppp_generators* secp256k1_bppp_generators_parse(const secp256k1_context* ctx, const unsigned char* data, size_t data_len) {
-    size_t n = data_len / 33;
-    secp256k1_bppp_generators* ret;
-
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(data != NULL);
-
-    if (data_len % 33 != 0) {
-        return NULL;
-    }
-
-    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
-    if (ret == NULL) {
-        return NULL;
-    }
-    ret->n = n;
-    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
-    if (ret->gens == NULL) {
-        free(ret);
-        return NULL;
-    }
-
-    while (n--) {
-        secp256k1_generator gen;
-        if (!secp256k1_generator_parse(ctx, &gen, &data[33 * n])) {
-            free(ret->gens);
-            free(ret);
-            return NULL;
-        }
-        secp256k1_generator_load(&ret->gens[n], &gen);
-    }
-    return ret;
-}
-
-int secp256k1_bppp_generators_serialize(const secp256k1_context* ctx, const secp256k1_bppp_generators* gens, unsigned char* data, size_t *data_len) {
-    size_t i;
-
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(gens != NULL);
-    ARG_CHECK(data != NULL);
-    ARG_CHECK(data_len != NULL);
-    ARG_CHECK(*data_len >= 33 * gens->n);
-
-    memset(data, 0, *data_len);
-    for (i = 0; i < gens->n; i++) {
-        secp256k1_generator gen;
-        secp256k1_generator_save(&gen, &gens->gens[i]);
-        secp256k1_generator_serialize(ctx, &data[33 * i], &gen);
-    }
-
-    *data_len = 33 * gens->n;
-    return 1;
-}
-
 void secp256k1_bppp_generators_destroy(const secp256k1_context* ctx, secp256k1_bppp_generators *gens) {
     VERIFY_CHECK(ctx != NULL);
     (void) ctx;
