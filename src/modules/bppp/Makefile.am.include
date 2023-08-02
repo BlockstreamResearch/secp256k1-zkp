@@ -3,6 +3,7 @@ noinst_HEADERS += src/modules/bppp/bppp_util.h
 noinst_HEADERS += src/modules/bppp/main_impl.h
 noinst_HEADERS += src/modules/bppp/bppp_transcript_impl.h
 noinst_HEADERS += src/modules/bppp/bppp_norm_product_impl.h
+noinst_HEADERS += src/modules/bppp/bppp_rangeproof_impl.h
 noinst_HEADERS += src/modules/bppp/tests_impl.h
 
 if USE_BENCHMARK

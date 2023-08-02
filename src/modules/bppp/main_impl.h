@@ -14,6 +14,7 @@
 #include "../../util.h"
 #include "../bppp/main.h"
 #include "../bppp/bppp_norm_product_impl.h"
+#include "../bppp/bppp_rangeproof_impl.h"
 
 secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_context *ctx, size_t n) {
     secp256k1_bppp_generators *ret;
@@ -22,6 +23,11 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
     size_t i;
 
     VERIFY_CHECK(ctx != NULL);
+
+    /* Must have atleast 8 generators */
+    if (n <= 8) {
+        return NULL;
+    }
 
     ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
     if (ret == NULL) {
@@ -41,66 +47,17 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
     for (i = 0; i < n; i++) {
         secp256k1_generator gen;
         unsigned char tmp[32] = { 0 };
+        if (i == n - 8) {
+            /* The first generator in H is secp G */
+            ret->gens[i] = secp256k1_ge_const_g;
+            continue;
+        }
         secp256k1_rfc6979_hmac_sha256_generate(&rng, tmp, 32);
         CHECK(secp256k1_generator_generate(ctx, &gen, tmp));
         secp256k1_generator_load(&ret->gens[i], &gen);
     }
 
     return ret;
-}
-
-secp256k1_bppp_generators* secp256k1_bppp_generators_parse(const secp256k1_context* ctx, const unsigned char* data, size_t data_len) {
-    size_t n = data_len / 33;
-    secp256k1_bppp_generators* ret;
-
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(data != NULL);
-
-    if (data_len % 33 != 0) {
-        return NULL;
-    }
-
-    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
-    if (ret == NULL) {
-        return NULL;
-    }
-    ret->n = n;
-    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
-    if (ret->gens == NULL) {
-        free(ret);
-        return NULL;
-    }
-
-    while (n--) {
-        secp256k1_generator gen;
-        if (!secp256k1_generator_parse(ctx, &gen, &data[33 * n])) {
-            free(ret->gens);
-            free(ret);
-            return NULL;
-        }
-        secp256k1_generator_load(&ret->gens[n], &gen);
-    }
-    return ret;
-}
-
-int secp256k1_bppp_generators_serialize(const secp256k1_context* ctx, const secp256k1_bppp_generators* gens, unsigned char* data, size_t *data_len) {
-    size_t i;
-
-    VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(gens != NULL);
-    ARG_CHECK(data != NULL);
-    ARG_CHECK(data_len != NULL);
-    ARG_CHECK(*data_len >= 33 * gens->n);
-
-    memset(data, 0, *data_len);
-    for (i = 0; i < gens->n; i++) {
-        secp256k1_generator gen;
-        secp256k1_generator_save(&gen, &gens->gens[i]);
-        secp256k1_generator_serialize(ctx, &data[33 * i], &gen);
-    }
-
-    *data_len = 33 * gens->n;
-    return 1;
 }
 
 void secp256k1_bppp_generators_destroy(const secp256k1_context* ctx, secp256k1_bppp_generators *gens) {
@@ -110,6 +67,140 @@ void secp256k1_bppp_generators_destroy(const secp256k1_context* ctx, secp256k1_b
         free(gens->gens);
         free(gens);
     }
+}
+
+size_t secp256k1_bppp_rangeproof_proof_length(
+    const secp256k1_context* ctx,
+    size_t n_bits,
+    size_t base
+) {
+    size_t num_digits, n_rounds, g_len, h_len;
+    VERIFY_CHECK(ctx != NULL);
+    if (n_bits > 64 || base < 2 || base > 64) {
+        return 0;
+    }
+
+    if (!secp256k1_is_power_of_two(base) || !secp256k1_is_power_of_two(n_bits)) {
+        return 0;
+    }
+    num_digits = n_bits / secp256k1_bppp_log2(base);
+    if (!secp256k1_is_power_of_two(num_digits)) {
+        return 0;
+    }
+    g_len = num_digits > base ? num_digits : base;
+    h_len = 8;
+    n_rounds = secp256k1_bppp_log2(g_len > h_len ? g_len : h_len);
+    return 33 * 4 + 65*n_rounds + 64;
+}
+
+int secp256k1_bppp_rangeproof_prove(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space *scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_generator* asset_gen,
+    unsigned char* proof,
+    size_t* plen,
+    const size_t n_bits,
+    const size_t base,
+    const uint64_t value,
+    const uint64_t min_value,
+    const secp256k1_pedersen_commitment* commit,
+    const unsigned char* blind,
+    const unsigned char* nonce,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    secp256k1_ge commitp, asset_genp;
+    secp256k1_scalar blinds;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    VERIFY_CHECK(scratch != NULL);
+    ARG_CHECK(gens != NULL);
+    ARG_CHECK(asset_gen != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(plen != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(blind != NULL);
+    ARG_CHECK(nonce != NULL);
+    ARG_CHECK(extra_commit != NULL || extra_commit_len == 0);
+
+    secp256k1_scalar_set_b32(&blinds, blind, &overflow);
+    if (overflow) {
+        return 0;
+    }
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&asset_genp, asset_gen);
+    secp256k1_fe_normalize_var(&commitp.x);
+    secp256k1_fe_normalize_var(&commitp.y);
+    secp256k1_fe_normalize_var(&asset_genp.x);
+    secp256k1_fe_normalize_var(&asset_genp.y);
+
+    return secp256k1_bppp_rangeproof_prove_impl(
+        ctx,
+        scratch,
+        gens,
+        &asset_genp,
+        proof,
+        plen,
+        n_bits,
+        base,
+        value,
+        min_value,
+        &commitp,
+        &blinds,
+        nonce,
+        extra_commit,
+        extra_commit_len
+    );
+}
+
+int secp256k1_bppp_rangeproof_verify(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space *scratch,
+    const secp256k1_bppp_generators* gens,
+    const secp256k1_generator* asset_gen,
+    const unsigned char* proof,
+    const size_t plen,
+    const uint64_t n_bits,
+    const uint64_t base,
+    const uint64_t min_value,
+    const secp256k1_pedersen_commitment* commit,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len
+) {
+    secp256k1_ge commitp, asset_genp;
+
+    VERIFY_CHECK(ctx != NULL);
+    VERIFY_CHECK(scratch != NULL);
+    ARG_CHECK(gens != NULL);
+    ARG_CHECK(asset_gen != NULL);
+    ARG_CHECK(proof != NULL);
+    ARG_CHECK(commit != NULL);
+    ARG_CHECK(extra_commit != NULL || extra_commit_len == 0);
+
+    secp256k1_pedersen_commitment_load(&commitp, commit);
+    secp256k1_generator_load(&asset_genp, asset_gen);
+    secp256k1_fe_normalize_var(&commitp.x);
+    secp256k1_fe_normalize_var(&commitp.y);
+    secp256k1_fe_normalize_var(&asset_genp.x);
+    secp256k1_fe_normalize_var(&asset_genp.y);
+
+    return secp256k1_bppp_rangeproof_verify_impl(
+        ctx,
+        scratch,
+        gens,
+        &asset_genp,
+        proof,
+        plen,
+        n_bits,
+        base,
+        min_value,
+        &commitp,
+        extra_commit,
+        extra_commit_len
+    );
 }
 
 #endif
