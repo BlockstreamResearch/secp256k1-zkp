@@ -450,6 +450,8 @@ task:
     - git show --no-patch
   configure_script:
     - '%x64_NATIVE_TOOLS%'
+    # HACK
+    - set
     - cmake -E env CFLAGS="/WX" cmake -A x64 -B build -DSECP256K1_ENABLE_MODULE_RECOVERY=ON -DSECP256K1_BUILD_EXAMPLES=ON -DBUILD_SHARED_LIBS=%BUILD_SHARED_LIBS%
   build_script:
     - '%x64_NATIVE_TOOLS%'
