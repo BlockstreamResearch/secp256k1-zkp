@@ -257,10 +257,8 @@ static void test_serialize_two_points(void) {
         random_group_element_test(&R);
         secp256k1_bppp_serialize_points(buf, &X, &R);
 
-        buf[0] = 4 + (unsigned char)secp256k1_testrandi64(0, 253);
-        /* Assert that buf[0] is actually invalid. */
-        CHECK(buf[0] != 0x02 && buf[0] != 0x03);
-
+        /* buf is valid if 0 <= buf[0] < 4. */
+        buf[0] = (unsigned char)secp256k1_testrandi64(4, 255);
         CHECK(!secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0));
         CHECK(!secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 0));
     }
