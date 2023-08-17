@@ -183,20 +183,11 @@ void frost_api_tests(void) {
     int i, j;
 
     /** setup **/
-    secp256k1_context *none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-    secp256k1_context *sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-    secp256k1_context *vrfy = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-    secp256k1_context *sttc = secp256k1_context_clone(secp256k1_context_no_precomp);
     int ecount;
-
-    secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(sttc, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(sttc, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_error_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
 
     memset(max64, 0xff, sizeof(max64));
     memset(&invalid_share, 0xff, sizeof(invalid_share));
@@ -244,34 +235,30 @@ void frost_api_tests(void) {
     ecount = 0;
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 5; j++) {
-            CHECK(secp256k1_frost_share_gen(none, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(sign, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, NULL, vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(CTX, NULL, vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+1);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], NULL, pok[j], session_id[i], pk_ptr[j], 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], NULL, pok[j], session_id[i], pk_ptr[j], 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+2);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], NULL, session_id[i], pk_ptr[j], 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], NULL, session_id[i], pk_ptr[j], 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+3);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], NULL, pk_ptr[j], 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], NULL, pk_ptr[j], 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+4);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], NULL, 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], NULL, 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+5);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], &invalid_pk, 3) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], &invalid_pk, 3) == 0);
             CHECK(ecount == (i*35)+(j*7)+6);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 0) == 0);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 0) == 0);
             CHECK(ecount == (i*35)+(j*7)+7);
             CHECK(frost_memcmp_and_randomize(share[i][j].data, zeros68, sizeof(share[i][j].data)) == 0);
 
-            CHECK(secp256k1_frost_share_gen(none, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(sign, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
-            CHECK(secp256k1_frost_share_gen(vrfy, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
+            CHECK(secp256k1_frost_share_gen(CTX, &share[i][j], vss_commitment[j], pok[j], session_id[i], pk_ptr[j], 3) == 1);
         }
     }
     CHECK(ecount == 175);
@@ -282,135 +269,123 @@ void frost_api_tests(void) {
         for (j = 0; j < 5; j++) {
             share_ptr[j] = &share[j][i];
         }
-        CHECK(secp256k1_frost_share_agg(none, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
-        CHECK(secp256k1_frost_share_agg(sign, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
-        CHECK(secp256k1_frost_share_agg(vrfy, NULL, &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
+        CHECK(secp256k1_frost_share_agg(CTX, NULL, &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+1);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], NULL, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], NULL, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+2);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, NULL, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, NULL, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+3);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, NULL, vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, NULL, vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+4);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, NULL, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, NULL, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+5);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, invalid_vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, invalid_vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+6);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, NULL) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, NULL) == 0);
         CHECK(ecount == (i*13)+7);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, &invalid_pk) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, &invalid_pk) == 0);
         CHECK(ecount == (i*13)+8);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, invalid_share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, invalid_share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+9);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 0, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 0, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+10);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, NULL, vss_ptr, 0, 3, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, NULL, vss_ptr, 0, 3, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+11);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 0, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 0, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+12);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, NULL, 5, 0, pk_ptr[i]) == 0);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, NULL, 5, 0, pk_ptr[i]) == 0);
         CHECK(ecount == (i*13)+13);
         CHECK(frost_memcmp_and_randomize(agg_share[i].data, zeros68, sizeof(agg_share[i].data)) == 0);
         CHECK(frost_memcmp_and_randomize(agg_pk.data, zeros68, sizeof(agg_pk.data)) == 0);
 
-        CHECK(secp256k1_frost_share_agg(none, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
-        CHECK(secp256k1_frost_share_agg(sign, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
-        CHECK(secp256k1_frost_share_agg(vrfy, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
+        CHECK(secp256k1_frost_share_agg(CTX, &agg_share[i], &agg_pk, vss_hash, share_ptr, vss_ptr, 5, 3, pk_ptr[i]) == 1);
     }
     CHECK(ecount == 65);
 
     /* Share verification */
     ecount = 0;
-    CHECK(secp256k1_frost_share_verify(none, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(sign, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[0], &vss_ptr[1]) == 0);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, NULL, share_ptr[0], &vss_ptr[0]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[0], &vss_ptr[1]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, NULL, share_ptr[0], &vss_ptr[0]) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, &invalid_pk, share_ptr[0], &vss_ptr[0]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, &invalid_pk, share_ptr[0], &vss_ptr[0]) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], NULL, &vss_ptr[1]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], NULL, &vss_ptr[1]) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], &invalid_share, &vss_ptr[0]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], &invalid_share, &vss_ptr[0]) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[0], NULL) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[0], NULL) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[0], &invalid_vss_ptr[0]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[0], &invalid_vss_ptr[0]) == 0);
     CHECK(ecount == 6);
-    CHECK(secp256k1_frost_share_verify(vrfy, 0, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 0);
+    CHECK(secp256k1_frost_share_verify(CTX, 0, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 0);
     CHECK(ecount == 7);
 
-    CHECK(secp256k1_frost_share_verify(none, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(sign, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
-    CHECK(secp256k1_frost_share_verify(vrfy, 3, pk_ptr[4], share_ptr[1], &vss_ptr[1]) == 1);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[0], &vss_ptr[0]) == 1);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, pk_ptr[4], share_ptr[1], &vss_ptr[1]) == 1);
 
     /* Compute public verification share */
     ecount = 0;
-    CHECK(secp256k1_frost_compute_pubshare(none, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(sign, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, NULL, 3, pk_ptr[0], vss_ptr, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, NULL, 3, pk_ptr[0], vss_ptr, 5) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, NULL, vss_ptr, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, NULL, vss_ptr, 5) == 0);
     CHECK(ecount == 2);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, &invalid_pk, vss_ptr, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, &invalid_pk, vss_ptr, 5) == 0);
     CHECK(ecount == 3);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], NULL, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], NULL, 5) == 0);
     CHECK(ecount == 4);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], invalid_vss_ptr, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], invalid_vss_ptr, 5) == 0);
     CHECK(ecount == 5);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 0, pk_ptr[0], invalid_vss_ptr, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 0, pk_ptr[0], invalid_vss_ptr, 5) == 0);
     CHECK(ecount == 6);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 0, pk_ptr[0], NULL, 5) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 0, pk_ptr[0], NULL, 5) == 0);
     CHECK(ecount == 7);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], invalid_vss_ptr, 0) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], invalid_vss_ptr, 0) == 0);
     CHECK(ecount == 8);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], NULL, 0) == 0);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], NULL, 0) == 0);
     CHECK(ecount == 9);
     CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
 
-    CHECK(secp256k1_frost_compute_pubshare(none, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(sign, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[1], 3, pk_ptr[1], vss_ptr, 5) == 1);
-    CHECK(secp256k1_frost_compute_pubshare(vrfy, &pubshare[2], 3, pk_ptr[2], vss_ptr, 5) == 1);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, pk_ptr[0], vss_ptr, 5) == 1);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[1], 3, pk_ptr[1], vss_ptr, 5) == 1);
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[2], 3, pk_ptr[2], vss_ptr, 5) == 1);
 
     /* pubkey_get */
     ecount = 0;
-    CHECK(secp256k1_frost_pubkey_get(none, &full_agg_pk, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_get(none, NULL, &agg_pk) == 0);
+    CHECK(secp256k1_frost_pubkey_get(CTX, &full_agg_pk, &agg_pk) == 1);
+    CHECK(secp256k1_frost_pubkey_get(CTX, NULL, &agg_pk) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_pubkey_get(none, &full_agg_pk, NULL) == 0);
+    CHECK(secp256k1_frost_pubkey_get(CTX, &full_agg_pk, NULL) == 0);
     CHECK(ecount == 2);
     CHECK(secp256k1_memcmp_var(&full_agg_pk, zeros68, sizeof(full_agg_pk)) == 0);
 
@@ -418,19 +393,15 @@ void frost_api_tests(void) {
 
     /* pubkey_tweak */
     ecount = 0;
-    CHECK(secp256k1_frost_pubkey_tweak(none, &tweak_cache, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(sign, &tweak_cache, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(vrfy, &tweak_cache, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(vrfy, NULL, &agg_pk) == 0);
+    CHECK(secp256k1_frost_pubkey_tweak(CTX, &tweak_cache, &agg_pk) == 1);
+    CHECK(secp256k1_frost_pubkey_tweak(CTX, NULL, &agg_pk) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(vrfy, &tweak_cache, NULL) == 0);
+    CHECK(secp256k1_frost_pubkey_tweak(CTX, &tweak_cache, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_pubkey_tweak(vrfy, &tweak_cache, &invalid_pk) == 0);
+    CHECK(secp256k1_frost_pubkey_tweak(CTX, &tweak_cache, &invalid_pk) == 0);
     CHECK(ecount == 3);
 
-    CHECK(secp256k1_frost_pubkey_tweak(none, &tweak_cache, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(sign, &tweak_cache, &agg_pk) == 1);
-    CHECK(secp256k1_frost_pubkey_tweak(vrfy, &tweak_cache, &agg_pk) == 1);
+    CHECK(secp256k1_frost_pubkey_tweak(CTX, &tweak_cache, &agg_pk) == 1);
 
     /* tweak_add */
     {
@@ -445,28 +416,24 @@ void frost_api_tests(void) {
             CHECK((*tweak_func[i])(CTX, &tmp_output_pk, &tmp_tweak_cache, tweak) == 1);
             /* Reset tweak_cache */
             tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(none, &tmp_output_pk, &tmp_tweak_cache, tweak) == 1);
+            CHECK((*tweak_func[i])(CTX, &tmp_output_pk, &tmp_tweak_cache, tweak) == 1);
             tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(sign, &tmp_output_pk, &tmp_tweak_cache, tweak) == 1);
+            CHECK((*tweak_func[i])(CTX, NULL, &tmp_tweak_cache, tweak) == 1);
             tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(vrfy, &tmp_output_pk, &tmp_tweak_cache, tweak) == 1);
-            tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(vrfy, NULL, &tmp_tweak_cache, tweak) == 1);
-            tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(vrfy, &tmp_output_pk, NULL, tweak) == 0);
+            CHECK((*tweak_func[i])(CTX, &tmp_output_pk, NULL, tweak) == 0);
             CHECK(ecount == 1);
             CHECK(frost_memcmp_and_randomize(tmp_output_pk.data, zeros68, sizeof(tmp_output_pk.data)) == 0);
             tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(vrfy, &tmp_output_pk, &tmp_tweak_cache, NULL) == 0);
+            CHECK((*tweak_func[i])(CTX, &tmp_output_pk, &tmp_tweak_cache, NULL) == 0);
             CHECK(ecount == 2);
             CHECK(frost_memcmp_and_randomize(tmp_output_pk.data, zeros68, sizeof(tmp_output_pk.data)) == 0);
             tmp_tweak_cache = tweak_cache;
-            CHECK((*tweak_func[i])(vrfy, &tmp_output_pk, &tmp_tweak_cache, max64) == 0);
+            CHECK((*tweak_func[i])(CTX, &tmp_output_pk, &tmp_tweak_cache, max64) == 0);
             CHECK(ecount == 2);
             CHECK(frost_memcmp_and_randomize(tmp_output_pk.data, zeros68, sizeof(tmp_output_pk.data)) == 0);
             tmp_tweak_cache = tweak_cache;
             /* Uninitialized tweak_cache */
-            CHECK((*tweak_func[i])(vrfy, &tmp_output_pk, &invalid_tweak_cache, tweak) == 0);
+            CHECK((*tweak_func[i])(CTX, &tmp_output_pk, &invalid_tweak_cache, tweak) == 0);
             CHECK(ecount == 3);
             CHECK(frost_memcmp_and_randomize(tmp_output_pk.data, zeros68, sizeof(tmp_output_pk.data)) == 0);
         }
@@ -474,278 +441,273 @@ void frost_api_tests(void) {
 
     /** Session creation **/
     ecount = 0;
-    CHECK(secp256k1_frost_nonce_gen(none, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 1);
-    CHECK(secp256k1_frost_nonce_gen(vrfy, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 1);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 1);
     CHECK(ecount == 0);
-    CHECK(secp256k1_frost_nonce_gen(sttc, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(STATIC_CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_nonce_gen(sign, NULL, &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, NULL, &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], NULL, session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], NULL, session_id[0], &agg_share[0], msg, &agg_pk, max64) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], NULL, &agg_share[0], msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], NULL, &agg_share[0], msg, &agg_pk, max64) == 0);
     CHECK(ecount == 4);
     CHECK(frost_memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     /* no seckey and session_id is 0 */
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, NULL, msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], zeros68, NULL, msg, &agg_pk, max64) == 0);
     CHECK(ecount == 4);
     CHECK(frost_memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     /* session_id 0 is fine when a seckey is provided */
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], zeros68, &agg_share[0], msg, &agg_pk, max64) == 1);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], NULL, msg, &agg_pk, max64) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], zeros68, &agg_share[0], msg, &agg_pk, max64) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], NULL, msg, &agg_pk, max64) == 1);
     CHECK(ecount == 4);
     /* invalid agg_share */
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &invalid_share, msg, &agg_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &invalid_share, msg, &agg_pk, max64) == 0);
     CHECK(frost_memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], NULL, &agg_pk, max64) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], NULL, &agg_pk, max64) == 1);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, NULL, max64) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, NULL, max64) == 1);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &invalid_pk, max64) == 0);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &invalid_pk, max64) == 0);
     CHECK(ecount == 6);
     CHECK(frost_memcmp_and_randomize(secnonce[0].data, zeros68, sizeof(secnonce[0].data)) == 0);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, NULL) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], &agg_share[0], msg, &agg_pk, NULL) == 1);
     CHECK(ecount == 6);
 
     /* Every in-argument except session_id can be NULL */
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[0], &pubnonce[0], session_id[0], NULL, NULL, NULL, NULL) == 1);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[1], &pubnonce[1], session_id[1], &agg_share[1], NULL, NULL, NULL) == 1);
-    CHECK(secp256k1_frost_nonce_gen(sign, &secnonce[2], &pubnonce[2], session_id[2], &agg_share[2], NULL, NULL, NULL) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], NULL, NULL, NULL, NULL) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[1], &pubnonce[1], session_id[1], &agg_share[1], NULL, NULL, NULL) == 1);
+    CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[2], &pubnonce[2], session_id[2], &agg_share[2], NULL, NULL, NULL) == 1);
 
     /** Serialize and parse public nonces **/
     ecount = 0;
-    CHECK(secp256k1_frost_pubnonce_serialize(none, NULL, &pubnonce[0]) == 0);
+    CHECK(secp256k1_frost_pubnonce_serialize(CTX, NULL, &pubnonce[0]) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_pubnonce_serialize(none, pubnonce_ser, NULL) == 0);
+    CHECK(secp256k1_frost_pubnonce_serialize(CTX, pubnonce_ser, NULL) == 0);
     CHECK(ecount == 2);
     CHECK(memcmp_and_randomize(pubnonce_ser, zeros68, sizeof(pubnonce_ser)) == 0);
-    CHECK(secp256k1_frost_pubnonce_serialize(none, pubnonce_ser, &invalid_pubnonce) == 0);
+    CHECK(secp256k1_frost_pubnonce_serialize(CTX, pubnonce_ser, &invalid_pubnonce) == 0);
     CHECK(ecount == 3);
     CHECK(memcmp_and_randomize(pubnonce_ser, zeros68, sizeof(pubnonce_ser)) == 0);
-    CHECK(secp256k1_frost_pubnonce_serialize(none, pubnonce_ser, &pubnonce[0]) == 1);
+    CHECK(secp256k1_frost_pubnonce_serialize(CTX, pubnonce_ser, &pubnonce[0]) == 1);
 
     ecount = 0;
-    CHECK(secp256k1_frost_pubnonce_parse(none, &pubnonce[0], pubnonce_ser) == 1);
-    CHECK(secp256k1_frost_pubnonce_parse(none, NULL, pubnonce_ser) == 0);
+    CHECK(secp256k1_frost_pubnonce_parse(CTX, &pubnonce[0], pubnonce_ser) == 1);
+    CHECK(secp256k1_frost_pubnonce_parse(CTX, NULL, pubnonce_ser) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_pubnonce_parse(none, &pubnonce[0], NULL) == 0);
+    CHECK(secp256k1_frost_pubnonce_parse(CTX, &pubnonce[0], NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_pubnonce_parse(none, &pubnonce[0], zeros68) == 0);
+    CHECK(secp256k1_frost_pubnonce_parse(CTX, &pubnonce[0], zeros68) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_pubnonce_parse(none, &pubnonce[0], pubnonce_ser) == 1);
+    CHECK(secp256k1_frost_pubnonce_parse(CTX, &pubnonce[0], pubnonce_ser) == 1);
 
     {
         /* Check that serialize and parse results in the same value */
         secp256k1_frost_pubnonce tmp;
-        CHECK(secp256k1_frost_pubnonce_serialize(none, pubnonce_ser, &pubnonce[0]) == 1);
-        CHECK(secp256k1_frost_pubnonce_parse(none, &tmp, pubnonce_ser) == 1);
+        CHECK(secp256k1_frost_pubnonce_serialize(CTX, pubnonce_ser, &pubnonce[0]) == 1);
+        CHECK(secp256k1_frost_pubnonce_parse(CTX, &tmp, pubnonce_ser) == 1);
         CHECK(secp256k1_memcmp_var(&tmp, &pubnonce[0], sizeof(tmp)) == 0);
     }
 
     /** Process nonces **/
     ecount = 0;
-    CHECK(secp256k1_frost_nonce_process(none, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 1);
-    CHECK(secp256k1_frost_nonce_process(sign, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 1);
-    CHECK(secp256k1_frost_nonce_process(vrfy, NULL, pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, NULL, pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], NULL, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], NULL, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 0, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 0, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], invalid_pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], invalid_pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, NULL, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, NULL, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, NULL, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, NULL, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 6);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, NULL, pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, NULL, pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 7);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], NULL, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], NULL, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 8);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], invalid_pk_ptr, &tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], invalid_pk_ptr, &tweak_cache, &adaptor) == 0);
     CHECK(ecount == 9);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, NULL, &adaptor) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, NULL, &adaptor) == 1);
     CHECK(ecount == 9);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &invalid_tweak_cache, &adaptor) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &invalid_tweak_cache, &adaptor) == 0);
     CHECK(ecount == 10);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, NULL) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, NULL) == 1);
     CHECK(ecount == 10);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, (secp256k1_pubkey *)&invalid_pk) == 0);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, (secp256k1_pubkey *)&invalid_pk) == 0);
     CHECK(ecount == 11);
 
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 1);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[1], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[1], pk_ptr, &tweak_cache, &adaptor) == 1);
-    CHECK(secp256k1_frost_nonce_process(vrfy, &session[2], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[2], pk_ptr, &tweak_cache, &adaptor) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[0], pk_ptr, &tweak_cache, &adaptor) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[1], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[1], pk_ptr, &tweak_cache, &adaptor) == 1);
+    CHECK(secp256k1_frost_nonce_process(CTX, &session[2], pubnonce_ptr, 3, msg, &agg_pk, pk_ptr[2], pk_ptr, &tweak_cache, &adaptor) == 1);
 
     ecount = 0;
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 1);
     /* The secnonce is set to 0 and subsequent signing attempts fail */
     CHECK(secp256k1_memcmp_var(&secnonce_tmp, zeros68, sizeof(secnonce_tmp)) == 0);
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 1);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, NULL, &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, NULL, &secnonce_tmp, &agg_share[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 2);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], NULL, &agg_share[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], NULL, &agg_share[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &invalid_secnonce, &agg_share[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &invalid_secnonce, &agg_share[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, NULL, &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, NULL, &session[0], &tweak_cache) == 0);
     CHECK(ecount == 5);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &invalid_share, &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &invalid_share, &session[0], &tweak_cache) == 0);
     CHECK(ecount == 6);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], NULL, &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], NULL, &tweak_cache) == 0);
     CHECK(ecount == 7);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], &invalid_session, &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], &invalid_session, &tweak_cache) == 0);
     CHECK(ecount == 8);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], NULL) == 1);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], NULL) == 1);
     CHECK(ecount == 8);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &invalid_tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce_tmp, &agg_share[0], &session[0], &invalid_tweak_cache) == 0);
     CHECK(ecount == 9);
     memcpy(&secnonce_tmp, &secnonce[0], sizeof(secnonce_tmp));
 
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[0], &secnonce[0], &agg_share[0], &session[0], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[1], &secnonce[1], &agg_share[1], &session[1], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sign(none, &partial_sig[2], &secnonce[2], &agg_share[2], &session[2], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce[0], &agg_share[0], &session[0], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[1], &secnonce[1], &agg_share[1], &session[1], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[2], &secnonce[2], &agg_share[2], &session[2], &tweak_cache) == 1);
 
     ecount = 0;
-    CHECK(secp256k1_frost_partial_sig_serialize(none, buf, &partial_sig[0]) == 1);
-    CHECK(secp256k1_frost_partial_sig_serialize(none, NULL, &partial_sig[0]) == 0);
+    CHECK(secp256k1_frost_partial_sig_serialize(CTX, buf, &partial_sig[0]) == 1);
+    CHECK(secp256k1_frost_partial_sig_serialize(CTX, NULL, &partial_sig[0]) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_partial_sig_serialize(none, buf, NULL) == 0);
+    CHECK(secp256k1_frost_partial_sig_serialize(CTX, buf, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_partial_sig_parse(none, &partial_sig[0], buf) == 1);
-    CHECK(secp256k1_frost_partial_sig_parse(none, NULL, buf) == 0);
+    CHECK(secp256k1_frost_partial_sig_parse(CTX, &partial_sig[0], buf) == 1);
+    CHECK(secp256k1_frost_partial_sig_parse(CTX, NULL, buf) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_partial_sig_parse(none, &partial_sig[0], max64) == 0);
+    CHECK(secp256k1_frost_partial_sig_parse(CTX, &partial_sig[0], max64) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_partial_sig_parse(none, &partial_sig[0], NULL) == 0);
+    CHECK(secp256k1_frost_partial_sig_parse(CTX, &partial_sig[0], NULL) == 0);
     CHECK(ecount == 4);
 
     {
         /* Check that serialize and parse results in the same value */
         secp256k1_frost_partial_sig tmp;
-        CHECK(secp256k1_frost_partial_sig_serialize(none, buf, &partial_sig[0]) == 1);
-        CHECK(secp256k1_frost_partial_sig_parse(none, &tmp, buf) == 1);
+        CHECK(secp256k1_frost_partial_sig_serialize(CTX, buf, &partial_sig[0]) == 1);
+        CHECK(secp256k1_frost_partial_sig_parse(CTX, &tmp, buf) == 1);
         CHECK(secp256k1_memcmp_var(&tmp, &partial_sig[0], sizeof(tmp)) == 0);
     }
 
     /** Partial signature verification */
     ecount = 0;
-    CHECK(secp256k1_frost_partial_sig_verify(none, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(sign, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[1], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, NULL, &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[1], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, NULL, &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &invalid_partial_sig, &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &invalid_partial_sig, &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], NULL, &pubshare[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], NULL, &pubshare[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &invalid_pubnonce, &pubshare[0], &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &invalid_pubnonce, &pubshare[0], &session[0], &tweak_cache) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], NULL, &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], NULL, &session[0], &tweak_cache) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &invalid_vss_pk, &session[0], &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &invalid_vss_pk, &session[0], &tweak_cache) == 0);
     CHECK(ecount == 6);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], NULL, &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], NULL, &tweak_cache) == 0);
     CHECK(ecount == 7);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], &invalid_session, &tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], &invalid_session, &tweak_cache) == 0);
     CHECK(ecount == 8);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], NULL) == 1);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], NULL) == 1);
     CHECK(ecount == 8);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &invalid_tweak_cache) == 0);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &invalid_tweak_cache) == 0);
     CHECK(ecount == 9);
 
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[1], &pubnonce[1], &pubshare[1], &session[1], &tweak_cache) == 1);
-    CHECK(secp256k1_frost_partial_sig_verify(vrfy, &partial_sig[2], &pubnonce[2], &pubshare[2], &session[2], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[0], &pubnonce[0], &pubshare[0], &session[0], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[1], &pubnonce[1], &pubshare[1], &session[1], &tweak_cache) == 1);
+    CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sig[2], &pubnonce[2], &pubshare[2], &session[2], &tweak_cache) == 1);
 
     /** Signature aggregation and verification */
     ecount = 0;
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[0], partial_sig_ptr, 3) == 1);
-    CHECK(secp256k1_frost_partial_sig_agg(none, NULL, &session[0], partial_sig_ptr, 3) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 3) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, NULL, &session[0], partial_sig_ptr, 3) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, NULL, partial_sig_ptr, 3) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, NULL, partial_sig_ptr, 3) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &invalid_session, partial_sig_ptr, 3) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &invalid_session, partial_sig_ptr, 3) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[0], NULL, 3) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], NULL, 3) == 0);
     CHECK(ecount == 4);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[0], invalid_partial_sig_ptr, 3) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], invalid_partial_sig_ptr, 3) == 0);
     CHECK(ecount == 5);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[0], partial_sig_ptr, 0) == 0);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 0) == 0);
     CHECK(ecount == 6);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[0], partial_sig_ptr, 1) == 1);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[1], partial_sig_ptr, 2) == 1);
-    CHECK(secp256k1_frost_partial_sig_agg(none, pre_sig, &session[2], partial_sig_ptr, 3) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 1) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[1], partial_sig_ptr, 2) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[2], partial_sig_ptr, 3) == 1);
 
     /** Adaptor signature verification */
     ecount = 0;
-    CHECK(secp256k1_frost_nonce_parity(none, &nonce_parity, &session[0]) == 1);
-    CHECK(secp256k1_frost_nonce_parity(none, NULL, &session[0]) == 0);
+    CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &session[0]) == 1);
+    CHECK(secp256k1_frost_nonce_parity(CTX, NULL, &session[0]) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_nonce_parity(none, &nonce_parity, NULL) == 0);
+    CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, NULL) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_nonce_parity(none, &nonce_parity, &invalid_session) == 0);
+    CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &invalid_session) == 0);
     CHECK(ecount == 3);
 
     ecount = 0;
-    CHECK(secp256k1_frost_adapt(none, final_sig, pre_sig, sec_adaptor, nonce_parity) == 1);
-    CHECK(secp256k1_frost_adapt(none, NULL, pre_sig, sec_adaptor, 0) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, pre_sig, sec_adaptor, nonce_parity) == 1);
+    CHECK(secp256k1_frost_adapt(CTX, NULL, pre_sig, sec_adaptor, 0) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_adapt(none, final_sig, NULL, sec_adaptor, 0) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, NULL, sec_adaptor, 0) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_adapt(none, final_sig, max64, sec_adaptor, 0) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, max64, sec_adaptor, 0) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_adapt(none, final_sig, pre_sig, NULL, 0) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, pre_sig, NULL, 0) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_adapt(none, final_sig, pre_sig, max64, 0) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, pre_sig, max64, 0) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_adapt(none, final_sig, pre_sig, sec_adaptor, 2) == 0);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, pre_sig, sec_adaptor, 2) == 0);
     CHECK(ecount == 4);
     /* sig and pre_sig argument point to the same location */
     memcpy(final_sig, pre_sig, sizeof(final_sig));
-    CHECK(secp256k1_frost_adapt(none, final_sig, final_sig, sec_adaptor, nonce_parity) == 1);
-    CHECK(secp256k1_schnorrsig_verify(vrfy, final_sig, msg, sizeof(msg), &agg_pk) == 1);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, final_sig, sec_adaptor, nonce_parity) == 1);
+    CHECK(secp256k1_schnorrsig_verify(CTX, final_sig, msg, sizeof(msg), &agg_pk) == 1);
 
-    CHECK(secp256k1_frost_adapt(none, final_sig, pre_sig, sec_adaptor, nonce_parity) == 1);
-    CHECK(secp256k1_schnorrsig_verify(vrfy, final_sig, msg, sizeof(msg), &agg_pk) == 1);
+    CHECK(secp256k1_frost_adapt(CTX, final_sig, pre_sig, sec_adaptor, nonce_parity) == 1);
+    CHECK(secp256k1_schnorrsig_verify(CTX, final_sig, msg, sizeof(msg), &agg_pk) == 1);
 
     /** Secret adaptor can be extracted from signature */
     ecount = 0;
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, final_sig, pre_sig, nonce_parity) == 1);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, final_sig, pre_sig, nonce_parity) == 1);
     CHECK(secp256k1_memcmp_var(sec_adaptor, sec_adaptor1, 32) == 0);
     /* wrong nonce parity */
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, final_sig, pre_sig, !nonce_parity) == 1);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, final_sig, pre_sig, !nonce_parity) == 1);
     CHECK(secp256k1_memcmp_var(sec_adaptor, sec_adaptor1, 32) != 0);
-    CHECK(secp256k1_frost_extract_adaptor(none, NULL, final_sig, pre_sig, 0) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, NULL, final_sig, pre_sig, 0) == 0);
     CHECK(ecount == 1);
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, NULL, pre_sig, 0) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, NULL, pre_sig, 0) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, max64, pre_sig, 0) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, max64, pre_sig, 0) == 0);
     CHECK(ecount == 2);
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, final_sig, NULL, 0) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, final_sig, NULL, 0) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, final_sig, max64, 0) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, final_sig, max64, 0) == 0);
     CHECK(ecount == 3);
-    CHECK(secp256k1_frost_extract_adaptor(none, sec_adaptor1, final_sig, pre_sig, 2) == 0);
+    CHECK(secp256k1_frost_extract_adaptor(CTX, sec_adaptor1, final_sig, pre_sig, 2) == 0);
     CHECK(ecount == 4);
 
     /** cleanup **/
-    secp256k1_context_destroy(none);
-    secp256k1_context_destroy(sign);
-    secp256k1_context_destroy(vrfy);
-    secp256k1_context_destroy(sttc);
+    secp256k1_context_set_error_callback(CTX, NULL, NULL);
+    secp256k1_context_set_error_callback(STATIC_CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
+    secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
 void frost_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
