@@ -11,12 +11,13 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
+
 #include <secp256k1.h>
 #include <secp256k1_schnorrsig.h>
 #include <secp256k1_frost.h>
 
-#include "random.h"
-
+#include "examples_util.h"
  /* Number of public keys involved in creating the aggregate signature */
 #define N_SIGNERS 5
 
@@ -44,20 +45,14 @@ struct signer {
  /* Create a key pair and store it in seckey and pubkey */
 int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     unsigned char seckey[32];
-    FILE *frand = fopen("/dev/urandom", "r");
-    if (frand == NULL) {
-        return 0;
-    }
-    do {
-        if(!fread(seckey, sizeof(seckey), 1, frand)) {
-             fclose(frand);
-             return 0;
-         }
-    /* The probability that this not a valid secret key is approximately 2^-128 */
-    } while (!secp256k1_ec_seckey_verify(ctx, seckey));
-    fclose(frand);
-    if (!secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
-        return 0;
+    while (1) {
+        if (!fill_random(seckey, sizeof(seckey))) {
+            printf("Failed to generate randomness\n");
+            return 1;
+        }
+        if (secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
+            break;
+        }
     }
     if (!secp256k1_keypair_xonly_pub(ctx, &signer->pubkey, NULL, &signer_secrets->keypair)) {
         return 0;
@@ -66,18 +61,11 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
 }
 
 int create_vss(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
-    FILE *frand;
     /* Create random seed. It is absolutely necessary that the seed be unique
      * for every distributed key generation session. */
-    frand = fopen("/dev/urandom", "r");
-    if(frand == NULL) {
+    if (!fill_random(signer_secrets->seed, sizeof(signer_secrets->seed))) {
         return 0;
     }
-    if (!fread(signer_secrets->seed, 32, 1, frand)) {
-        fclose(frand);
-        return 0;
-    }
-    fclose(frand);
     /* Create VSS commitment */
     if (!secp256k1_frost_vss_gen(ctx, signer->vss_commitment, signer->pok, signer_secrets->seed, THRESHOLD)) {
         return 0;
@@ -135,19 +123,11 @@ int sign_vss(const secp256k1_context* ctx, struct signer_secrets *signer_secrets
     int i;
 
     for (i = 0; i < N_SIGNERS; i++) {
-        FILE *frand;
         unsigned char aux_rand[32];
 
-        frand = fopen("/dev/urandom", "r");
-        if(frand == NULL) {
+        if (!fill_random(aux_rand, sizeof(aux_rand))) {
             return 0;
         }
-        if (!fread(aux_rand, 32, 1, frand)) {
-            fclose(frand);
-            return 0;
-        }
-        fclose(frand);
-
         if (!secp256k1_schnorrsig_sign32(ctx, sigs[i], signer[i].vss_hash, &signer_secrets[i].keypair, aux_rand)) {
             return 0;
         }
@@ -208,20 +188,13 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     unsigned int seed;
 
     for (i = 0; i < N_SIGNERS; i++) {
-        FILE *frand;
         unsigned char session_id[32];
         /* Create random session ID. It is absolutely necessary that the session ID
          * is unique for every call of secp256k1_frost_nonce_gen. Otherwise
          * it's trivial for an attacker to extract the secret key! */
-        frand = fopen("/dev/urandom", "r");
-        if(frand == NULL) {
+        if (!fill_random(session_id, sizeof(session_id))) {
             return 0;
         }
-        if (!fread(session_id, 32, 1, frand)) {
-            fclose(frand);
-            return 0;
-        }
-        fclose(frand);
         /* Initialize session and create secret nonce for signing and public
          * nonce to send to the other signers. */
         if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, &signer_secrets[i].agg_share, msg32, agg_pk, NULL)) {

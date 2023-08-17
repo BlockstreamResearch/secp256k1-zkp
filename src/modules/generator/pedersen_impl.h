@@ -34,7 +34,7 @@ static void secp256k1_pedersen_scalar_set_u64(secp256k1_scalar *sec, uint64_t va
 static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const secp256k1_ge* genp) {
     secp256k1_scalar s;
     secp256k1_pedersen_scalar_set_u64(&s, gn);
-    secp256k1_ecmult_const(r, genp, &s, 64);
+    secp256k1_ecmult_const(r, genp, &s);
     secp256k1_scalar_clear(&s);
 }
 

@@ -54,7 +54,7 @@ SECP256K1_INLINE static void secp256k1_rangeproof_serialize_point(unsigned char*
     secp256k1_fe pointx;
     pointx = point->x;
     secp256k1_fe_normalize(&pointx);
-    data[0] = !secp256k1_fe_is_quad_var(&point->y);
+    data[0] = !secp256k1_fe_is_square_var(&point->y);
     secp256k1_fe_get_b32(data + 1, &pointx);
 }
 
@@ -606,7 +606,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     }
     for(i = 0; i < rings - 1; i++) {
         secp256k1_fe fe;
-        if (!secp256k1_fe_set_b32(&fe, &proof[offset]) ||
+        if (!secp256k1_fe_set_b32_limit(&fe, &proof[offset]) ||
             !secp256k1_ge_set_xquad(&c, &fe)) {
             return 0;
         }
