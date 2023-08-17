@@ -235,9 +235,9 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  Args:            ctx: pointer to a context object initialized for
  *                        verification
  *  Out:           share: pointer to the key generation share
- *   In:             vss: pointer to the VSS commitments
+ *   In:             vss: pointer to the VSS commitments of the share recipient
  *                 pok64: pointer to the proof of knowledge of the first VSS
- *                        commitment
+ *                        commitment of the share recipient
  *                seed32: a 32-byte seed as explained above
  *          recipient_pk: pointer to the public key of the share recipient
  *             threshold: the minimum number of signers required to produce a
