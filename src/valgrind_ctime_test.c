@@ -323,6 +323,7 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         const secp256k1_xonly_pubkey *pk_ptr[2];
         secp256k1_xonly_pubkey agg_pk;
         unsigned char session_id[32];
+        unsigned char session_id2[32];
         secp256k1_frost_secnonce secnonce[2];
         secp256k1_frost_pubnonce pubnonce[2];
         const secp256k1_frost_pubnonce *pubnonce_ptr[2];
@@ -340,7 +341,7 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         secp256k1_frost_share agg_share;
         const secp256k1_pubkey *vss_ptr[2];
         unsigned char vss_hash[32];
-        unsigned char pok[5][64];
+        unsigned char pok[2][64];
         secp256k1_pubkey vss_commitment[2][2];
         unsigned char key2[32];
         secp256k1_keypair keypair2;
@@ -352,12 +353,14 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         VALGRIND_MAKE_MEM_DEFINED(key, 32);
         memcpy(session_id, key, sizeof(session_id));
         session_id[0] = session_id[0] + 1;
+        memcpy(session_id2, key, sizeof(session_id2));
+        session_id2[0] = session_id2[0] + 2;
         memcpy(extra_input, key, sizeof(extra_input));
-        extra_input[0] = extra_input[0] + 2;
+        extra_input[0] = extra_input[0] + 3;
         memcpy(sec_adaptor, key, sizeof(sec_adaptor));
-        sec_adaptor[0] = extra_input[0] + 3;
+        sec_adaptor[0] = extra_input[0] + 4;
         memcpy(key2, key, sizeof(key2));
-        key2[0] = key2[0] + 4;
+        key2[0] = key2[0] + 5;
         partial_sig_ptr[0] = &partial_sig;
         share_ptr[0] = &share[0];
         share_ptr[1] = &share[1];
@@ -369,11 +372,11 @@ void run_tests(secp256k1_context *ctx, unsigned char *key) {
         CHECK(secp256k1_keypair_xonly_pub(ctx, &pk[0], NULL, &keypair));
         CHECK(secp256k1_keypair_xonly_pub(ctx, &pk[1], NULL, &keypair2));
         CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[0], pok[0], session_id, 2));
-        CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[1], pok[1], session_id, 2));
+        CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[1], pok[1], session_id2, 2));
         ret = secp256k1_frost_share_gen(ctx, &share[0], vss_commitment[0], pok[0], session_id, pk_ptr[0], 2);
         VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
         CHECK(ret == 1);
-        ret = secp256k1_frost_share_gen(ctx, &share[1], vss_commitment[1], pok[1], session_id, pk_ptr[1], 2);
+        ret = secp256k1_frost_share_gen(ctx, &share[1], vss_commitment[0], pok[0], session_id2, pk_ptr[0], 2);
         VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_frost_share_agg(ctx, &agg_share, &agg_pk, vss_hash, share_ptr, vss_ptr, 2, 2, pk_ptr[0]);
