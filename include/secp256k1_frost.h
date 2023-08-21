@@ -110,8 +110,8 @@ typedef struct {
  *  In:     in66: pointer to the 66-byte nonce to be parsed
  */
 SECP256K1_API int secp256k1_frost_pubnonce_parse(
-    const secp256k1_context* ctx,
-    secp256k1_frost_pubnonce* nonce,
+    const secp256k1_context *ctx,
+    secp256k1_frost_pubnonce *nonce,
     const unsigned char *in66
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -123,9 +123,9 @@ SECP256K1_API int secp256k1_frost_pubnonce_parse(
  *  In:    nonce: pointer to the nonce
  */
 SECP256K1_API int secp256k1_frost_pubnonce_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *out66,
-    const secp256k1_frost_pubnonce* nonce
+    const secp256k1_frost_pubnonce *nonce
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Serialize a FROST partial signature
@@ -136,9 +136,9 @@ SECP256K1_API int secp256k1_frost_pubnonce_serialize(
  *  In:      sig: pointer to the signature
  */
 SECP256K1_API int secp256k1_frost_partial_sig_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *out32,
-    const secp256k1_frost_partial_sig* sig
+    const secp256k1_frost_partial_sig *sig
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Parse a FROST partial signature.
@@ -153,8 +153,8 @@ SECP256K1_API int secp256k1_frost_partial_sig_serialize(
  *  guaranteed to fail for every message and public key.
  */
 SECP256K1_API int secp256k1_frost_partial_sig_parse(
-    const secp256k1_context* ctx,
-    secp256k1_frost_partial_sig* sig,
+    const secp256k1_context *ctx,
+    secp256k1_frost_partial_sig *sig,
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -166,9 +166,9 @@ SECP256K1_API int secp256k1_frost_partial_sig_parse(
  *  In:    share: pointer to the share
  */
 SECP256K1_API int secp256k1_frost_share_serialize(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *out32,
-    const secp256k1_frost_share* share
+    const secp256k1_frost_share *share
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Parse a FROST share.
@@ -179,8 +179,8 @@ SECP256K1_API int secp256k1_frost_share_serialize(
  *  In:     in32: pointer to the 32-byte share to be parsed
  */
 SECP256K1_API int secp256k1_frost_share_parse(
-    const secp256k1_context* ctx,
-    secp256k1_frost_share* share,
+    const secp256k1_context *ctx,
+    secp256k1_frost_share *share,
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -290,12 +290,12 @@ SECP256K1_API int secp256k1_frost_share_gen(
  *                     aggregated
  */
 SECP256K1_API int secp256k1_frost_share_agg(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_frost_share *agg_share,
     secp256k1_xonly_pubkey *agg_pk,
     unsigned char *vss_hash,
-    const secp256k1_frost_share * const* shares,
-    const secp256k1_pubkey * const* vss_commitments,
+    const secp256k1_frost_share * const *shares,
+    const secp256k1_pubkey * const *vss_commitments,
     size_t n_shares,
     size_t threshold,
     const secp256k1_xonly_pubkey *pk
@@ -317,11 +317,11 @@ SECP256K1_API int secp256k1_frost_share_agg(
  *                    share
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     size_t threshold,
     const secp256k1_xonly_pubkey *pk,
     const secp256k1_frost_share *share,
-    const secp256k1_pubkey * const* vss
+    const secp256k1_pubkey * const *vss
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Obtain the aggregate public key from a FROST x-only aggregate public key.
@@ -337,7 +337,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
  *                    `secp256k1_frost_share_agg`
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_get(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_pubkey *ec_agg_pk,
     const secp256k1_xonly_pubkey *xonly_agg_pk
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
@@ -352,7 +352,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_get(
  *                    `secp256k1_frost_share_agg`
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_tweak(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_frost_tweak_cache *tweak_cache,
     const secp256k1_xonly_pubkey *agg_pk
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
@@ -394,7 +394,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_tweak(
  *                        2^128).
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_ec_tweak_add(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_pubkey *output_pubkey,
     secp256k1_frost_tweak_cache *tweak_cache,
     const unsigned char *tweak32
@@ -435,7 +435,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_ec_tweak_a
  *                        2^128).
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_tweak_add(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_pubkey *output_pubkey,
     secp256k1_frost_tweak_cache *tweak_cache,
     const unsigned char *tweak32
@@ -454,11 +454,11 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_twea
  *   vss_commitments: coefficient commitments of all participants
  */
 SECP256K1_API int secp256k1_frost_compute_pubshare(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_pubkey *pubshare,
     size_t threshold,
     const secp256k1_xonly_pubkey *pk,
-    const secp256k1_pubkey * const* vss_commitments,
+    const secp256k1_pubkey * const *vss_commitments,
     size_t n_participants
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
@@ -505,7 +505,7 @@ SECP256K1_API int secp256k1_frost_compute_pubshare(
  *                     derivation function (can be NULL)
  */
 SECP256K1_API int secp256k1_frost_nonce_gen(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_frost_secnonce *secnonce,
     secp256k1_frost_pubnonce *pubnonce,
     const unsigned char *session_id32,
@@ -540,14 +540,14 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
  *                      adaptor signature protocol (can be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_frost_session *session,
-    const secp256k1_frost_pubnonce * const* pubnonces,
+    const secp256k1_frost_pubnonce * const *pubnonces,
     size_t n_pubnonces,
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *agg_pk,
     const secp256k1_xonly_pubkey *pk,
-    const secp256k1_xonly_pubkey * const* pubkeys,
+    const secp256k1_xonly_pubkey * const *pubkeys,
     const secp256k1_frost_tweak_cache *tweak_cache,
     const secp256k1_pubkey *adaptor
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
@@ -572,7 +572,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
  *        tweak_cache: pointer to frost_tweak_cache struct (can be NULL)
  */
 SECP256K1_API int secp256k1_frost_partial_sign(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     secp256k1_frost_partial_sig *partial_sig,
     secp256k1_frost_secnonce *secnonce,
     const secp256k1_frost_share *agg_share,
@@ -608,7 +608,7 @@ SECP256K1_API int secp256k1_frost_partial_sign(
  *       tweak_cache: pointer to frost_tweak_cache struct (can be NULL)
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_partial_sig_verify(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     const secp256k1_frost_partial_sig *partial_sig,
     const secp256k1_frost_pubnonce *pubnonce,
     const secp256k1_pubkey *pubshare,
@@ -629,10 +629,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_partial_sig_verif
  *                     greater than 0.
  */
 SECP256K1_API int secp256k1_frost_partial_sig_agg(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *sig64,
     const secp256k1_frost_session *session,
-    const secp256k1_frost_partial_sig * const* partial_sigs,
+    const secp256k1_frost_partial_sig * const *partial_sigs,
     size_t n_sigs
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
@@ -649,7 +649,7 @@ SECP256K1_API int secp256k1_frost_partial_sig_agg(
  *                     frost_nonce_process
  */
 SECP256K1_API int secp256k1_frost_nonce_parity(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     int *nonce_parity,
     const secp256k1_frost_session *session
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
@@ -668,7 +668,7 @@ SECP256K1_API int secp256k1_frost_nonce_parity(
  *                     session used for producing the pre-signature
  */
 SECP256K1_API int secp256k1_frost_verify_adaptor(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     const unsigned char *pre_sig64,
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *pubkey,
@@ -693,7 +693,7 @@ SECP256K1_API int secp256k1_frost_verify_adaptor(
  *                     session used for producing the pre-signature
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_adapt(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *sig64,
     const unsigned char *pre_sig64,
     const unsigned char *sec_adaptor32,
@@ -722,7 +722,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_adapt(
  *                     session used for producing sig64
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_extract_adaptor(
-    const secp256k1_context* ctx,
+    const secp256k1_context *ctx,
     unsigned char *sec_adaptor32,
     const unsigned char *sig64,
     const unsigned char *pre_sig64,
