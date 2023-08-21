@@ -104,11 +104,15 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
             return 0;
         }
         for (j = 0; j < N_SIGNERS; j++) {
-            /* TODO: comment */
+            /* Each participant verifies their shares. share_agg calls this
+             * internally, so it is only neccessary to call this function if
+             * share_agg returns an error, to determine which participant(s)
+             * submitted faulty data. */
             if (!secp256k1_frost_share_verify(ctx, THRESHOLD, &signer[i].pubkey, assigned_shares[j], &vss_commitments[j])) {
                 return 0;
             }
-            /* TODO: comment */
+            /* Each participant generates public verification shares that are
+             * used for verifying partial signatures. */
             if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, &signer[j].pubkey, vss_commitments, N_SIGNERS)) {
                 return 0;
             }
