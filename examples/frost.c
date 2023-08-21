@@ -99,19 +99,20 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
         for (j = 0; j < N_SIGNERS; j++) {
             assigned_shares[j] = &shares[j][i];
         }
-        /* Each participant aggregates the shares they received. */
-        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, agg_pk, signer[i].vss_hash, assigned_shares, vss_commitments, N_SIGNERS, THRESHOLD, &signer[i].pubkey)) {
-            return 0;
-        }
         for (j = 0; j < N_SIGNERS; j++) {
-            /* TODO: comment */
+            /* Each participant verifies their shares */
             if (!secp256k1_frost_share_verify(ctx, THRESHOLD, &signer[i].pubkey, assigned_shares[j], &vss_commitments[j])) {
                 return 0;
             }
-            /* TODO: comment */
+            /* Each participant generates public verification shares that are
+             * used for verifying partial signatures. */
             if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, &signer[j].pubkey, vss_commitments, N_SIGNERS)) {
                 return 0;
             }
+        }
+        /* Each participant aggregates the shares they received. */
+        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, agg_pk, signer[i].vss_hash, assigned_shares, vss_commitments, N_SIGNERS, THRESHOLD, &signer[i].pubkey)) {
+            return 0;
         }
     }
 
