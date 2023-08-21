@@ -191,8 +191,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
  * threshold, and creates a proof of knowledge of the first coefficient.
  *
  * Returns: 0 if the arguments are invalid, 1 otherwise
- * Args:             ctx: pointer to a context object initialized for
- *                        verification
+ * Args:             ctx: pointer to a context object
  *  Out:             vss: the coefficient commitments. The length of this array
  *                        must be equal to the threshold (can be NULL).
                    pok64: pointer to the proof of knowledge of the first
@@ -232,8 +231,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  random to avoid their reuse.
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
- *  Args:            ctx: pointer to a context object initialized for
- *                        verification
+ *  Args:            ctx: pointer to a context object
  *  Out:           share: pointer to the key generation share
  *   In:             vss: pointer to the VSS commitments of the share recipient
  *                 pok64: pointer to the proof of knowledge of the first VSS
@@ -308,7 +306,7 @@ SECP256K1_API int secp256k1_frost_share_agg(
  *
  *  Returns: 0 if the arguments are invalid or the share does not verify, 1
  *           otherwise
- *  Args         ctx: pointer to a context object, initialized for verification
+ *  Args         ctx: pointer to a context object
  *  In:    threshold: the minimum number of signers required to produce a
  *                    signature
  *                pk: pointer to the public key of the share recipient
@@ -381,7 +379,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_tweak(
  *  Returns: 0 if the arguments are invalid or the resulting public key would be
  *           invalid (only when the tweak is the negation of the corresponding
  *           secret key). 1 otherwise.
- *  Args:            ctx: pointer to a context object initialized for verification
+ *  Args:            ctx: pointer to a context object
  *  Out:   output_pubkey: pointer to a public key to store the result. Will be set
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
@@ -422,7 +420,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_ec_tweak_a
  *  Returns: 0 if the arguments are invalid or the resulting public key would be
  *           invalid (only when the tweak is the negation of the corresponding
  *           secret key). 1 otherwise.
- *  Args:            ctx: pointer to a context object initialized for verification
+ *  Args:            ctx: pointer to a context object
  *  Out:   output_pubkey: pointer to a public key to store the result. Will be set
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
@@ -489,7 +487,7 @@ SECP256K1_API int secp256k1_frost_compute_pubshare(
  *  Note that using the same agg_share for multiple FROST sessions is fine.
  *
  *  Returns: 0 if the arguments are invalid and 1 otherwise
- *  Args:         ctx: pointer to a context object, initialized for signing
+ *  Args:         ctx: pointer to a context object (not secp256k1_context_static)
  *  Out:     secnonce: pointer to a structure to store the secret nonce
  *           pubnonce: pointer to a structure to store the public nonce
  *  In:  session_id32: a 32-byte session_id32 as explained above. Must be
@@ -523,8 +521,7 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
  *
  *  Returns: 0 if the arguments are invalid or if some signer sent invalid
  *           pubnonces, 1 otherwise
- *  Args:          ctx: pointer to a context object, initialized for
- *                      verification
+ *  Args:          ctx: pointer to a context object
  *  Out:       session: pointer to a struct to store the session
  *  In:      pubnonces: array of pointers to public nonces sent by the signers
  *         n_pubnonces: number of elements in the pubnonces array. Must be
@@ -596,7 +593,7 @@ SECP256K1_API int secp256k1_frost_partial_sign(
  *
  *  Returns: 0 if the arguments are invalid or the partial signature does not
  *           verify, 1 otherwise
- *  Args         ctx: pointer to a context object, initialized for verification
+ *  Args         ctx: pointer to a context object
  *  In:  partial_sig: pointer to partial signature to verify, sent by
  *                    the signer associated with `pubnonce` and `pubkey`
  *          pubnonce: public nonce of the signer in the signing session
