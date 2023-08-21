@@ -269,7 +269,7 @@ int main(void) {
     unsigned char sig[64];
 
     /* Create a context for signing and verification */
-    ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
         if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {
