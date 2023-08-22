@@ -60,7 +60,7 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
     return 1;
 }
 
-int create_vss(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
+int create_vss_commitment(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     /* Create random seed. It is absolutely necessary that the seed be unique
      * for every distributed key generation session. */
     if (!fill_random(signer_secrets->seed, sizeof(signer_secrets->seed))) {
@@ -284,7 +284,7 @@ int main(void) {
     printf("ok\n");
     printf("Creating VSS............");
     for (i = 0; i < N_SIGNERS; i++) {
-        if (!create_vss(ctx, &signer_secrets[i], &signers[i])) {
+        if (!create_vss_commitment(ctx, &signer_secrets[i], &signers[i])) {
             printf("FAILED\n");
             return 1;
         }

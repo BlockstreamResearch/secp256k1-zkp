@@ -185,24 +185,23 @@ SECP256K1_API int secp256k1_frost_share_parse(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /**
- * Generates VSS commitments and a proof of knowledge of the first coefficient.
+ * Generates VSS commitments and a proof of knowledge.
  *
  * This function generates the VSS commitments based on the given seed and
- * threshold, and creates a proof of knowledge of the first coefficient.
+ * threshold, and creates a proof of knowledge.
  *
  * Returns: 0 if the arguments are invalid, 1 otherwise
  * Args:             ctx: pointer to a context object
- *  Out:             vss: the coefficient commitments. The length of this array
+ *  Out:  vss_commitment: the VSS commitment. The length of this array
  *                        must be equal to the threshold (can be NULL).
-                   pok64: pointer to the proof of knowledge of the first
- *                        coefficient
+                   pok64: pointer to the proof of knowledge
  *   In:          seed32: a 32-byte seed used to generate the VSS commitments
  *             threshold: the minimum number of signers required to produce a
  *                        signature
  */
 SECP256K1_API int secp256k1_frost_vss_gen(
     const secp256k1_context *ctx,
-    secp256k1_pubkey *vss,
+    secp256k1_pubkey *vss_commitment,
     unsigned char *pok64,
     const unsigned char *seed32,
     size_t threshold
@@ -233,7 +232,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object
  *  Out:           share: pointer to the key generation share
- *   In:             vss: pointer to the VSS commitments of the share recipient
+ *   In:  vss_commitment: pointer to the VSS commitment of the share recipient
  *                 pok64: pointer to the proof of knowledge of the first VSS
  *                        commitment of the share recipient
  *                seed32: a 32-byte seed as explained above
@@ -244,7 +243,7 @@ SECP256K1_API int secp256k1_frost_vss_gen(
 SECP256K1_API int secp256k1_frost_share_gen(
     const secp256k1_context *ctx,
     secp256k1_frost_share *share,
-    const secp256k1_pubkey *vss,
+    const secp256k1_pubkey *vss_commitment,
     const unsigned char *pok64,
     const unsigned char *seed32,
     const secp256k1_xonly_pubkey *recipient_pk,
@@ -302,7 +301,8 @@ SECP256K1_API int secp256k1_frost_share_agg(
 /** Verifies a share received during a key generation session
  *
  *  The signature is verified against the VSS commitment received with the
- *  share.
+ *  share. This is only useful for purposes of determining which share(s) are
+ *  invalid if share_agg returns an error.
  *
  *  Returns: 0 if the arguments are invalid or the share does not verify, 1
  *           otherwise
@@ -311,15 +311,14 @@ SECP256K1_API int secp256k1_frost_share_agg(
  *                    signature
  *                pk: pointer to the public key of the share recipient
  *             share: pointer to a key generation share
- *               vss: the commitments to the coefficients used to generate the
- *                    share
+ *    vss_commitment: the VSS commitment associated with the share
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     const secp256k1_context *ctx,
     size_t threshold,
     const secp256k1_xonly_pubkey *pk,
     const secp256k1_frost_share *share,
-    const secp256k1_pubkey * const *vss
+    const secp256k1_pubkey * const *vss_commitment
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Obtain the aggregate public key from a FROST x-only aggregate public key.
