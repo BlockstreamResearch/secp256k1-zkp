@@ -185,7 +185,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /**
- * Generates VSS commitments and a proof of knowledge.
+ * Generates a VSS commitment and proof of knowledge.
  *
  * This function generates the VSS commitments based on the given seed and
  * threshold, and creates a proof of knowledge.
