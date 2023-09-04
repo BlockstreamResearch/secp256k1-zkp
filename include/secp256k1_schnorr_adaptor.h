@@ -20,7 +20,7 @@ extern "C" {
  *  Out:  nonce32: pointer to a 32-byte array to be filled by the function
  *  In:     msg32: the 32-byte message being verified (will not be NULL)
  *          key32: pointer to a 32-byte secret key (will not be NULL)
- *      xonly_t32: the 32-byte serialized xonly adaptor point (will not be NULL)
+ *            t33: the 33-byte serialized adaptor point (will not be NULL)
  *     xonly_pk32: the 32-byte serialized xonly pubkey corresponding to key32
  *                 (will not be NULL)
  *           algo: pointer to an array describing the signature
@@ -35,16 +35,14 @@ typedef int (*secp256k1_adaptor_nonce_function_hardened)(
     unsigned char *nonce32,
     const unsigned char *msg32,
     const unsigned char *key32,
-    const unsigned char *xonly_t32,
+    const unsigned char *t33,
     const unsigned char *xonly_pk32,
     const unsigned char *algo,
     size_t algolen,
     void *data
 );
 
-/** An implementation of the nonce generation function as defined in Bitcoin
- *  Improvement Proposal 340 "Schnorr Signatures for secp256k1"
- *  (https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki).
+/** A modified BIP-340 nonce generation function.
  *
  *  If a data pointer is passed, it is assumed to be a pointer to 32 bytes of
  *  auxiliary random data as defined in BIP-340. If the data pointer is NULL,

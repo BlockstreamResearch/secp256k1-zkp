@@ -11,7 +11,7 @@
 #include "../../../include/secp256k1_schnorr_adaptor.h"
 #include "../../hash.h"
 
-static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *xonly_t32, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
+static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *t33, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
     secp256k1_sha256 sha;
     unsigned char masked_key[32];
     int i;
@@ -52,7 +52,7 @@ static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned 
 
     /* Hash masked-key||pk||msg using the tagged hash as per the spec */
     secp256k1_sha256_write(&sha, masked_key, 32);
-    secp256k1_sha256_write(&sha, xonly_t32, 32);
+    secp256k1_sha256_write(&sha, t33, 33);
     secp256k1_sha256_write(&sha, xonly_pk32, 32);
     secp256k1_sha256_write(&sha, msg32, 32);
     secp256k1_sha256_finalize(&sha, nonce32);
@@ -100,7 +100,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     /* bytes_from_point(P) */
     secp256k1_fe_get_b32(pk_buf, &pk.x);
 
-    ret &= !!noncefp(nonce32, msg32, seckey, &t33[1], pk_buf, bip340_algo, sizeof(bip340_algo), ndata);
+    ret &= !!noncefp(nonce32, msg32, seckey, t33, pk_buf, bip340_algo, sizeof(bip340_algo), ndata);
     /* k0 */
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);
@@ -207,7 +207,6 @@ int secp256k1_schnorr_adaptor_extract_t(const secp256k1_context *ctx, unsigned c
     ret &= !!secp256k1_eckey_pubkey_serialize(&t, t33, &size, 1);
 
     secp256k1_memczero(t33, 33, !ret);
-    secp256k1_scalar_clear(&s0);
 
     return ret;
 }
@@ -241,9 +240,11 @@ int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char 
         ret = 0;
     }
 
-    memset(sig64, 0, 64);
     memcpy(sig64, &sig65[1], 32);
     secp256k1_scalar_get_b32(&sig64[32], &s);
+    secp256k1_memczero(sig64, 64, !ret);
+    secp256k1_scalar_clear(&s);
+    secp256k1_scalar_clear(&t);
 
     return ret;
 }
@@ -279,6 +280,9 @@ int secp256k1_schnorr_adaptor_extract_adaptor(const secp256k1_context *ctx, unsi
     }
 
     secp256k1_scalar_get_b32(t32, &t);
+    secp256k1_memczero(t32, 32, !ret);
+    secp256k1_scalar_clear(&s);
+    secp256k1_scalar_clear(&t);
 
     return ret;
 }
