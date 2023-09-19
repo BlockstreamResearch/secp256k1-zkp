@@ -28,60 +28,10 @@
 #include "testrand_impl.h"
 #include "ecmult_compute_table_impl.h"
 #include "ecmult_gen_compute_table_impl.h"
+#include "testutil.h"
 #include "util.h"
 
 static int count = 2;
-
-/** stolen from tests.c */
-static void ge_equals_ge(const secp256k1_ge *a, const secp256k1_ge *b) {
-    CHECK(a->infinity == b->infinity);
-    if (a->infinity) {
-        return;
-    }
-    CHECK(secp256k1_fe_equal_var(&a->x, &b->x));
-    CHECK(secp256k1_fe_equal_var(&a->y, &b->y));
-}
-
-static void ge_equals_gej(const secp256k1_ge *a, const secp256k1_gej *b) {
-    secp256k1_fe z2s;
-    secp256k1_fe u1, u2, s1, s2;
-    CHECK(a->infinity == b->infinity);
-    if (a->infinity) {
-        return;
-    }
-    /* Check a.x * b.z^2 == b.x && a.y * b.z^3 == b.y, to avoid inverses. */
-    secp256k1_fe_sqr(&z2s, &b->z);
-    secp256k1_fe_mul(&u1, &a->x, &z2s);
-    u2 = b->x; secp256k1_fe_normalize_weak(&u2);
-    secp256k1_fe_mul(&s1, &a->y, &z2s); secp256k1_fe_mul(&s1, &s1, &b->z);
-    s2 = b->y; secp256k1_fe_normalize_weak(&s2);
-    CHECK(secp256k1_fe_equal_var(&u1, &u2));
-    CHECK(secp256k1_fe_equal_var(&s1, &s2));
-}
-
-static void random_fe(secp256k1_fe *x) {
-    unsigned char bin[32];
-    do {
-        secp256k1_testrand256(bin);
-        if (secp256k1_fe_set_b32_limit(x, bin)) {
-            return;
-        }
-    } while(1);
-}
-
-static void random_fe_non_zero(secp256k1_fe *nz) {
-    int tries = 10;
-    while (--tries >= 0) {
-        random_fe(nz);
-        secp256k1_fe_normalize(nz);
-        if (!secp256k1_fe_is_zero(nz)) {
-            break;
-        }
-    }
-    /* Infinitesimal probability of spurious failure here */
-    CHECK(tries >= 0);
-}
-/** END stolen from tests.c */
 
 static uint32_t num_cores = 1;
 static uint32_t this_core = 0;
@@ -219,14 +169,14 @@ static void test_exhaustive_ecmult(const secp256k1_ge *group, const secp256k1_ge
                 /* Test secp256k1_ecmult_const_xonly with all curve X coordinates, and xd=NULL. */
                 ret = secp256k1_ecmult_const_xonly(&tmpf, &group[i].x, NULL, &ng, 0);
                 CHECK(ret);
-                CHECK(secp256k1_fe_equal_var(&tmpf, &group[(i * j) % EXHAUSTIVE_TEST_ORDER].x));
+                CHECK(secp256k1_fe_equal(&tmpf, &group[(i * j) % EXHAUSTIVE_TEST_ORDER].x));
 
                 /* Test secp256k1_ecmult_const_xonly with all curve X coordinates, with random xd. */
                 random_fe_non_zero(&xd);
                 secp256k1_fe_mul(&xn, &xd, &group[i].x);
                 ret = secp256k1_ecmult_const_xonly(&tmpf, &xn, &xd, &ng, 0);
                 CHECK(ret);
-                CHECK(secp256k1_fe_equal_var(&tmpf, &group[(i * j) % EXHAUSTIVE_TEST_ORDER].x));
+                CHECK(secp256k1_fe_equal(&tmpf, &group[(i * j) % EXHAUSTIVE_TEST_ORDER].x));
             }
         }
     }
@@ -475,8 +425,8 @@ int main(int argc, char** argv) {
 
                 CHECK(group[i].infinity == 0);
                 CHECK(generated.infinity == 0);
-                CHECK(secp256k1_fe_equal_var(&generated.x, &group[i].x));
-                CHECK(secp256k1_fe_equal_var(&generated.y, &group[i].y));
+                CHECK(secp256k1_fe_equal(&generated.x, &group[i].x));
+                CHECK(secp256k1_fe_equal(&generated.y, &group[i].y));
             }
         }
 

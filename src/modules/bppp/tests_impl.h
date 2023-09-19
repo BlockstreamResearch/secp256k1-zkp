@@ -22,31 +22,19 @@ static void test_bppp_generators_api(void) {
     unsigned char gens_ser[330];
     size_t len = sizeof(gens_ser);
 
-    int32_t ecount = 0;
-
-    /* The BP generator API requires no precomp */
-    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
-
     /* Create */
     gens = secp256k1_bppp_generators_create(CTX, 10);
-    CHECK(gens != NULL && ecount == 0);
+    CHECK(gens != NULL);
     gens_orig = gens; /* Preserve for round-trip test */
 
     /* Serialize */
-    ecount = 0;
-    CHECK(!secp256k1_bppp_generators_serialize(CTX, NULL, gens_ser, &len));
-    CHECK(ecount == 1);
-    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, NULL, &len));
-    CHECK(ecount == 2);
-    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, NULL));
-    CHECK(ecount == 3);
+    CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, NULL, gens_ser, &len));
+    CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, gens, NULL, &len));
+    CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, NULL));
     len = 0;
-    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
-    CHECK(ecount == 4);
+    CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     len = sizeof(gens_ser) - 1;
-    CHECK(!secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
-    CHECK(ecount == 5);
+    CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
     len = sizeof(gens_ser);
     {
         /* Output buffer can be greater than minimum needed */
@@ -54,23 +42,20 @@ static void test_bppp_generators_api(void) {
         size_t len_tmp = sizeof(gens_ser_tmp);
         CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser_tmp, &len_tmp));
         CHECK(len_tmp == sizeof(gens_ser_tmp) - 1);
-        CHECK(ecount == 5);
     }
 
     /* Parse */
     CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
-    ecount = 0;
-    gens = secp256k1_bppp_generators_parse(CTX, NULL, sizeof(gens_ser));
-    CHECK(gens == NULL && ecount == 1);
+    CHECK_ILLEGAL_VOID(CTX, gens = secp256k1_bppp_generators_parse(CTX, NULL, sizeof(gens_ser));
+                            CHECK(gens == NULL));
     /* Not a multiple of 33 */
     gens = secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser) - 1);
-    CHECK(gens == NULL && ecount == 1);
+    CHECK(gens == NULL);
     gens = secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser));
-    CHECK(gens != NULL && ecount == 1);
+    CHECK(gens != NULL);
     /* Not valid generators */
     memset(gens_ser, 1, sizeof(gens_ser));
     CHECK(secp256k1_bppp_generators_parse(CTX, gens_ser, sizeof(gens_ser)) == NULL);
-    CHECK(ecount == 1);
 
     /* Check that round-trip succeeded */
     CHECK(gens->n == gens_orig->n);
@@ -79,14 +64,9 @@ static void test_bppp_generators_api(void) {
     }
 
     /* Destroy (we allow destroying a NULL context, it's just a noop. like free().) */
-    ecount = 0;
     secp256k1_bppp_generators_destroy(CTX, NULL);
     secp256k1_bppp_generators_destroy(CTX, gens);
     secp256k1_bppp_generators_destroy(CTX, gens_orig);
-    CHECK(ecount == 0);
-
-    secp256k1_context_set_error_callback(CTX, NULL, NULL);
-    secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
 }
 
 static void test_bppp_generators_fixed(void) {

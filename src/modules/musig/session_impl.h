@@ -574,8 +574,8 @@ int secp256k1_musig_partial_sign(const secp256k1_context* ctx, secp256k1_musig_p
         secp256k1_musig_partial_sign_clear(&sk, k);
         return 0;
     }
-    ARG_CHECK(secp256k1_fe_equal_var(&pk.x, &keypair_pk.x)
-              && secp256k1_fe_equal_var(&pk.y, &keypair_pk.y));
+    ARG_CHECK(secp256k1_fe_equal(&pk.x, &keypair_pk.x)
+              && secp256k1_fe_equal(&pk.y, &keypair_pk.y));
     if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
         secp256k1_musig_partial_sign_clear(&sk, k);
         return 0;
