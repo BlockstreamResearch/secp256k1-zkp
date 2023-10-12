@@ -93,11 +93,11 @@ static void test_bppp_generators_fixed(void) {
 
     len = 99;
     CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
-    CHECK(memcmp(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
+    CHECK(secp256k1_memcmp_var(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
 
     len = sizeof(gens_ser);
     CHECK(secp256k1_bppp_generators_serialize(CTX, gens, gens_ser, &len));
-    CHECK(memcmp(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
+    CHECK(secp256k1_memcmp_var(gens_ser, fixed_first_3, sizeof(fixed_first_3)) == 0);
 
     secp256k1_bppp_generators_destroy(CTX, gens);
 }
@@ -124,7 +124,7 @@ static void test_bppp_tagged_hash(void) {
         secp256k1_bppp_sha256_tagged_commitment_init(&sha);
         secp256k1_bppp_challenge_scalar(&s, &sha, 0);
         secp256k1_scalar_get_b32(output, &s);
-        CHECK(memcmp(output, expected, sizeof(output)) == 0);
+        CHECK(secp256k1_memcmp_var(output, expected, sizeof(output)) == 0);
     }
 
     {
@@ -136,7 +136,7 @@ static void test_bppp_tagged_hash(void) {
         secp256k1_sha256_write(&sha, tmp, sizeof(tmp));
         secp256k1_bppp_challenge_scalar(&s, &sha, 0);
         secp256k1_scalar_get_b32(output, &s);
-        CHECK(memcmp(output, expected, sizeof(output)) == 0);
+        CHECK(secp256k1_memcmp_var(output, expected, sizeof(output)) == 0);
     }
 }
 
