@@ -865,7 +865,7 @@ static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
 static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
     unsigned char zeros[33] = { 0 };
 
-    if (memcmp(in33, zeros, sizeof(zeros)) == 0) {
+    if (secp256k1_memcmp_var(in33, zeros, sizeof(zeros)) == 0) {
         secp256k1_ge_set_infinity(ge);
         return 1;
     }
