@@ -764,7 +764,102 @@ static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const se
 #define LE32(p) (p)
 #endif
 
-static void secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx) {
+#define MAX_ITER 10
+
+static int secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx) {
+    size_t n;
+    size_t over_count = 0;
+    int found = 0;
+    secp256k1_scalar r1_temp, r2_temp;
+    uint32_t seed32[8];
+    uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
+    size_t i;
+
+    memcpy((void *) seed32, (const void *) seed, 32);
+    for (i = 0; i < MAX_ITER; i++) {
+        int over1, over2, should_replace;
+
+        x0 = 0x61707865;
+        x1 = 0x3320646e;
+        x2 = 0x79622d32;
+        x3 = 0x6b206574;
+        x4 = LE32(seed32[0]);
+        x5 = LE32(seed32[1]);
+        x6 = LE32(seed32[2]);
+        x7 = LE32(seed32[3]);
+        x8 = LE32(seed32[4]);
+        x9 = LE32(seed32[5]);
+        x10 = LE32(seed32[6]);
+        x11 = LE32(seed32[7]);
+        x12 = idx;
+        x13 = idx >> 32;
+        x14 = 0;
+        x15 = over_count;
+
+        n = 10;
+        while (n--) {
+            QUARTERROUND(x0, x4, x8,x12)
+            QUARTERROUND(x1, x5, x9,x13)
+            QUARTERROUND(x2, x6,x10,x14)
+            QUARTERROUND(x3, x7,x11,x15)
+            QUARTERROUND(x0, x5,x10,x15)
+            QUARTERROUND(x1, x6,x11,x12)
+            QUARTERROUND(x2, x7, x8,x13)
+            QUARTERROUND(x3, x4, x9,x14)
+        }
+
+        x0 += 0x61707865;
+        x1 += 0x3320646e;
+        x2 += 0x79622d32;
+        x3 += 0x6b206574;
+        x4 += LE32(seed32[0]);
+        x5 += LE32(seed32[1]);
+        x6 += LE32(seed32[2]);
+        x7 += LE32(seed32[3]);
+        x8 += LE32(seed32[4]);
+        x9 += LE32(seed32[5]);
+        x10 += LE32(seed32[6]);
+        x11 += LE32(seed32[7]);
+        x12 += idx;
+        x13 += idx >> 32;
+        x14 += 0;
+        x15 += over_count;
+
+        r1_temp.d[7] = x0;
+        r1_temp.d[6] = x1;
+        r1_temp.d[5] = x2;
+        r1_temp.d[4] = x3;
+        r1_temp.d[3] = x4;
+        r1_temp.d[2] = x5;
+        r1_temp.d[1] = x6;
+        r1_temp.d[0] = x7;
+        r2_temp.d[7] = x8;
+        r2_temp.d[6] = x9;
+        r2_temp.d[5] = x10;
+        r2_temp.d[4] = x11;
+        r2_temp.d[3] = x12;
+        r2_temp.d[2] = x13;
+        r2_temp.d[1] = x14;
+        r2_temp.d[0] = x15;
+
+        over1 = secp256k1_scalar_check_overflow(&r1_temp);
+        over2 = secp256k1_scalar_check_overflow(&r2_temp);
+        over_count++;
+
+        should_replace = (!over1 && !over2 && !found);
+        secp256k1_scalar_cmov(r1, &r1_temp, should_replace);
+        secp256k1_scalar_cmov(r2, &r2_temp, should_replace);
+        found |= should_replace;
+    }
+
+    if (!found) {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void secp256k1_scalar_chacha20_var(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx) {
     size_t n;
     size_t over_count = 0;
     uint32_t seed32[8];
@@ -839,7 +934,7 @@ static void secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2
         over1 = secp256k1_scalar_check_overflow(r1);
         over2 = secp256k1_scalar_check_overflow(r2);
         over_count++;
-   } while (over1 | over2);
+    } while (over1 | over2);
 }
 
 #undef ROTL32

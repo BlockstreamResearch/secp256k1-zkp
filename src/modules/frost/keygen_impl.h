@@ -145,7 +145,7 @@ int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_
 
     for (i = 0; i < threshold; i++) {
         if (i % 2 == 0) {
-            secp256k1_scalar_chacha20(&rand[0], &rand[1], rngseed, i);
+            secp256k1_scalar_chacha20_var(&rand[0], &rand[1], rngseed, i);
         }
         if (i == threshold - 1) {
             secp256k1_scalar_get_b32(buf, &rand[i % 2]);
@@ -217,7 +217,7 @@ int secp256k1_frost_share_gen(const secp256k1_context *ctx, secp256k1_frost_shar
     }
     for (i = 0; i < threshold; i++) {
         if (i % 2 == 0) {
-            secp256k1_scalar_chacha20(&rand[0], &rand[1], rngseed, i);
+            secp256k1_scalar_chacha20_var(&rand[0], &rand[1], rngseed, i);
         }
         /* Horner's method to evaluate polynomial to derive shares */
         secp256k1_scalar_add(&share_i, &share_i, &rand[i % 2]);
