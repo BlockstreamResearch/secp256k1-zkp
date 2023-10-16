@@ -383,7 +383,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         pk_ptr[1] = &pk[1];
         pubnonce_ptr[0] = &pubnonce[0];
         pubnonce_ptr[1] = &pubnonce[1];
-        VALGRIND_MAKE_MEM_DEFINED(key, 32);
+        SECP256K1_CHECKMEM_DEFINE(key, 32);
         memcpy(session_id, key, sizeof(session_id));
         session_id[0] = session_id[0] + 1;
         memcpy(session_id2, key, sizeof(session_id2));
@@ -404,48 +404,59 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         CHECK(secp256k1_keypair_create(ctx, &keypair2, key2));
         CHECK(secp256k1_keypair_xonly_pub(ctx, &pk[0], NULL, &keypair));
         CHECK(secp256k1_keypair_xonly_pub(ctx, &pk[1], NULL, &keypair2));
-        CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[0], pok[0], session_id, 2));
-        CHECK(secp256k1_frost_vss_gen(ctx, vss_commitment[1], pok[1], session_id2, 2));
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(session_id, sizeof(session_id));
+        ret = secp256k1_frost_vss_gen(ctx, vss_commitment[0], pok[0], session_id, 2);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        ret = secp256k1_frost_vss_gen(ctx, vss_commitment[1], pok[1], session_id2, 2);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[0][0], sizeof(secp256k1_pubkey));
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[0][1], sizeof(secp256k1_pubkey));
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1][0], sizeof(secp256k1_pubkey));
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1][1], sizeof(secp256k1_pubkey));
+        SECP256K1_CHECKMEM_DEFINE(pok[0], 64);
         ret = secp256k1_frost_share_gen(ctx, &share[0], vss_commitment[0], pok[0], session_id, pk_ptr[0], 2);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_frost_share_gen(ctx, &share[1], vss_commitment[0], pok[0], session_id2, pk_ptr[0], 2);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
+
         ret = secp256k1_frost_share_agg(ctx, &agg_share, &agg_pk, vss_hash, share_ptr, vss_ptr, 2, 2, pk_ptr[0]);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor));
-        VALGRIND_MAKE_MEM_UNDEFINED(key, 32);
-        VALGRIND_MAKE_MEM_UNDEFINED(session_id, sizeof(session_id));
-        VALGRIND_MAKE_MEM_UNDEFINED(extra_input, sizeof(extra_input));
-        VALGRIND_MAKE_MEM_UNDEFINED(sec_adaptor, sizeof(sec_adaptor));
+        SECP256K1_CHECKMEM_UNDEFINE(extra_input, sizeof(extra_input));
+        SECP256K1_CHECKMEM_UNDEFINE(sec_adaptor, sizeof(sec_adaptor));
         CHECK(secp256k1_frost_pubkey_tweak(ctx, &cache, &agg_pk) == 1);
         ret = secp256k1_frost_nonce_gen(ctx, &secnonce[0], &pubnonce[0], session_id, &agg_share, msg, &agg_pk, extra_input);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_frost_nonce_gen(ctx, &secnonce[1], &pubnonce[1], session_id, &agg_share, msg, &agg_pk, extra_input);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         CHECK(secp256k1_frost_nonce_process(ctx, &session, pubnonce_ptr, 2, msg, &agg_pk, pk_ptr[0], pk_ptr, &cache, &adaptor) == 1);
 
         ret = secp256k1_keypair_create(ctx, &keypair, key);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_frost_partial_sign(ctx, &partial_sig, &secnonce[0], &agg_share, &session, &cache);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
 
-        VALGRIND_MAKE_MEM_DEFINED(&partial_sig, sizeof(partial_sig));
+        SECP256K1_CHECKMEM_DEFINE(&partial_sig, sizeof(partial_sig));
         CHECK(secp256k1_frost_partial_sig_agg(ctx, pre_sig, &session, partial_sig_ptr, 1));
-        VALGRIND_MAKE_MEM_DEFINED(pre_sig, sizeof(pre_sig));
+        SECP256K1_CHECKMEM_DEFINE(pre_sig, sizeof(pre_sig));
 
         CHECK(secp256k1_frost_nonce_parity(ctx, &nonce_parity, &session));
         ret = secp256k1_frost_adapt(ctx, sig, pre_sig, sec_adaptor, nonce_parity);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         ret = secp256k1_frost_extract_adaptor(ctx, sec_adaptor, sig, pre_sig, nonce_parity);
-        VALGRIND_MAKE_MEM_DEFINED(&ret, sizeof(ret));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
     }
 #endif
