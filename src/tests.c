@@ -2435,31 +2435,61 @@ void scalar_chacha_tests(void) {
     secp256k1_scalar r1, r2;
     unsigned char seed0[32] = { 0 };
 
-    secp256k1_scalar_chacha20(&r1, &r2, seed0, 0);
+    secp256k1_scalar_chacha20_var(&r1, &r2, seed0, 0);
     secp256k1_scalar_set_b32(&exp_r1, &expected1[0], NULL);
     secp256k1_scalar_set_b32(&exp_r2, &expected1[32], NULL);
     CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
     CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
 
-    secp256k1_scalar_chacha20(&r1, &r2, seed0, 1);
+    secp256k1_scalar_chacha20_var(&r1, &r2, seed0, 1);
     secp256k1_scalar_set_b32(&exp_r1, &expected2[0], NULL);
     secp256k1_scalar_set_b32(&exp_r2, &expected2[32], NULL);
     CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
     CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
 
-    secp256k1_scalar_chacha20(&r1, &r2, seed3, 1);
+    secp256k1_scalar_chacha20_var(&r1, &r2, seed3, 1);
     secp256k1_scalar_set_b32(&exp_r1, &expected3[0], NULL);
     secp256k1_scalar_set_b32(&exp_r2, &expected3[32], NULL);
     CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
     CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
 
-    secp256k1_scalar_chacha20(&r1, &r2, seed4, 2);
+    secp256k1_scalar_chacha20_var(&r1, &r2, seed4, 2);
     secp256k1_scalar_set_b32(&exp_r1, &expected4[0], NULL);
     secp256k1_scalar_set_b32(&exp_r2, &expected4[32], NULL);
     CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
     CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
 
-    secp256k1_scalar_chacha20(&r1, &r2, seed5, 0x6ff8602a7a78e2f2ULL);
+    secp256k1_scalar_chacha20_var(&r1, &r2, seed5, 0x6ff8602a7a78e2f2ULL);
+    secp256k1_scalar_set_b32(&exp_r1, &expected5[0], NULL);
+    secp256k1_scalar_set_b32(&exp_r2, &expected5[32], NULL);
+    CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
+    CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
+
+    CHECK(secp256k1_scalar_chacha20(&r1, &r2, seed0, 0));
+    secp256k1_scalar_set_b32(&exp_r1, &expected1[0], NULL);
+    secp256k1_scalar_set_b32(&exp_r2, &expected1[32], NULL);
+    CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
+    CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
+
+    CHECK(secp256k1_scalar_chacha20(&r1, &r2, seed0, 1));
+    secp256k1_scalar_set_b32(&exp_r1, &expected2[0], NULL);
+    secp256k1_scalar_set_b32(&exp_r2, &expected2[32], NULL);
+    CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
+    CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
+
+    CHECK(secp256k1_scalar_chacha20(&r1, &r2, seed3, 1));
+    secp256k1_scalar_set_b32(&exp_r1, &expected3[0], NULL);
+    secp256k1_scalar_set_b32(&exp_r2, &expected3[32], NULL);
+    CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
+    CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
+
+    CHECK(secp256k1_scalar_chacha20(&r1, &r2, seed4, 2));
+    secp256k1_scalar_set_b32(&exp_r1, &expected4[0], NULL);
+    secp256k1_scalar_set_b32(&exp_r2, &expected4[32], NULL);
+    CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
+    CHECK(secp256k1_scalar_eq(&exp_r2, &r2));
+
+    CHECK(secp256k1_scalar_chacha20(&r1, &r2, seed5, 0x6ff8602a7a78e2f2ULL));
     secp256k1_scalar_set_b32(&exp_r1, &expected5[0], NULL);
     secp256k1_scalar_set_b32(&exp_r2, &expected5[32], NULL);
     CHECK(secp256k1_scalar_eq(&exp_r1, &r1));
