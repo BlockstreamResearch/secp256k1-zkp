@@ -836,6 +836,9 @@ static int secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2,
     uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
     size_t i;
 
+    secp256k1_scalar_clear(r1);
+    secp256k1_scalar_clear(r2);
+
     memcpy((void *) seed32, (const void *) seed, 32);
     for (i = 0; i < MAX_ITER; i++) {
         int over1, over2, should_replace;
