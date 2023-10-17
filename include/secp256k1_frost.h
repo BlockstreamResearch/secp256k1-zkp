@@ -184,31 +184,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/**
- * Generates a VSS commitment and proof of knowledge.
- *
- * This function generates the VSS commitments based on the given seed and
- * threshold, and creates a proof of knowledge.
- *
- * Returns: 0 if the arguments are invalid, 1 otherwise
- * Args:             ctx: pointer to a context object
- *  Out:  vss_commitment: the VSS commitment. The length of this array
- *                        must be equal to the threshold (can be NULL).
-                   pok64: pointer to the proof of knowledge
- *   In:          seed32: a 32-byte seed used to generate the VSS commitments
- *             threshold: the minimum number of signers required to produce a
- *                        signature
- */
-SECP256K1_API int secp256k1_frost_vss_gen(
-    const secp256k1_context *ctx,
-    secp256k1_pubkey *vss_commitment,
-    unsigned char *pok64,
-    const unsigned char *seed32,
-    size_t threshold
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
-
-
-/** Creates a key generation share
+/** Creates key generation shares
  *
  *  To generate a key, each participant generates a share for each other
  *  participant. For example, in the case of 2 particpants, Alice and Bob, they
@@ -218,37 +194,34 @@ SECP256K1_API int secp256k1_frost_vss_gen(
  *  Each participant _must_ have a secure channel with each other participant
  *  with which they can transmit shares to each other.
  *
- *  A new seed32 _must_ be used for each key generation session. For example,
- *  in the case of 2 participants, Alice and Bob, Alice will generate a seed32
- *  and use it for each of the 2 calls to secp256k1_frost_share_gen and Bob
- *  will generate a seed32 and use it for each of the 2 calls to
- *  secp256k1_frost_share_gen. Both Alice and Bob must NOT REUSE there
- *  respective seed32 again for subsequent key generation sessions. If Alice
- *  and Bob fail to complete this session or start a new session to generate a
- *  new key, they must NOT REUSE their respective seed32 again, but instead
- *  generate a new one. It is recommended to always choose seed32 uniformly at
- *  random to avoid their reuse.
+ *  A new seed32 _must_ be used for each key generation session. Each
+ *  participant must NOT REUSE their respective seed32 again for subsequent key
+ *  generation sessions. If a participant fails to complete this session or
+ *  start a new session to generate a new key, they must NOT REUSE their
+ *  respective seed32 again, but instead generate a new one. It is recommended
+ *  to always choose seed32 uniformly at random to avoid their reuse.
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object
- *  Out:           share: pointer to the key generation share
- *   In:  vss_commitment: pointer to the VSS commitment of the share recipient
- *                 pok64: pointer to the proof of knowledge of the first VSS
- *                        commitment of the share recipient
- *                seed32: a 32-byte seed as explained above
- *          recipient_pk: pointer to the public key of the share recipient
+ *  Out:          shares: pointer to the key generation shares
+ *        vss_commitment: pointer to the VSS commitment
+ *                 pok64: pointer to the proof of knowledge
+ *   In:          seed32: a 32-byte seed as explained above
  *             threshold: the minimum number of signers required to produce a
  *                        signature
+ *        n_participants: the total number of participants
+ *                 ids33: array of 33-byte participant IDs
  */
-SECP256K1_API int secp256k1_frost_share_gen(
+SECP256K1_API int secp256k1_frost_shares_gen(
     const secp256k1_context *ctx,
-    secp256k1_frost_share *share,
-    const secp256k1_pubkey *vss_commitment,
-    const unsigned char *pok64,
+    secp256k1_frost_share *shares,
+    secp256k1_pubkey *vss_commitment,
+    unsigned char *pok64,
     const unsigned char *seed32,
-    const secp256k1_xonly_pubkey *recipient_pk,
-    size_t threshold
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+    size_t threshold,
+    size_t n_participants,
+    const unsigned char * const* ids33
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(8);
 
 /** Aggregates shares
  *
@@ -259,14 +232,6 @@ SECP256K1_API int secp256k1_frost_share_gen(
  *  participant's first polynomial coefficient to derive the aggregate public
  *  key.
  *
- *  This function outputs a vss_hash, which is a sha256 image of the VSS of all
- *  participants. The vss_hash _must_ be signed and distributed to each other
- *  participant, and upon receiving a signed vss_hash from each other
- *  participant, the signature must be verified against the vss_hash generated
- *  by the receiving participant, otherwise the key generation session must be
- *  aborted. This vss_commitments _must_ be sorted by the x-only pubkeys of the
- *  participants, otherwise the vss_hash generated will be invalid.
- *
  *  If this function returns an error, `secp256k1_frost_share_verify` can be
  *  called on each share to determine which participants submitted faulty
  *  shares.
@@ -276,27 +241,25 @@ SECP256K1_API int secp256k1_frost_share_gen(
  *  Args:         ctx: pointer to a context object
  *  Out:    agg_share: the aggregated share
  *             agg_pk: the aggregated x-only public key
- *           vss_hash: sha256 image of the coefficient commitments
  *  In:        shares: all key generation shares for the partcipant's index
  *    vss_commitments: coefficient commitments of all participants ordered by
  *                     the x-only pubkeys of the participants
  *           n_shares: the total number of shares
  *          threshold: the minimum number of shares required to produce a
  *                     signature
- *                 pk: the public key of the participant whose shares are being
+ *               id33: the 33-byte ID of the participant whose shares are being
  *                     aggregated
  */
 SECP256K1_API int secp256k1_frost_share_agg(
     const secp256k1_context *ctx,
     secp256k1_frost_share *agg_share,
     secp256k1_xonly_pubkey *agg_pk,
-    unsigned char *vss_hash,
     const secp256k1_frost_share * const *shares,
     const secp256k1_pubkey * const *vss_commitments,
     size_t n_shares,
     size_t threshold,
-    const secp256k1_xonly_pubkey *pk
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(9);
+    const unsigned char *id33
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(8);
 
 /** Verifies a share received during a key generation session
  *
@@ -309,14 +272,14 @@ SECP256K1_API int secp256k1_frost_share_agg(
  *  Args         ctx: pointer to a context object
  *  In:    threshold: the minimum number of signers required to produce a
  *                    signature
- *                pk: pointer to the public key of the share recipient
+ *              id33: the 33-byte participant ID of the share recipient
  *             share: pointer to a key generation share
  *    vss_commitment: the VSS commitment associated with the share
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     const secp256k1_context *ctx,
     size_t threshold,
-    const secp256k1_xonly_pubkey *pk,
+    const unsigned char *id33,
     const secp256k1_frost_share *share,
     const secp256k1_pubkey * const *vss_commitment
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
@@ -446,15 +409,16 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_twea
  *                    share
  *         threshold: the minimum number of signers required to produce a
  *                    signature
- *                pk: pointer to the public key of the participant whose
+ *              id33: the 33-byte participant ID of the participant whose
  *                    partial signature will be verified with the pubshare
  *   vss_commitments: coefficient commitments of all participants
+ *    n_participants: the total number of participants
  */
 SECP256K1_API int secp256k1_frost_compute_pubshare(
     const secp256k1_context *ctx,
     secp256k1_pubkey *pubshare,
     size_t threshold,
-    const secp256k1_xonly_pubkey *pk,
+    const unsigned char *id33,
     const secp256k1_pubkey * const *vss_commitments,
     size_t n_participants
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
@@ -513,10 +477,10 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Takes the public nonces of all signers and computes a session that is
- * required for signing and verification of partial signatures. The pubkeys can
- * be sorted before combining with `secp256k1_xonly_sort`, but the
- * corresponding pubnonces must be resorted as well. All signers must use the
- * same sorting of pubnonces, otherwise signing will fail.
+ * required for signing and verification of partial signatures. The participant
+ * IDs can be sorted before combining, but the corresponding pubnonces must be
+ * resorted as well. All signers must use the same sorting of pubnonces,
+ * otherwise signing will fail.
  *
  *  Returns: 0 if the arguments are invalid or if some signer sent invalid
  *           pubnonces, 1 otherwise
@@ -527,9 +491,9 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
  *                      greater than 0.
  *               msg32: the 32-byte message to sign
  *              agg_pk: the FROST-aggregated public key
- *                  pk: the public key of the participant who will use the
+ *            myd_id33: the 33-byte ID of the participant who will use the
  *                      session for signing
- *             pubkeys: array of pointers to public keys of the signers
+ *               ids33: array of the 33-byte participant IDs of the signers
  *         tweak_cache: pointer to frost_tweak_cache struct (can be NULL)
  *             adaptor: optional pointer to an adaptor point encoded as a
  *                      public key if this signing session is part of an
@@ -542,8 +506,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
     size_t n_pubnonces,
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *agg_pk,
-    const secp256k1_xonly_pubkey *pk,
-    const secp256k1_xonly_pubkey * const *pubkeys,
+    const unsigned char *my_id33,
+    const unsigned char * const* ids33,
     const secp256k1_frost_tweak_cache *tweak_cache,
     const secp256k1_pubkey *adaptor
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);

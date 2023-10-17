@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 2021, 2022 Jesse Posner                               *
+ * Copyright (c) 2021-2023  Jesse Posner                               *
  * Distributed under the MIT software license, see the accompanying    *
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  ***********************************************************************/
@@ -18,10 +18,10 @@
 #include <secp256k1_frost.h>
 
 #include "examples_util.h"
- /* Number of public keys involved in creating the aggregate signature */
+/* Number of public keys involved in creating the aggregate signature */
 #define N_SIGNERS 5
 
- /* Threshold required in creating the aggregate signature */
+/* Threshold required in creating the aggregate signature */
 #define THRESHOLD 3
 
 struct signer_secrets {
@@ -32,7 +32,6 @@ struct signer_secrets {
 };
 
 struct signer {
-    secp256k1_xonly_pubkey pubkey;
     secp256k1_pubkey pubshare;
     secp256k1_frost_pubnonce pubnonce;
     secp256k1_frost_session session;
@@ -40,11 +39,15 @@ struct signer {
     secp256k1_pubkey vss_commitment[THRESHOLD];
     unsigned char vss_hash[32];
     unsigned char pok[64];
+    unsigned char id[33];
 };
 
- /* Create a key pair and store it in seckey and pubkey */
+/* Create a key pair and store it in seckey and pubkey */
 int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     unsigned char seckey[32];
+    secp256k1_pubkey pubkey_tmp;
+    size_t size = 33;
+
     while (1) {
         if (!fill_random(seckey, sizeof(seckey))) {
             printf("Failed to generate randomness\n");
@@ -54,20 +57,10 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
             break;
         }
     }
-    if (!secp256k1_keypair_xonly_pub(ctx, &signer->pubkey, NULL, &signer_secrets->keypair)) {
+    if (!secp256k1_keypair_pub(ctx, &pubkey_tmp, &signer_secrets->keypair)) {
         return 0;
     }
-    return 1;
-}
-
-int create_vss_commitment(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
-    /* Create random seed. It is absolutely necessary that the seed be unique
-     * for every distributed key generation session. */
-    if (!fill_random(signer_secrets->seed, sizeof(signer_secrets->seed))) {
-        return 0;
-    }
-    /* Create VSS commitment */
-    if (!secp256k1_frost_vss_gen(ctx, signer->vss_commitment, signer->pok, signer_secrets->seed, THRESHOLD)) {
+    if (!secp256k1_ec_pubkey_serialize(ctx, signer->id, &size, &pubkey_tmp, SECP256K1_EC_COMPRESSED)) {
         return 0;
     }
     return 1;
@@ -78,14 +71,17 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
     int i, j;
     secp256k1_frost_share shares[N_SIGNERS][N_SIGNERS];
     const secp256k1_pubkey *vss_commitments[N_SIGNERS];
+    const unsigned char *ids[N_SIGNERS];
 
     for (i = 0; i < N_SIGNERS; i++) {
         vss_commitments[i] = signer[i].vss_commitment;
-        for (j = 0; j < N_SIGNERS; j++) {
-            /* Generate a polynomial share for the participants */
-            if (!secp256k1_frost_share_gen(ctx, &shares[i][j], signer[j].vss_commitment, signer[j].pok, signer_secrets[i].seed, &signer[j].pubkey, THRESHOLD)) {
-                return 0;
-            }
+        ids[i] = signer[i].id;
+    }
+
+    for (i = 0; i < N_SIGNERS; i++) {
+        /* Generate a polynomial share for the participants */
+        if (!secp256k1_frost_shares_gen(ctx, shares[i], signer[i].vss_commitment, signer[i].pok, signer_secrets[i].seed, THRESHOLD, N_SIGNERS, ids)) {
+            return 0;
         }
     }
 
@@ -100,7 +96,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
             assigned_shares[j] = &shares[j][i];
         }
         /* Each participant aggregates the shares they received. */
-        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, agg_pk, signer[i].vss_hash, assigned_shares, vss_commitments, N_SIGNERS, THRESHOLD, &signer[i].pubkey)) {
+        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, agg_pk, assigned_shares, vss_commitments, N_SIGNERS, THRESHOLD, signer[i].id)) {
             return 0;
         }
         for (j = 0; j < N_SIGNERS; j++) {
@@ -108,32 +104,14 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
              * internally, so it is only neccessary to call this function if
              * share_agg returns an error, to determine which participant(s)
              * submitted faulty data. */
-            if (!secp256k1_frost_share_verify(ctx, THRESHOLD, &signer[i].pubkey, assigned_shares[j], &vss_commitments[j])) {
+            if (!secp256k1_frost_share_verify(ctx, THRESHOLD, signer[i].id, assigned_shares[j], &vss_commitments[j])) {
                 return 0;
             }
             /* Each participant generates public verification shares that are
              * used for verifying partial signatures. */
-            if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, &signer[j].pubkey, vss_commitments, N_SIGNERS)) {
+            if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, signer[j].id, vss_commitments, N_SIGNERS)) {
                 return 0;
             }
-        }
-    }
-
-    return 1;
-}
-
-/* Sign the VSS commitments */
-int sign_vss(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, unsigned char sigs[N_SIGNERS][64]) {
-    int i;
-
-    for (i = 0; i < N_SIGNERS; i++) {
-        unsigned char aux_rand[32];
-
-        if (!fill_random(aux_rand, sizeof(aux_rand))) {
-            return 0;
-        }
-        if (!secp256k1_schnorrsig_sign32(ctx, sigs[i], signer[i].vss_hash, &signer_secrets[i].keypair, aux_rand)) {
-            return 0;
         }
     }
 
@@ -187,7 +165,8 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     int signers[THRESHOLD];
     int is_signer[N_SIGNERS];
     const secp256k1_frost_pubnonce *pubnonces[THRESHOLD];
-    const secp256k1_xonly_pubkey *pubkeys[THRESHOLD];
+    /* const secp256k1_xonly_pubkey *pubkeys[THRESHOLD]; */
+    const unsigned char *ids[THRESHOLD];
     const secp256k1_frost_partial_sig *partial_sigs[THRESHOLD];
     unsigned int seed;
 
@@ -222,12 +201,13 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
         }
         /* Mark signer as assigned */
         pubnonces[i] = &signer[signer_id].pubnonce;
-        pubkeys[i] = &signer[signer_id].pubkey;
+        /* pubkeys[i] = &signer[signer_id].pubkey; */
+        ids[i] = signer[signer_id].id;
     }
     /* Signing communication round 1: Exchange nonces */
     for (i = 0; i < THRESHOLD; i++) {
         signer_id = signers[i];
-        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, agg_pk, &signer[signer_id].pubkey, pubkeys, cache, NULL)) {
+        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, agg_pk, signer[signer_id].id, ids, cache, NULL)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
@@ -266,7 +246,6 @@ int main(void) {
     int i;
     struct signer_secrets signer_secrets[N_SIGNERS];
     struct signer signers[N_SIGNERS];
-    unsigned char sigs[N_SIGNERS][64];
     secp256k1_xonly_pubkey agg_pk;
     secp256k1_frost_tweak_cache cache;
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
@@ -282,32 +261,10 @@ int main(void) {
         }
     }
     printf("ok\n");
-    printf("Creating VSS............");
-    for (i = 0; i < N_SIGNERS; i++) {
-        if (!create_vss_commitment(ctx, &signer_secrets[i], &signers[i])) {
-            printf("FAILED\n");
-            return 1;
-        }
-    }
-    printf("ok\n");
     printf("Creating shares.........");
     if (!create_shares(ctx, signer_secrets, signers, &agg_pk)) {
         printf("FAILED\n");
         return 1;
-    }
-    printf("ok\n");
-    printf("Signing VSS.............");
-    if (!sign_vss(ctx, signer_secrets, signers, sigs)) {
-        printf("FAILED\n");
-        return 1;
-    }
-    printf("ok\n");
-    printf("Verifying VSS...........");
-    for (i = 0; i < N_SIGNERS; i++) {
-        if (!secp256k1_schnorrsig_verify(ctx, sigs[i], signers[0].vss_hash, 32, &signers[i].pubkey)) {
-            printf("FAILED\n");
-            return 1;
-        }
     }
     printf("ok\n");
     printf("Tweaking................");

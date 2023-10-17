@@ -326,7 +326,7 @@ static int secp256k1_frost_sum_nonces(const secp256k1_context* ctx, secp256k1_ge
 
 /* TODO: consider updating to frost-08 to address maleability at the cost of performance */
 /* See https://github.com/cfrg/draft-irtf-cfrg-frost/pull/217 */
-static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *agg_pk32, const secp256k1_xonly_pubkey * const* pubkeys) {
+static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *agg_pk32, const unsigned char * const* ids33) {
     unsigned char buf[66];
     secp256k1_sha256 sha;
     size_t i;
@@ -336,7 +336,7 @@ static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsig
     for (i = 0; i < n_pubnonces; i++) {
         secp256k1_scalar idx;
 
-        if (!secp256k1_frost_compute_indexhash(ctx, &idx, pubkeys[i])) {
+        if (!secp256k1_frost_compute_indexhash(&idx, ids33[i])) {
             return 0;
         }
         secp256k1_scalar_get_b32(buf, &idx);
@@ -352,7 +352,7 @@ static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsig
     return 1;
 }
 
-static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, int *fin_nonce_parity, unsigned char *fin_nonce, secp256k1_scalar *b, secp256k1_gej *aggnoncej, const unsigned char *msg, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *agg_pk32, const secp256k1_xonly_pubkey * const* pubkeys) {
+static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, int *fin_nonce_parity, unsigned char *fin_nonce, secp256k1_scalar *b, secp256k1_gej *aggnoncej, const unsigned char *msg, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *agg_pk32, const unsigned char * const* ids33) {
     unsigned char noncehash[32];
     secp256k1_ge fin_nonce_pt;
     secp256k1_gej fin_nonce_ptj;
@@ -360,13 +360,13 @@ static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, 
 
     secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
     secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
-    if (!secp256k1_frost_compute_noncehash(ctx, noncehash, msg, pubnonces, n_pubnonces, agg_pk32, pubkeys)) {
+    if (!secp256k1_frost_compute_noncehash(ctx, noncehash, msg, pubnonces, n_pubnonces, agg_pk32, ids33)) {
         return 0;
     }
     /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
     secp256k1_scalar_set_b32(b, noncehash, NULL);
     secp256k1_ecmult(&fin_nonce_ptj, &aggnoncej[1], b, NULL);
-    secp256k1_gej_add_ge(&fin_nonce_ptj, &fin_nonce_ptj, &aggnonce[0]);
+    secp256k1_gej_add_ge_var(&fin_nonce_ptj, &fin_nonce_ptj, &aggnonce[0], NULL);
     secp256k1_ge_set_gej(&fin_nonce_pt, &fin_nonce_ptj);
 
     if (secp256k1_ge_is_infinity(&fin_nonce_pt)) {
@@ -381,7 +381,7 @@ static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, 
     return 1;
 }
 
-static int secp256k1_frost_lagrange_coefficient(const secp256k1_context* ctx, secp256k1_scalar *r, const secp256k1_xonly_pubkey * const* pubkeys, size_t n_participants, const secp256k1_xonly_pubkey *pk) {
+static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const* ids33, size_t n_participants, const unsigned char *my_id33) {
     size_t i;
     secp256k1_scalar num;
     secp256k1_scalar den;
@@ -389,13 +389,13 @@ static int secp256k1_frost_lagrange_coefficient(const secp256k1_context* ctx, se
 
     secp256k1_scalar_set_int(&num, 1);
     secp256k1_scalar_set_int(&den, 1);
-    if (!secp256k1_frost_compute_indexhash(ctx, &party_idx, pk)) {
+    if (!secp256k1_frost_compute_indexhash(&party_idx, my_id33)) {
         return 0;
     }
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar mul;
 
-        if (!secp256k1_frost_compute_indexhash(ctx, &mul, pubkeys[i])) {
+        if (!secp256k1_frost_compute_indexhash(&mul, ids33[i])) {
             return 0;
         }
         if (secp256k1_scalar_eq(&mul, &party_idx)) {
@@ -414,7 +414,7 @@ static int secp256k1_frost_lagrange_coefficient(const secp256k1_context* ctx, se
     return 1;
 }
 
-int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_session *session, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *msg32, const secp256k1_xonly_pubkey *agg_pk, const secp256k1_xonly_pubkey *pk, const secp256k1_xonly_pubkey * const* pubkeys, const secp256k1_frost_tweak_cache *tweak_cache, const secp256k1_pubkey *adaptor) {
+int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_session *session, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *msg32, const secp256k1_xonly_pubkey *agg_pk, const unsigned char *my_id33, const unsigned char * const* ids33, const secp256k1_frost_tweak_cache *tweak_cache, const secp256k1_pubkey *adaptor) {
     secp256k1_ge aggnonce_pt[2];
     secp256k1_gej aggnonce_ptj[2];
     unsigned char fin_nonce[32];
@@ -427,7 +427,8 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     ARG_CHECK(session != NULL);
     ARG_CHECK(msg32 != NULL);
     ARG_CHECK(pubnonces != NULL);
-    ARG_CHECK(pubkeys != NULL);
+    ARG_CHECK(ids33 != NULL);
+    ARG_CHECK(my_id33 != NULL);
     ARG_CHECK(n_pubnonces > 1);
 
     if (!secp256k1_xonly_pubkey_serialize(ctx, agg_pk32, agg_pk)) {
@@ -467,7 +468,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
         }
         secp256k1_gej_add_ge_var(&aggnonce_ptj[0], &aggnonce_ptj[0], &adaptorp, NULL);
     }
-    if (!secp256k1_frost_nonce_process_internal(ctx, &session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_ptj, msg32, pubnonces, n_pubnonces, agg_pk32, pubkeys)) {
+    if (!secp256k1_frost_nonce_process_internal(ctx, &session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_ptj, msg32, pubnonces, n_pubnonces, agg_pk32, ids33)) {
         return 0;
     }
 
@@ -491,7 +492,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     }
     /* Update the challenge by multiplying the Lagrange coefficient to prepare
      * for signing. */
-    if (!secp256k1_frost_lagrange_coefficient(ctx, &l, pubkeys, n_pubnonces, pk)) {
+    if (!secp256k1_frost_lagrange_coefficient(&l, ids33, n_pubnonces, my_id33)) {
         return 0;
     }
     secp256k1_scalar_mul(&session_i.challenge, &session_i.challenge, &l);
