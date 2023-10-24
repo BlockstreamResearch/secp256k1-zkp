@@ -43,7 +43,7 @@ struct signer {
 };
 
 /* Create a key pair and store it in seckey and pubkey */
-int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
+int create_keypair_and_seed(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     unsigned char seckey[32];
     secp256k1_pubkey pubkey_tmp;
     size_t size = 33;
@@ -61,6 +61,9 @@ int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_s
         return 0;
     }
     if (!secp256k1_ec_pubkey_serialize(ctx, signer->id, &size, &pubkey_tmp, SECP256K1_EC_COMPRESSED)) {
+        return 0;
+    }
+    if (!fill_random(signer_secrets->seed, sizeof(signer_secrets->seed))) {
         return 0;
     }
     return 1;
@@ -165,10 +168,8 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     int signers[THRESHOLD];
     int is_signer[N_SIGNERS];
     const secp256k1_frost_pubnonce *pubnonces[THRESHOLD];
-    /* const secp256k1_xonly_pubkey *pubkeys[THRESHOLD]; */
     const unsigned char *ids[THRESHOLD];
     const secp256k1_frost_partial_sig *partial_sigs[THRESHOLD];
-    unsigned int seed;
 
     for (i = 0; i < N_SIGNERS; i++) {
         unsigned char session_id[32];
@@ -187,11 +188,13 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     }
     /* Select a random subset of signers */
     for (i = 0; i < THRESHOLD; i++) {
+        unsigned int subset_seed;
+
         while (1) {
-            if (!fill_random((unsigned char*)&seed, sizeof(seed))) {
+            if (!fill_random((unsigned char*)&subset_seed, sizeof(subset_seed))) {
                 return 0;
             }
-            signer_id = seed % N_SIGNERS;
+            signer_id = subset_seed % N_SIGNERS;
             /* Check if signer has already been assigned */
             if (!is_signer[signer_id]) {
                 is_signer[signer_id] = 1;
@@ -255,7 +258,7 @@ int main(void) {
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
-        if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {
+        if (!create_keypair_and_seed(ctx, &signer_secrets[i], &signers[i])) {
             printf("FAILED\n");
             return 1;
         }
