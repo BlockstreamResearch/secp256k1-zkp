@@ -11,6 +11,42 @@
 #include "../../../include/secp256k1_schnorr_adaptor.h"
 #include "../../hash.h"
 
+/* Initializes SHA256 with fixed midstate. This midstate was computed by applying
+ * SHA256 to SHA256("SchnorrAdaptor/nonce")||SHA256("SchnorrAdaptor/nonce"). */
+static void secp256k1_adaptor_nonce_function_bip340_sha256_tagged(secp256k1_sha256 *sha) {
+    secp256k1_sha256_initialize(sha);
+    sha->s[0] = 0xe268ac2aul;
+    sha->s[1] = 0x3a221b84ul;
+    sha->s[2] = 0x69612afdul;
+    sha->s[3] = 0x92ce3040ul;
+    sha->s[4] = 0xc83ca35ful;
+    sha->s[5] = 0xec2ee152ul;
+    sha->s[6] = 0xba136ab7ul;
+    sha->s[7] = 0x3bf6ec7ful;
+
+    sha->bytes = 64;
+}
+
+/* Initializes SHA256 with fixed midstate. This midstate was computed by applying
+ * SHA256 to SHA256("SchnorrAdaptor/aux")||SHA256("SchnorrAdaptor/aux"). */
+static void secp256k1_adaptor_nonce_function_bip340_sha256_tagged_aux(secp256k1_sha256 *sha) {
+    secp256k1_sha256_initialize(sha);
+    sha->s[0] = 0x60c4ec6dul;
+    sha->s[1] = 0x2fc91363ul;
+    sha->s[2] = 0xce54f4a5ul;
+    sha->s[3] = 0x962e1565ul;
+    sha->s[4] = 0x2b5da649ul;
+    sha->s[5] = 0x6ba94748ul;
+    sha->s[6] = 0x456c70adul;
+    sha->s[7] = 0x842cbaddul;
+
+    sha->bytes = 64;
+}
+
+/* algo argument for adaptor_nonce_function_bip340 to derive the nonce of Schnorr adaptor signature
+ * by using the correct tagged hash function. */
+static const unsigned char adaptor_bip340_algo[20] = "SchnorrAdaptor/nonce";
+
 static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *t33, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
     secp256k1_sha256 sha;
     unsigned char masked_key[32];
@@ -21,19 +57,19 @@ static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned 
     }
 
     if (data != NULL) {
-        secp256k1_nonce_function_bip340_sha256_tagged_aux(&sha);
+        secp256k1_adaptor_nonce_function_bip340_sha256_tagged_aux(&sha);
         secp256k1_sha256_write(&sha, data, 32);
         secp256k1_sha256_finalize(&sha, masked_key);
         for (i = 0; i < 32; i++) {
             masked_key[i] ^= key32[i];
         }
     } else {
-        /* Precomputed TaggedHash("BIP0340/aux", 0x0000...00); */
+        /* Precomputed TaggedHash("SchnorrAdaptor/aux", 0x0000...00); */
         static const unsigned char ZERO_MASK[32] = {
-              84, 241, 105, 207, 201, 226, 229, 114,
-             116, 128,  68,  31, 144, 186,  37, 196,
-             136, 244,  97, 199,  11,  94, 165, 220,
-             170, 247, 175, 105, 39,  10, 165,  20
+              65, 206, 231, 5, 44, 99, 30, 162,
+              119, 101, 143, 108, 176, 134, 217, 23,
+              54, 150, 157, 221, 198, 161, 164, 85,
+              235, 82, 28, 56, 164, 220, 113, 53
         };
         for (i = 0; i < 32; i++) {
             masked_key[i] = key32[i] ^ ZERO_MASK[i];
@@ -43,9 +79,9 @@ static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned 
     /* Tag the hash with algo which is important to avoid nonce reuse across
      * algorithms. If this nonce function is used in BIP-340 signing as defined
      * in the spec, an optimized tagging implementation is used. */
-    if (algolen == sizeof(bip340_algo)
-            && secp256k1_memcmp_var(algo, bip340_algo, algolen) == 0) {
-        secp256k1_nonce_function_bip340_sha256_tagged(&sha);
+    if (algolen == sizeof(adaptor_bip340_algo)
+            && secp256k1_memcmp_var(algo, adaptor_bip340_algo, algolen) == 0) {
+        secp256k1_adaptor_nonce_function_bip340_sha256_tagged(&sha);
     } else {
         secp256k1_sha256_initialize_tagged(&sha, algo, algolen);
     }
@@ -221,6 +257,7 @@ int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(sig64 != NULL);
     ARG_CHECK(sig65 != NULL);
+    ARG_CHECK(sig65[0] == SECP256K1_TAG_PUBKEY_EVEN || sig65[0] == SECP256K1_TAG_PUBKEY_ODD);
     ARG_CHECK(t32 != NULL);
 
     /* s0 */
@@ -236,8 +273,6 @@ int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char 
     } else if (sig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
         secp256k1_scalar_negate(&t, &t);
         secp256k1_scalar_add(&s, &s0, &t);
-    } else {
-        ret = 0;
     }
 
     memcpy(sig64, &sig65[1], 32);
@@ -259,6 +294,7 @@ int secp256k1_schnorr_adaptor_extract_adaptor(const secp256k1_context *ctx, unsi
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(t32 != NULL);
     ARG_CHECK(sig65 != NULL);
+    ARG_CHECK(sig65[0] == SECP256K1_TAG_PUBKEY_EVEN || sig65[0] == SECP256K1_TAG_PUBKEY_ODD);
     ARG_CHECK(sig64 != NULL);
 
     /* s0 */
@@ -275,8 +311,6 @@ int secp256k1_schnorr_adaptor_extract_adaptor(const secp256k1_context *ctx, unsi
     } else if (sig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
         secp256k1_scalar_negate(&s, &s);
         secp256k1_scalar_add(&t, &s0, &s);
-    } else {
-        ret = 0;
     }
 
     secp256k1_scalar_get_b32(t32, &t);

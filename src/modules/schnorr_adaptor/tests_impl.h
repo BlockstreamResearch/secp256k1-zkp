@@ -21,9 +21,9 @@ void adaptor_nonce_function_bip340_bitflip(unsigned char **args, size_t n_flip, 
 }
 
 void run_adaptor_nonce_function_bip340_tests(void) {
-    unsigned char tag[13] = "BIP0340/nonce";
-    unsigned char aux_tag[11] = "BIP0340/aux";
-    unsigned char algo[13] = "BIP0340/nonce";
+    unsigned char tag[20] = "SchnorrAdaptor/nonce";
+    unsigned char aux_tag[18] = "SchnorrAdaptor/aux";
+    unsigned char algo[20] = "SchnorrAdaptor/nonce";
     size_t algolen = sizeof(algo);
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_optimized;
@@ -45,14 +45,14 @@ void run_adaptor_nonce_function_bip340_tests(void) {
      * secp256k1_nonce_function_bip340_sha256_tagged has the expected
      * state. */
     secp256k1_sha256_initialize_tagged(&sha, tag, sizeof(tag));
-    secp256k1_nonce_function_bip340_sha256_tagged(&sha_optimized);
+    secp256k1_adaptor_nonce_function_bip340_sha256_tagged(&sha_optimized);
     test_sha256_eq(&sha, &sha_optimized);
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_bip340_sha256_tagged_aux has the expected
     * state. */
     secp256k1_sha256_initialize_tagged(&sha, aux_tag, sizeof(aux_tag));
-    secp256k1_nonce_function_bip340_sha256_tagged_aux(&sha_optimized);
+    secp256k1_adaptor_nonce_function_bip340_sha256_tagged_aux(&sha_optimized);
     test_sha256_eq(&sha, &sha_optimized);
 
     secp256k1_testrand256(msg);
@@ -78,7 +78,7 @@ void run_adaptor_nonce_function_bip340_tests(void) {
         adaptor_nonce_function_bip340_bitflip(args, 1, 32, algolen);
         adaptor_nonce_function_bip340_bitflip(args, 2, 32, algolen);
         adaptor_nonce_function_bip340_bitflip(args, 3, 32, algolen);
-        /* Flip algo special case "BIP0340/nonce" */
+        /* Flip algo special case "SchnorrAdaptor/nonce" */
         adaptor_nonce_function_bip340_bitflip(args, 4, algolen, algolen);
         /* Flip algo again */
         adaptor_nonce_function_bip340_bitflip(args, 4, algolen, algolen);
