@@ -132,12 +132,6 @@ void test_schnorr_adaptor_api(void) {
     unsigned char adaptor[32];
 
     /** setup **/
-    int ecount;
-
-    secp256k1_context_set_error_callback(CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_error_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
-    secp256k1_context_set_illegal_callback(STATIC_CTX, counting_illegal_callback_fn, &ecount);
 
     secp256k1_testrand256(sk1);
     secp256k1_testrand256(sk2);
@@ -155,60 +149,33 @@ void test_schnorr_adaptor_api(void) {
     /** main test body **/
     ecount = 0;
     CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypairs[0], t, NULL) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypairs[0], t, NULL) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, NULL, msg, &keypairs[0], t, NULL) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, NULL, &keypairs[0], t, NULL) == 0);
-    CHECK(ecount == 3);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, NULL, t, NULL) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypairs[0], NULL, NULL) == 0);
-    CHECK(ecount == 5);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &invalid_keypair, t, NULL) == 0);
-    CHECK(ecount == 6);
-    CHECK(secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypairs[0], t, NULL) == 0);
-    CHECK(ecount == 7);
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypairs[0], t, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(CTX, NULL, msg, &keypairs[0], t, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(CTX, sig, NULL, &keypairs[0], t, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, NULL, t, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypairs[0], NULL, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &invalid_keypair, t, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypairs[0], t, NULL));
 
-    ecount = 0;
     CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypairs[0], t, NULL) == 1);
     CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, msg, &pk[0]) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, NULL, sig, msg, &pk[0]) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, t2, NULL, msg, &pk[0]) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, NULL, &pk[0]) == 0);
-    CHECK(ecount == 3);
-    CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, msg, NULL) == 0);
-    CHECK(ecount == 4);
-    CHECK(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, msg, &zero_pk) == 0);
-    CHECK(ecount == 5);
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_t(CTX, NULL, sig, msg, &pk[0]));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_t(CTX, t2, NULL, msg, &pk[0]));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, NULL, &pk[0]);
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, msg, NULL));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_t(CTX, t2, sig, msg, &zero_pk));
 
-    ecount = 0;
     CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, t32) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_schnorr_adaptor_adapt(CTX, NULL, sig, t32) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, NULL, t32) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, NULL) == 0);
-    CHECK(ecount == 3);
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_adapt(CTX, NULL, sig, t32));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_adapt(CTX, sig64, NULL, t32));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, NULL));
 
-    ecount = 0;
     CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, t32) == 1);
     CHECK(secp256k1_schnorr_adaptor_extract_adaptor(CTX, adaptor, sig, sig64) == 1);
-    CHECK(ecount == 0);
-    CHECK(secp256k1_schnorr_adaptor_extract_adaptor(CTX, NULL, sig, sig64) == 0);
-    CHECK(ecount == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract_adaptor(CTX, adaptor, NULL, sig64) == 0);
-    CHECK(ecount == 2);
-    CHECK(secp256k1_schnorr_adaptor_extract_adaptor(CTX, adaptor, sig, NULL) == 0);
-    CHECK(ecount == 3);
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_adaptor(CTX, NULL, sig, sig64));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_adaptor(CTX, adaptor, NULL, sig64));
+    CHECK_ILLEGAL(secp256k1_schnorr_adaptor_extract_adaptor(CTX, adaptor, sig, NULL));
 
-    secp256k1_context_set_error_callback(STATIC_CTX, NULL, NULL);
-    secp256k1_context_set_illegal_callback(STATIC_CTX, NULL, NULL);
 }
 
 /* Helper function for schnorr_adaptor_vectors
