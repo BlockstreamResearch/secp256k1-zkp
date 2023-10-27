@@ -199,7 +199,7 @@ endif
 if ENABLE_MODULE_FROST
 noinst_PROGRAMS += frost_example
 frost_example_SOURCES = examples/frost.c
-frost_example_CPPFLAGS = -I$(top_srcdir)/include
+frost_example_CPPFLAGS = -I$(top_srcdir)/include -DSECP256K1_STATIC
 frost_example_LDADD = libsecp256k1.la
 frost_example_LDFLAGS = -static
 if BUILD_WINDOWS
