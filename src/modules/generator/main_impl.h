@@ -140,8 +140,7 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     x2n = x1n; /* mag 3 */
     secp256k1_fe_add(&x2n, &wd); /* mag 5 */
     secp256k1_fe_negate(&x2n, &x2n, 5); /* mag 6 */
-    secp256k1_fe_mul(&x3d, &c, t); /* mag 1 */
-    secp256k1_fe_sqr(&x3d, &x3d); /* mag 1 */
+    secp256k1_fe_sqr(&x3d, &wn); /* mag 1 */
     secp256k1_fe_sqr(&x3n, &wd); /* mag 1 */
     secp256k1_fe_add(&x3n, &x3d); /* mag 2 */
     secp256k1_fe_mul(&jinv, &x3d, &wd); /* mag 1 */
