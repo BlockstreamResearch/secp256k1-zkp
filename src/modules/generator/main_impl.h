@@ -114,7 +114,7 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
        x1d = wd
        x2n = -(x1n + wd)
        x2d = wd
-       x3n = wd^2 + c^2 + t^2
+       x3n = wd^2 + c^2 * t^2
        x3d = (c * t)^2
 
        The joint denominator j = wd * c^2 * t^2, and
