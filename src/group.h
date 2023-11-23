@@ -202,6 +202,10 @@ static void secp256k1_ge_from_bytes(secp256k1_ge *r, const unsigned char *buf);
  */
 static int secp256k1_ge_is_in_correct_subgroup(const secp256k1_ge* ge);
 
+static void secp256k1_point_save_ext(unsigned char *data, secp256k1_ge *ge);
+
+static void secp256k1_point_load_ext(secp256k1_ge *ge, const unsigned char *data);
+
 /** Check invariants on an affine group element (no-op unless VERIFY is enabled). */
 static void secp256k1_ge_verify(const secp256k1_ge *a);
 #define SECP256K1_GE_VERIFY(a) secp256k1_ge_verify(a)

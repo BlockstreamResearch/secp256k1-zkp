@@ -17,23 +17,6 @@
 #include "../../hash.h"
 #include "../../util.h"
 
-static void secp256k1_point_save_ext(unsigned char *data, secp256k1_ge *ge) {
-    if (secp256k1_ge_is_infinity(ge)) {
-        memset(data, 0, 64);
-    } else {
-        secp256k1_ge_to_bytes(data, ge);
-    }
-}
-
-static void secp256k1_point_load_ext(secp256k1_ge *ge, const unsigned char *data) {
-    unsigned char zeros[64] = { 0 };
-    if (secp256k1_memcmp_var(data, zeros, sizeof(zeros)) == 0) {
-        secp256k1_ge_set_infinity(ge);
-    } else {
-        secp256k1_ge_from_bytes(ge, data);
-    }
-}
-
 static const unsigned char secp256k1_musig_keyagg_cache_magic[4] = { 0xf4, 0xad, 0xbb, 0xdf };
 
 /* A keyagg cache consists of
