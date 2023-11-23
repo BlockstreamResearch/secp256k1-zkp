@@ -78,6 +78,16 @@ typedef struct {
     unsigned char data[132];
 } secp256k1_frost_pubnonce;
 
+/** Opaque data structure that holds a FROST session.
+ *
+ *  This structure is not required to be kept secret for the signing protocol
+ *  to be secure. Guaranteed to be 133 bytes in size. It can be safely
+ *  copied/moved. No serialization and parsing functions.
+ */
+typedef struct {
+    unsigned char data[133];
+} secp256k1_frost_session;
+
 /** Parse a signer's public nonce.
  *
  *  Returns: 1 when the nonce could be parsed, 0 otherwise.
@@ -333,6 +343,135 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *agg_pk,
     const unsigned char *extra_input32
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+/** Takes the public nonces of all signers and computes a session that is
+ * required for signing and verification of partial signatures. The participant
+ * IDs can be sorted before combining, but the corresponding pubnonces must be
+ * resorted as well. All signers must use the same sorting of pubnonces,
+ * otherwise signing will fail.
+ *
+ *  Returns: 0 if the arguments are invalid or if some signer sent invalid
+ *           pubnonces, 1 otherwise
+ *  Args:          ctx: pointer to a context object
+ *  Out:       session: pointer to a struct to store the session
+ *  In:      pubnonces: array of pointers to public nonces sent by the signers
+ *         n_pubnonces: number of elements in the pubnonces array. Must be
+ *                      greater than 0.
+ *               msg32: the 32-byte message to sign
+ *              agg_pk: the FROST-aggregated public key
+ *               my_id: the ID of the participant who will use the session for
+ *                      signing
+*                  ids: array of the IDs of the signers
+ *         tweak_cache: pointer to frost_tweak_cache struct (can be NULL)
+ *             adaptor: optional pointer to an adaptor point encoded as a
+ *                      public key if this signing session is part of an
+ *                      adaptor signature protocol (can be NULL)
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
+    const secp256k1_context *ctx,
+    secp256k1_frost_session *session,
+    const secp256k1_frost_pubnonce * const *pubnonces,
+    size_t n_pubnonces,
+    const unsigned char *msg32,
+    const secp256k1_xonly_pubkey *agg_pk,
+    size_t my_id,
+    const size_t *ids,
+    const secp256k1_frost_tweak_cache *tweak_cache,
+    const secp256k1_pubkey *adaptor
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(8);
+
+/** Extracts the nonce_parity bit from a session
+ *
+ *  This is used for adaptor signatures.
+ *
+ *  Returns: 0 if the arguments are invalid, 1 otherwise
+ *  Args:         ctx: pointer to a context object
+ *  Out: nonce_parity: pointer to an integer that indicates the parity
+ *                     of the aggregate public nonce. Used for adaptor
+ *                     signatures.
+ *  In:       session: pointer to the session that was created with
+ *                     frost_nonce_process
+ */
+SECP256K1_API int secp256k1_frost_nonce_parity(
+    const secp256k1_context *ctx,
+    int *nonce_parity,
+    const secp256k1_frost_session *session
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Verifies that the adaptor can be extracted by combining the adaptor
+ *  pre-signature and the completed signature.
+ *
+ *  Returns: 0 if the arguments are invalid or the adaptor signature does not
+ *           verify, 1 otherwise
+ *  Args:         ctx: pointer to a context object
+ *  In:     pre_sig64: 64-byte pre-signature
+ *              msg32: the 32-byte message being verified
+ *             pubkey: pointer to an x-only public key to verify with
+ *            adaptor: pointer to the adaptor point being verified
+ *       nonce_parity: the output of `frost_nonce_parity` called with the
+ *                     session used for producing the pre-signature
+ */
+SECP256K1_API int secp256k1_frost_verify_adaptor(
+    const secp256k1_context *ctx,
+    const unsigned char *pre_sig64,
+    const unsigned char *msg32,
+    const secp256k1_xonly_pubkey *pubkey,
+    const secp256k1_pubkey *adaptor,
+    int nonce_parity
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Creates a signature from a pre-signature and an adaptor.
+ *
+ *  If the sec_adaptor32 argument is incorrect, the output signature will be
+ *  invalid. This function does not verify the signature.
+ *
+ *  Returns: 0 if the arguments are invalid, or pre_sig64 or sec_adaptor32 contain
+ *           invalid (overflowing) values. 1 otherwise (which does NOT mean the
+ *           signature or the adaptor are valid!)
+ *  Args:         ctx: pointer to a context object
+ *  Out:        sig64: 64-byte signature. This pointer may point to the same
+ *                     memory area as `pre_sig`.
+ *  In:     pre_sig64: 64-byte pre-signature
+ *      sec_adaptor32: 32-byte secret adaptor to add to the pre-signature
+ *       nonce_parity: the output of `frost_nonce_parity` called with the
+ *                     session used for producing the pre-signature
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_adapt(
+    const secp256k1_context *ctx,
+    unsigned char *sig64,
+    const unsigned char *pre_sig64,
+    const unsigned char *sec_adaptor32,
+    int nonce_parity
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+/** Extracts a secret adaptor from a FROST pre-signature and corresponding
+ *  signature
+ *
+ *  This function will not fail unless given grossly invalid data; if it is
+ *  merely given signatures that do not verify, the returned value will be
+ *  nonsense. It is therefore important that all data be verified at earlier
+ *  steps of any protocol that uses this function. In particular, this includes
+ *  verifying all partial signatures that were aggregated into pre_sig64.
+ *
+ *  Returns: 0 if the arguments are NULL, or sig64 or pre_sig64 contain
+ *           grossly invalid (overflowing) values. 1 otherwise (which does NOT
+ *           mean the signatures or the adaptor are valid!)
+ *  Args:         ctx: pointer to a context object
+ *  Out:sec_adaptor32: 32-byte secret adaptor
+ *  In:         sig64: complete, valid 64-byte signature
+ *          pre_sig64: the pre-signature corresponding to sig64, i.e., the
+ *                     aggregate of partial signatures without the secret
+ *                     adaptor
+ *       nonce_parity: the output of `frost_nonce_parity` called with the
+ *                     session used for producing sig64
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_extract_adaptor(
+    const secp256k1_context *ctx,
+    unsigned char *sec_adaptor32,
+    const unsigned char *sig64,
+    const unsigned char *pre_sig64,
+    int nonce_parity
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 #ifdef __cplusplus
