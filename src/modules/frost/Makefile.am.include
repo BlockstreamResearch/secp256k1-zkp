@@ -2,3 +2,5 @@ include_HEADERS += include/secp256k1_frost.h
 noinst_HEADERS += src/modules/frost/main_impl.h
 noinst_HEADERS += src/modules/frost/keygen.h
 noinst_HEADERS += src/modules/frost/keygen_impl.h
+noinst_HEADERS += src/modules/frost/session.h
+noinst_HEADERS += src/modules/frost/session_impl.h

@@ -7,6 +7,8 @@
 #ifndef SECP256K1_GROUP_IMPL_H
 #define SECP256K1_GROUP_IMPL_H
 
+#include <string.h>
+
 #include "field.h"
 #include "group.h"
 #include "util.h"
@@ -885,6 +887,55 @@ static int secp256k1_gej_has_quad_y_var(const secp256k1_gej *a) {
        is */
     secp256k1_fe_mul(&yz, &a->y, &a->z);
     return secp256k1_fe_is_square_var(&yz);
+}
+
+static void secp256k1_point_save(unsigned char *data, secp256k1_ge *ge) {
+    if (sizeof(secp256k1_ge_storage) == 64) {
+        secp256k1_ge_storage s;
+        secp256k1_ge_to_storage(&s, ge);
+        memcpy(data, &s, sizeof(s));
+    } else {
+        VERIFY_CHECK(!secp256k1_ge_is_infinity(ge));
+        secp256k1_fe_normalize_var(&ge->x);
+        secp256k1_fe_normalize_var(&ge->y);
+        secp256k1_fe_get_b32(data, &ge->x);
+        secp256k1_fe_get_b32(data + 32, &ge->y);
+    }
+}
+
+static void secp256k1_point_load(secp256k1_ge *ge, const unsigned char *data) {
+    if (sizeof(secp256k1_ge_storage) == 64) {
+        /* When the secp256k1_ge_storage type is exactly 64 byte, use its
+         * representation as conversion is very fast. */
+        secp256k1_ge_storage s;
+        memcpy(&s, data, sizeof(s));
+        secp256k1_ge_from_storage(ge, &s);
+    } else {
+        /* Otherwise, fall back to 32-byte big endian for X and Y. */
+        secp256k1_fe x, y;
+        int ret = 1;
+        ret &= secp256k1_fe_set_b32_limit(&x, data);
+        ret &= secp256k1_fe_set_b32_limit(&y, data + 32);
+        VERIFY_CHECK(ret);
+        secp256k1_ge_set_xy(ge, &x, &y);
+    }
+}
+
+static void secp256k1_point_save_ext(unsigned char *data, secp256k1_ge *ge) {
+    if (secp256k1_ge_is_infinity(ge)) {
+        memset(data, 0, 64);
+    } else {
+        secp256k1_point_save(data, ge);
+    }
+}
+
+static void secp256k1_point_load_ext(secp256k1_ge *ge, const unsigned char *data) {
+    unsigned char zeros[64] = { 0 };
+    if (secp256k1_memcmp_var(data, zeros, sizeof(zeros)) == 0) {
+        secp256k1_ge_set_infinity(ge);
+    } else {
+        secp256k1_point_load(ge, data);
+    }
 }
 
 static int secp256k1_ge_is_in_correct_subgroup(const secp256k1_ge* ge) {
