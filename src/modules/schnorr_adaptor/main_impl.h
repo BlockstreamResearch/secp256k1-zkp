@@ -31,14 +31,14 @@ static void secp256k1_adaptor_nonce_function_bip340_sha256_tagged(secp256k1_sha2
  * SHA256 to SHA256("SchnorrAdaptor/aux")||SHA256("SchnorrAdaptor/aux"). */
 static void secp256k1_adaptor_nonce_function_bip340_sha256_tagged_aux(secp256k1_sha256 *sha) {
     secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0x60c4ec6dul;
-    sha->s[1] = 0x2fc91363ul;
-    sha->s[2] = 0xce54f4a5ul;
-    sha->s[3] = 0x962e1565ul;
-    sha->s[4] = 0x2b5da649ul;
-    sha->s[5] = 0x6ba94748ul;
-    sha->s[6] = 0x456c70adul;
-    sha->s[7] = 0x842cbaddul;
+    sha->s[0] = 0x50685e98ul;
+    sha->s[1] = 0x6313905eul;
+    sha->s[2] = 0x6db24fa0ul;
+    sha->s[3] = 0xc8b15c48ul;
+    sha->s[4] = 0x6b318921ul;
+    sha->s[5] = 0x441d8ff3ul;
+    sha->s[6] = 0xa7033a66ul;
+    sha->s[7] = 0xc3545cddul;
 
     sha->bytes = 64;
 }
@@ -136,7 +136,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     /* bytes_from_point(P) */
     secp256k1_fe_get_b32(pk_buf, &pk.x);
 
-    ret &= !!noncefp(nonce32, msg32, seckey, t33, pk_buf, bip340_algo, sizeof(bip340_algo), ndata);
+    ret &= !!noncefp(nonce32, msg32, seckey, t33, pk_buf, adaptor_bip340_algo, sizeof(adaptor_bip340_algo), ndata);
     /* k0 */
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);

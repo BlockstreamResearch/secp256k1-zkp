@@ -942,7 +942,7 @@ void test_schnorr_adaptor_adapt_extract_adaptor(void) {
 
 void run_schnorr_adaptor_tests(void) {
     int i;
-    run_nonce_function_bip340_tests();
+    run_adaptor_nonce_function_bip340_tests();
 
     test_schnorr_adaptor_api();
     test_schnorrsig_sha256_tagged();
