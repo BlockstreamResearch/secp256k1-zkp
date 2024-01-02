@@ -47,7 +47,7 @@ static void secp256k1_adaptor_nonce_function_bip340_sha256_tagged_aux(secp256k1_
  * by using the correct tagged hash function. */
 static const unsigned char adaptor_bip340_algo[20] = "SchnorrAdaptor/nonce";
 
-static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *t33, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
+static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *adaptor, const unsigned char *xonly_pk32, const unsigned char *algo, size_t algolen, void *data) {
     secp256k1_sha256 sha;
     unsigned char masked_key[32];
     int i;
@@ -88,7 +88,7 @@ static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned 
 
     /* Hash masked-key||pk||msg using the tagged hash as per the spec */
     secp256k1_sha256_write(&sha, masked_key, 32);
-    secp256k1_sha256_write(&sha, t33, 33);
+    secp256k1_sha256_write(&sha, adaptor, 33);
     secp256k1_sha256_write(&sha, xonly_pk32, 32);
     secp256k1_sha256_write(&sha, msg32, 32);
     secp256k1_sha256_finalize(&sha, nonce32);
@@ -97,7 +97,7 @@ static int adaptor_nonce_function_bip340(unsigned char *nonce32, const unsigned 
 
 const secp256k1_adaptor_nonce_function_hardened secp256k1_adaptor_nonce_function_bip340 = adaptor_nonce_function_bip340;
 
-static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *ctx, unsigned char *sig65, const unsigned char *msg32, const secp256k1_keypair *keypair, secp256k1_adaptor_nonce_function_hardened noncefp, const unsigned char *t33, void *ndata) {
+static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, secp256k1_adaptor_nonce_function_hardened noncefp, const unsigned char *adaptor, void *ndata) {
     secp256k1_scalar sk;
     secp256k1_scalar e;
     secp256k1_scalar k;
@@ -116,10 +116,10 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
-    ARG_CHECK(sig65 != NULL);
+    ARG_CHECK(presig65 != NULL);
     ARG_CHECK(msg32 != NULL);
     ARG_CHECK(keypair != NULL);
-    ARG_CHECK(t33 != NULL);
+    ARG_CHECK(adaptor != NULL);
 
     if (noncefp == NULL) {
         noncefp = secp256k1_adaptor_nonce_function_bip340;
@@ -136,7 +136,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     /* bytes_from_point(P) */
     secp256k1_fe_get_b32(pk_buf, &pk.x);
 
-    ret &= !!noncefp(nonce32, msg32, seckey, t33, pk_buf, adaptor_bip340_algo, sizeof(adaptor_bip340_algo), ndata);
+    ret &= !!noncefp(nonce32, msg32, seckey, adaptor, pk_buf, adaptor_bip340_algo, sizeof(adaptor_bip340_algo), ndata);
     /* k0 */
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);
@@ -147,7 +147,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     secp256k1_ge_set_gej(&r, &rj);
 
     /* T = cpoint(T) */
-    ret &= !!secp256k1_eckey_pubkey_parse(&t, t33, 33);
+    ret &= !!secp256k1_eckey_pubkey_parse(&t, adaptor, 33);
 
     /* R' = k*G + T, can use gej_add_ge_var since r and t aren't secret */
     secp256k1_gej_add_ge_var(&r0j, &rj, &t, NULL);
@@ -161,15 +161,15 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
         secp256k1_scalar_negate(&k, &k);
     }
 
-    ret &= !!secp256k1_eckey_pubkey_serialize(&r0, sig65, &size, 1);
+    ret &= !!secp256k1_eckey_pubkey_serialize(&r0, presig65, &size, 1);
 
-    secp256k1_schnorrsig_challenge(&e, &sig65[1], msg32, msglen, pk_buf);
+    secp256k1_schnorrsig_challenge(&e, &presig65[1], msg32, msglen, pk_buf);
     secp256k1_scalar_mul(&e, &e, &sk);
     /* k + e * d */
     secp256k1_scalar_add(&e, &e, &k);
-    secp256k1_scalar_get_b32(&sig65[33], &e);
+    secp256k1_scalar_get_b32(&presig65[33], &e);
 
-    secp256k1_memczero(sig65, 65, !ret);
+    secp256k1_memczero(presig65, 65, !ret);
     secp256k1_scalar_clear(&k);
     secp256k1_scalar_clear(&sk);
     memset(seckey, 0, sizeof(seckey));
@@ -177,12 +177,12 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     return ret;
 }
 
-int secp256k1_schnorr_adaptor_presign(const secp256k1_context *ctx, unsigned char *sig65, const unsigned char *msg32, const secp256k1_keypair *keypair, const unsigned char *t33, const unsigned char *aux_rand32) {
+int secp256k1_schnorr_adaptor_presign(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, const unsigned char *adaptor, const unsigned char *aux_rand32) {
     /* We cast away const from the passed aux_rand32 argument since we know the default nonce function does not modify it. */
-    return secp256k1_schnorr_adaptor_presign_internal(ctx, sig65, msg32, keypair, secp256k1_adaptor_nonce_function_bip340, t33, (unsigned char*)aux_rand32);
+    return secp256k1_schnorr_adaptor_presign_internal(ctx, presig65, msg32, keypair, secp256k1_adaptor_nonce_function_bip340, adaptor, (unsigned char*)aux_rand32);
 }
 
-int secp256k1_schnorr_adaptor_extract_t(const secp256k1_context *ctx, unsigned char *t33, const unsigned char *sig65, const unsigned char *msg32, const secp256k1_xonly_pubkey *pubkey) {
+int secp256k1_schnorr_adaptor_extract(const secp256k1_context *ctx, unsigned char *adaptor, const unsigned char *presig65, const unsigned char *msg32, const secp256k1_xonly_pubkey *pubkey) {
     secp256k1_scalar s0;
     secp256k1_scalar e;
     secp256k1_gej rj;
@@ -200,8 +200,8 @@ int secp256k1_schnorr_adaptor_extract_t(const secp256k1_context *ctx, unsigned c
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(t33 != NULL);
-    ARG_CHECK(sig65 != NULL);
+    ARG_CHECK(adaptor != NULL);
+    ARG_CHECK(presig65 != NULL);
     ARG_CHECK(msg32 != NULL);
     ARG_CHECK(pubkey != NULL);
 
@@ -209,16 +209,16 @@ int secp256k1_schnorr_adaptor_extract_t(const secp256k1_context *ctx, unsigned c
     ret &= !!secp256k1_xonly_pubkey_load(ctx, &pk, pubkey);
 
     /* s0 */
-    secp256k1_scalar_set_b32(&s0, &sig65[33], &overflow);
+    secp256k1_scalar_set_b32(&s0, &presig65[33], &overflow);
     ret &= !overflow;
 
     /* R0 */
-    ret &= !!secp256k1_xonly_pubkey_parse(ctx, &pkr0, &sig65[1]);
+    ret &= !!secp256k1_xonly_pubkey_parse(ctx, &pkr0, &presig65[1]);
     ret &= !!secp256k1_xonly_pubkey_load(ctx, &r0, &pkr0);
 
     /* Compute e */
     secp256k1_fe_get_b32(buf, &pk.x);
-    secp256k1_schnorrsig_challenge(&e, &sig65[1], msg32, msglen, buf);
+    secp256k1_schnorrsig_challenge(&e, &presig65[1], msg32, msglen, buf);
 
     /* Compute rj = s0*G + (-e) * pkj */
     secp256k1_scalar_negate(&e, &e);
@@ -232,22 +232,22 @@ int secp256k1_schnorr_adaptor_extract_t(const secp256k1_context *ctx, unsigned c
     /* T = R0 + (- R) */
     secp256k1_gej_neg(&rj, &rj);
     secp256k1_gej_add_ge_var(&tj, &rj, &r0, NULL);
-    if (sig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
+    if (presig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
         ;
-    } else if (sig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
+    } else if (presig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
         secp256k1_gej_neg(&tj, &tj);
     } else {
         ret = 0;
     }
     secp256k1_ge_set_gej(&t, &tj);
-    ret &= !!secp256k1_eckey_pubkey_serialize(&t, t33, &size, 1);
+    ret &= !!secp256k1_eckey_pubkey_serialize(&t, adaptor, &size, 1);
 
-    secp256k1_memczero(t33, 33, !ret);
+    secp256k1_memczero(adaptor, 33, !ret);
 
     return ret;
 }
 
-int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char *sig64, const unsigned char *sig65, const unsigned char *t32) {
+int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char *sig64, const unsigned char *presig65, const unsigned char *secadaptor) {
     secp256k1_scalar s0;
     secp256k1_scalar s;
     secp256k1_scalar t;
@@ -256,26 +256,26 @@ int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char 
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(sig64 != NULL);
-    ARG_CHECK(sig65 != NULL);
-    ARG_CHECK(sig65[0] == SECP256K1_TAG_PUBKEY_EVEN || sig65[0] == SECP256K1_TAG_PUBKEY_ODD);
-    ARG_CHECK(t32 != NULL);
+    ARG_CHECK(presig65 != NULL);
+    ARG_CHECK(presig65[0] == SECP256K1_TAG_PUBKEY_EVEN || presig65[0] == SECP256K1_TAG_PUBKEY_ODD);
+    ARG_CHECK(secadaptor != NULL);
 
     /* s0 */
-    secp256k1_scalar_set_b32(&s0, &sig65[33], &overflow);
+    secp256k1_scalar_set_b32(&s0, &presig65[33], &overflow);
     ret &= !overflow;
 
     /* t */
-    secp256k1_scalar_set_b32(&t, t32, &overflow);
+    secp256k1_scalar_set_b32(&t, secadaptor, &overflow);
     ret &= !overflow;
 
-    if (sig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
+    if (presig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
         secp256k1_scalar_add(&s, &s0, &t);
-    } else if (sig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
+    } else if (presig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
         secp256k1_scalar_negate(&t, &t);
         secp256k1_scalar_add(&s, &s0, &t);
     }
 
-    memcpy(sig64, &sig65[1], 32);
+    memcpy(sig64, &presig65[1], 32);
     secp256k1_scalar_get_b32(&sig64[32], &s);
     secp256k1_memczero(sig64, 64, !ret);
     secp256k1_scalar_clear(&s);
@@ -284,7 +284,7 @@ int secp256k1_schnorr_adaptor_adapt(const secp256k1_context *ctx, unsigned char 
     return ret;
 }
 
-int secp256k1_schnorr_adaptor_extract_adaptor(const secp256k1_context *ctx, unsigned char *t32, const unsigned char *sig65, const unsigned char *sig64) {
+int secp256k1_schnorr_adaptor_extract_sec(const secp256k1_context *ctx, unsigned char *secadaptor, const unsigned char *presig65, const unsigned char *sig64) {
     secp256k1_scalar s0;
     secp256k1_scalar s;
     secp256k1_scalar t;
@@ -292,29 +292,29 @@ int secp256k1_schnorr_adaptor_extract_adaptor(const secp256k1_context *ctx, unsi
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(t32 != NULL);
-    ARG_CHECK(sig65 != NULL);
-    ARG_CHECK(sig65[0] == SECP256K1_TAG_PUBKEY_EVEN || sig65[0] == SECP256K1_TAG_PUBKEY_ODD);
+    ARG_CHECK(secadaptor != NULL);
+    ARG_CHECK(presig65 != NULL);
+    ARG_CHECK(presig65[0] == SECP256K1_TAG_PUBKEY_EVEN || presig65[0] == SECP256K1_TAG_PUBKEY_ODD);
     ARG_CHECK(sig64 != NULL);
 
     /* s0 */
-    secp256k1_scalar_set_b32(&s0, &sig65[33], &overflow);
+    secp256k1_scalar_set_b32(&s0, &presig65[33], &overflow);
     ret &= !overflow;
 
     /* s */
     secp256k1_scalar_set_b32(&s, &sig64[32], &overflow);
     ret &= !overflow;
 
-    if (sig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
+    if (presig65[0] == SECP256K1_TAG_PUBKEY_EVEN) {
         secp256k1_scalar_negate(&s0, &s0);
         secp256k1_scalar_add(&t, &s, &s0);
-    } else if (sig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
+    } else if (presig65[0] == SECP256K1_TAG_PUBKEY_ODD) {
         secp256k1_scalar_negate(&s, &s);
         secp256k1_scalar_add(&t, &s0, &s);
     }
 
-    secp256k1_scalar_get_b32(t32, &t);
-    secp256k1_memczero(t32, 32, !ret);
+    secp256k1_scalar_get_b32(secadaptor, &t);
+    secp256k1_memczero(secadaptor, 32, !ret);
     secp256k1_scalar_clear(&s);
     secp256k1_scalar_clear(&t);
 
