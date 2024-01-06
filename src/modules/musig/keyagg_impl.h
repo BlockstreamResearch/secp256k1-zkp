@@ -131,14 +131,12 @@ static void secp256k1_musig_keyaggcoef_sha256(secp256k1_sha256 *sha) {
 /* Compute KeyAgg coefficient which is constant 1 for the second pubkey and
  * otherwise tagged_hash(pk_hash, x) where pk_hash is the hash of public keys.
  * second_pk is the point at infinity in case there is no second_pk. Assumes
- * that pk is not the point at infinity and that the coordinates of pk and
+ * that pk is not the point at infinity and that the Y-coordinates of pk and
  * second_pk are normalized. */
 static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsigned char *pk_hash, secp256k1_ge *pk, const secp256k1_ge *second_pk) {
     secp256k1_sha256 sha;
 
     VERIFY_CHECK(!secp256k1_ge_is_infinity(pk));
-    VERIFY_CHECK(pk->x.normalized && pk->y.normalized);
-    VERIFY_CHECK(secp256k1_ge_is_infinity(second_pk) || (second_pk->x.normalized && second_pk->y.normalized));
 
     if (!secp256k1_ge_is_infinity(second_pk)
           && secp256k1_fe_equal(&pk->x, &second_pk->x)
@@ -151,9 +149,13 @@ static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsig
         secp256k1_musig_keyaggcoef_sha256(&sha);
         secp256k1_sha256_write(&sha, pk_hash, 32);
         ret = secp256k1_eckey_pubkey_serialize(pk, buf, &buflen, 1);
+#ifdef VERIFY
         /* Serialization does not fail since the pk is not the point at infinity
          * (according to this function's precondition). */
         VERIFY_CHECK(ret && buflen == sizeof(buf));
+#else
+        (void) ret;
+#endif
         secp256k1_sha256_write(&sha, buf, sizeof(buf));
         secp256k1_sha256_finalize(&sha, buf);
         secp256k1_scalar_set_b32(r, buf, NULL);
@@ -178,9 +180,13 @@ static int secp256k1_musig_pubkey_agg_callback(secp256k1_scalar *sc, secp256k1_g
     secp256k1_musig_pubkey_agg_ecmult_data *ctx = (secp256k1_musig_pubkey_agg_ecmult_data *) data;
     int ret;
     ret = secp256k1_pubkey_load(ctx->ctx, pt, ctx->pks[idx]);
+#ifdef VERIFY
     /* pubkey_load can't fail because the same pks have already been loaded in
      * `musig_compute_pk_hash` (and we test this). */
     VERIFY_CHECK(ret);
+#else
+    (void) ret;
+#endif
     secp256k1_musig_keyaggcoef_internal(sc, ctx->pk_hash, pt, &ctx->second_pk);
     return 1;
 }

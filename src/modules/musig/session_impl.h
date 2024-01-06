@@ -174,8 +174,12 @@ int secp256k1_musig_pubnonce_serialize(const secp256k1_context* ctx, unsigned ch
         int ret;
         size_t size = 33;
         ret = secp256k1_eckey_pubkey_serialize(&ge[i], &out66[33*i], &size, 1);
+#ifdef VERIFY
         /* serialize must succeed because the point was just loaded */
         VERIFY_CHECK(ret && size == 33);
+#else
+        (void) ret;
+#endif
     }
     return 1;
 }
@@ -255,16 +259,6 @@ int secp256k1_musig_partial_sig_parse(const secp256k1_context* ctx, secp256k1_mu
         return 0;
     }
     secp256k1_musig_partial_sig_save(sig, &tmp);
-    return 1;
-}
-
-/* Normalizes the x-coordinate of the given group element. */
-static int secp256k1_xonly_ge_serialize(unsigned char *output32, secp256k1_ge *ge) {
-    if (secp256k1_ge_is_infinity(ge)) {
-        return 0;
-    }
-    secp256k1_fe_normalize_var(&ge->x);
-    secp256k1_fe_get_b32(output32, &ge->x);
     return 1;
 }
 
@@ -364,22 +358,25 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
     }
 
     if (keyagg_cache != NULL) {
-        int ret_tmp;
         if (!secp256k1_keyagg_cache_load(ctx, &cache_i, keyagg_cache)) {
             return 0;
         }
-        ret_tmp = secp256k1_xonly_ge_serialize(aggpk_ser, &cache_i.pk);
-        /* Serialization can not fail because the loaded point can not be infinity. */
-        VERIFY_CHECK(ret_tmp);
+        /* The loaded point cache_i.pk can not be the point at infinity. */
+        secp256k1_fe_get_b32(aggpk_ser, &cache_i.pk.x);
         aggpk_ser_ptr = aggpk_ser;
     }
     if (!secp256k1_pubkey_load(ctx, &pk, pubkey)) {
         return 0;
     }
     pk_serialize_success = secp256k1_eckey_pubkey_serialize(&pk, pk_ser, &pk_ser_len, SECP256K1_EC_COMPRESSED);
+
+#ifdef VERIFY
     /* A pubkey cannot be the point at infinity */
     VERIFY_CHECK(pk_serialize_success);
     VERIFY_CHECK(pk_ser_len == sizeof(pk_ser));
+#else
+    (void) pk_serialize_success;
+#endif
 
     secp256k1_nonce_function_musig(k, session_id32, msg32, seckey, pk_ser, aggpk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
@@ -460,7 +457,6 @@ static int secp256k1_musig_nonce_process_internal(int *fin_nonce_parity, unsigne
     secp256k1_ge fin_nonce_pt;
     secp256k1_gej fin_nonce_ptj;
     secp256k1_ge aggnonce[2];
-    int ret;
 
     secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
     secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
@@ -476,9 +472,9 @@ static int secp256k1_musig_nonce_process_internal(int *fin_nonce_parity, unsigne
     if (secp256k1_ge_is_infinity(&fin_nonce_pt)) {
         fin_nonce_pt = secp256k1_ge_const_g;
     }
-    ret = secp256k1_xonly_ge_serialize(fin_nonce, &fin_nonce_pt);
-    /* Can't fail since fin_nonce_pt is not infinity */
-    VERIFY_CHECK(ret);
+    /* fin_nonce_pt is not the point at infinity */
+    secp256k1_fe_normalize_var(&fin_nonce_pt.x);
+    secp256k1_fe_get_b32(fin_nonce, &fin_nonce_pt.x);
     secp256k1_fe_normalize_var(&fin_nonce_pt.y);
     *fin_nonce_parity = secp256k1_fe_is_odd(&fin_nonce_pt.y);
     return 1;
