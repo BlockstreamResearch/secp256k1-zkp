@@ -17,43 +17,11 @@
 #include "../../hash.h"
 #include "../../util.h"
 
-static void secp256k1_point_save(unsigned char *data, secp256k1_ge *ge) {
-    if (sizeof(secp256k1_ge_storage) == 64) {
-        secp256k1_ge_storage s;
-        secp256k1_ge_to_storage(&s, ge);
-        memcpy(data, &s, sizeof(s));
-    } else {
-        VERIFY_CHECK(!secp256k1_ge_is_infinity(ge));
-        secp256k1_fe_normalize_var(&ge->x);
-        secp256k1_fe_normalize_var(&ge->y);
-        secp256k1_fe_get_b32(data, &ge->x);
-        secp256k1_fe_get_b32(data + 32, &ge->y);
-    }
-}
-
-static void secp256k1_point_load(secp256k1_ge *ge, const unsigned char *data) {
-    if (sizeof(secp256k1_ge_storage) == 64) {
-        /* When the secp256k1_ge_storage type is exactly 64 byte, use its
-         * representation as conversion is very fast. */
-        secp256k1_ge_storage s;
-        memcpy(&s, data, sizeof(s));
-        secp256k1_ge_from_storage(ge, &s);
-    } else {
-        /* Otherwise, fall back to 32-byte big endian for X and Y. */
-        secp256k1_fe x, y;
-        int ret = 1;
-        ret &= secp256k1_fe_set_b32_limit(&x, data);
-        ret &= secp256k1_fe_set_b32_limit(&y, data + 32);
-        VERIFY_CHECK(ret);
-        secp256k1_ge_set_xy(ge, &x, &y);
-    }
-}
-
 static void secp256k1_point_save_ext(unsigned char *data, secp256k1_ge *ge) {
     if (secp256k1_ge_is_infinity(ge)) {
         memset(data, 0, 64);
     } else {
-        secp256k1_point_save(data, ge);
+        secp256k1_ge_to_bytes(data, ge);
     }
 }
 
@@ -62,7 +30,7 @@ static void secp256k1_point_load_ext(secp256k1_ge *ge, const unsigned char *data
     if (secp256k1_memcmp_var(data, zeros, sizeof(zeros)) == 0) {
         secp256k1_ge_set_infinity(ge);
     } else {
-        secp256k1_point_load(ge, data);
+        secp256k1_ge_from_bytes(ge, data);
     }
 }
 
@@ -82,7 +50,7 @@ static void secp256k1_keyagg_cache_save(secp256k1_musig_keyagg_cache *cache, sec
     unsigned char *ptr = cache->data;
     memcpy(ptr, secp256k1_musig_keyagg_cache_magic, 4);
     ptr += 4;
-    secp256k1_point_save(ptr, &cache_i->pk);
+    secp256k1_ge_to_bytes(ptr, &cache_i->pk);
     ptr += 64;
     secp256k1_point_save_ext(ptr, &cache_i->second_pk);
     ptr += 64;
@@ -97,7 +65,7 @@ static int secp256k1_keyagg_cache_load(const secp256k1_context* ctx, secp256k1_k
     const unsigned char *ptr = cache->data;
     ARG_CHECK(secp256k1_memcmp_var(ptr, secp256k1_musig_keyagg_cache_magic, 4) == 0);
     ptr += 4;
-    secp256k1_point_load(&cache_i->pk, ptr);
+    secp256k1_ge_from_bytes(&cache_i->pk, ptr);
     ptr += 64;
     secp256k1_point_load_ext(&cache_i->second_pk, ptr);
     ptr += 64;

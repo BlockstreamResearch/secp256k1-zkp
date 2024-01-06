@@ -26,7 +26,7 @@ static void secp256k1_musig_secnonce_save(secp256k1_musig_secnonce *secnonce, co
     memcpy(&secnonce->data[0], secp256k1_musig_secnonce_magic, 4);
     secp256k1_scalar_get_b32(&secnonce->data[4], &k[0]);
     secp256k1_scalar_get_b32(&secnonce->data[36], &k[1]);
-    secp256k1_point_save(&secnonce->data[68], pk);
+    secp256k1_ge_to_bytes(&secnonce->data[68], pk);
 }
 
 static int secp256k1_musig_secnonce_load(const secp256k1_context* ctx, secp256k1_scalar *k, secp256k1_ge *pk, secp256k1_musig_secnonce *secnonce) {
@@ -34,7 +34,7 @@ static int secp256k1_musig_secnonce_load(const secp256k1_context* ctx, secp256k1
     ARG_CHECK(secp256k1_memcmp_var(&secnonce->data[0], secp256k1_musig_secnonce_magic, 4) == 0);
     secp256k1_scalar_set_b32(&k[0], &secnonce->data[4], NULL);
     secp256k1_scalar_set_b32(&k[1], &secnonce->data[36], NULL);
-    secp256k1_point_load(pk, &secnonce->data[68]);
+    secp256k1_ge_from_bytes(pk, &secnonce->data[68]);
     /* We make very sure that the nonce isn't invalidated by checking the values
      * in addition to the magic. */
     is_zero = secp256k1_scalar_is_zero(&k[0]) & secp256k1_scalar_is_zero(&k[1]);
@@ -62,7 +62,7 @@ static void secp256k1_musig_pubnonce_save(secp256k1_musig_pubnonce* nonce, secp2
     int i;
     memcpy(&nonce->data[0], secp256k1_musig_pubnonce_magic, 4);
     for (i = 0; i < 2; i++) {
-        secp256k1_point_save(nonce->data + 4+64*i, &ge[i]);
+        secp256k1_ge_to_bytes(nonce->data + 4+64*i, &ge[i]);
     }
 }
 
@@ -73,7 +73,7 @@ static int secp256k1_musig_pubnonce_load(const secp256k1_context* ctx, secp256k1
 
     ARG_CHECK(secp256k1_memcmp_var(&nonce->data[0], secp256k1_musig_pubnonce_magic, 4) == 0);
     for (i = 0; i < 2; i++) {
-        secp256k1_point_load(&ge[i], nonce->data + 4 + 64*i);
+        secp256k1_ge_from_bytes(&ge[i], nonce->data + 4 + 64*i);
     }
     return 1;
 }
