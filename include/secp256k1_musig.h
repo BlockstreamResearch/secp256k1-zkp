@@ -234,7 +234,7 @@ SECP256K1_API int secp256k1_musig_pubkey_agg(
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_get(
     const secp256k1_context *ctx,
     secp256k1_pubkey *agg_pk,
-    secp256k1_musig_keyagg_cache *keyagg_cache
+    const secp256k1_musig_keyagg_cache *keyagg_cache
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Apply plain "EC" tweaking to a public key in a given keyagg_cache by
