@@ -278,7 +278,7 @@ int secp256k1_musig_pubkey_agg(const secp256k1_context* ctx, secp256k1_scratch_s
     return 1;
 }
 
-int secp256k1_musig_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, secp256k1_musig_keyagg_cache *keyagg_cache) {
+int secp256k1_musig_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, const secp256k1_musig_keyagg_cache *keyagg_cache) {
     secp256k1_keyagg_cache_internal cache_i;
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(agg_pk != NULL);
