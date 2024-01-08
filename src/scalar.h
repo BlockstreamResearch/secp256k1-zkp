@@ -108,4 +108,9 @@ static void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a
 /** Check invariants on a scalar (no-op unless VERIFY is enabled). */
 static void secp256k1_scalar_verify(const secp256k1_scalar *r);
 
+/** Generate two scalars from a 32-byte seed and an integer using the chacha20 stream cipher */
+static void secp256k1_scalar_chacha20_var(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx);
+
+static int secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx);
+
 #endif /* SECP256K1_SCALAR_H */

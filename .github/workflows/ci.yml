@@ -39,6 +39,7 @@ env:
   WHITELIST: 'no'
   MUSIG: 'no'
   ECDSAADAPTOR: 'no'
+  FROST: 'no'
   BPPP: 'no'
   ### test options
   SECP256K1_TEST_ITERS:
@@ -78,14 +79,14 @@ jobs:
       matrix:
         configuration:
           - env_vars: { WIDEMUL: 'int64',  RECOVERY: 'yes' }
-          - env_vars: { WIDEMUL: 'int64',                   ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes',  RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes' }
+          - env_vars: { WIDEMUL: 'int64',                   ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes',  RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', FROST: 'yes' }
           - env_vars: { WIDEMUL: 'int128' }
           - env_vars: { WIDEMUL: 'int128_struct',                                           ELLSWIFT: 'yes' }
           - env_vars: { WIDEMUL: 'int128', RECOVERY: 'yes',              SCHNORRSIG: 'yes', ELLSWIFT: 'yes' }
-          - env_vars: { WIDEMUL: 'int128',                  ECDH: 'yes', SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes'}
+          - env_vars: { WIDEMUL: 'int128',                  ECDH: 'yes', SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', FROST: 'yes'}
           - env_vars: { WIDEMUL: 'int128', ASM: 'x86_64',                                   ELLSWIFT: 'yes' }
-          - env_vars: {                    RECOVERY: 'yes',              SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes'}
-          - env_vars: { CTIMETESTS: 'no',  RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', CPPFLAGS: '-DVERIFY' }
+          - env_vars: {                    RECOVERY: 'yes',              SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', FROST: 'yes'}
+          - env_vars: { CTIMETESTS: 'no',  RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', FROST: 'yes', CPPFLAGS: '-DVERIFY' }
           - env_vars: { BUILD: 'distcheck', WITH_VALGRIND: 'no', CTIMETESTS: 'no', BENCH: 'no' }
           - env_vars: { CPPFLAGS: '-DDETERMINISTIC' }
           - env_vars: { CFLAGS: '-O0', CTIMETESTS: 'no' }
@@ -156,6 +157,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CC: ${{ matrix.cc }}
 
     steps:
@@ -208,6 +210,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
 
     steps:
@@ -267,6 +270,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
 
     steps:
@@ -320,6 +324,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
 
     strategy:
@@ -383,6 +388,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
 
     steps:
@@ -443,6 +449,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
       SECP256K1_TEST_ITERS: 2
 
@@ -502,6 +509,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
       CFLAGS: '-fsanitize=undefined,address -g'
       UBSAN_OPTIONS: 'print_stacktrace=1:halt_on_error=1'
@@ -567,6 +575,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'yes'
       CC: 'clang'
       SECP256K1_TEST_ITERS: 32
@@ -622,6 +631,7 @@ jobs:
       MUSIG: 'yes'
       ECDSAADAPTOR: 'yes'
       BPPP: 'yes'
+      FROST: 'yes'
       CTIMETESTS: 'no'
 
     strategy:
