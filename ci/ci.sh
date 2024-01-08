@@ -14,7 +14,7 @@ print_environment() {
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
             EXPERIMENTAL ECDH RECOVERY SCHNORRSIG ELLSWIFT \
-            ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
+            ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP FROST \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
             HOST WRAPPER_CMD \
@@ -82,6 +82,7 @@ esac
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
+    --enable-module-frost="$FROST" \
     --enable-examples="$EXAMPLES" \
     --enable-ctime-tests="$CTIMETESTS" \
     --with-valgrind="$WITH_VALGRIND" \
