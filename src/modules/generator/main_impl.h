@@ -90,6 +90,7 @@ int secp256k1_generator_serialize(const secp256k1_context* ctx, unsigned char *o
     return 1;
 }
 
+/* t must be normalized. */
 static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     /* Implements the algorithm from:
      *    Indifferentiable Hashing to Barreto-Naehrig Curves
@@ -128,7 +129,7 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     static const secp256k1_fe b_plus_one = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 8);
 
     secp256k1_fe wn, wd, x1n, x2n, x3n, x3d, jinv, tmp, x1, x2, x3, alphain, betain, gammain, y1, y2, y3;
-    int alphaquad, betaquad;
+    int alphaquad, betaquad, zerot;
 
     secp256k1_fe_mul(&wn, &c, t); /* mag 1 */
     secp256k1_fe_sqr(&wd, t); /* mag 1 */
@@ -152,6 +153,9 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     secp256k1_fe_mul(&x2, &x2, &jinv); /* mag 1 */
     secp256k1_fe_mul(&x3, &x3n, &wd); /* mag 1 */
     secp256k1_fe_mul(&x3, &x3, &jinv); /* mag 1 */
+
+    zerot = secp256k1_fe_is_zero(t);
+    secp256k1_fe_cmov(&x1, &d, zerot);
 
     secp256k1_fe_sqr(&alphain, &x1); /* mag 1 */
     secp256k1_fe_mul(&alphain, &alphain, &x1); /* mag 1 */
