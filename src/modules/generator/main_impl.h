@@ -90,6 +90,7 @@ int secp256k1_generator_serialize(const secp256k1_context* ctx, unsigned char *o
     return 1;
 }
 
+/* ACHTUNG: Calling with t = 0, will return an off-curve point. */
 static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     /* Implements the algorithm from:
      *    Indifferentiable Hashing to Barreto-Naehrig Curves
@@ -206,6 +207,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256_write(&sha256, key32, 32);
     secp256k1_sha256_finalize(&sha256, b32);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
+    ret &= !secp256k1_fe_is_zero(&t);
     shallue_van_de_woestijne(&add, &t);
     if (blind32) {
         secp256k1_gej_add_ge(&accum, &accum, &add);
@@ -218,6 +220,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256_write(&sha256, key32, 32);
     secp256k1_sha256_finalize(&sha256, b32);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
+    ret &= !secp256k1_fe_is_zero(&t);
     shallue_van_de_woestijne(&add, &t);
     secp256k1_gej_add_ge(&accum, &accum, &add);
 
