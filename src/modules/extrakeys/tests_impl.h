@@ -507,42 +507,6 @@ static void test_hsort(void) {
 }
 #undef NUM
 
-static void test_pubkey_comparison(void) {
-    unsigned char pk1_ser[33] = {
-        0x02,
-        0x58, 0x84, 0xb3, 0xa2, 0x4b, 0x97, 0x37, 0x88, 0x92, 0x38, 0xa6, 0x26, 0x62, 0x52, 0x35, 0x11,
-        0xd0, 0x9a, 0xa1, 0x1b, 0x80, 0x0b, 0x5e, 0x93, 0x80, 0x26, 0x11, 0xef, 0x67, 0x4b, 0xd9, 0x23
-    };
-    const unsigned char pk2_ser[33] = {
-        0x03,
-        0xde, 0x36, 0x0e, 0x87, 0x59, 0x8f, 0x3c, 0x01, 0x36, 0x2a, 0x2a, 0xb8, 0xc6, 0xf4, 0x5e, 0x4d,
-        0xb2, 0xc2, 0xd5, 0x03, 0xa7, 0xf9, 0xf1, 0x4f, 0xa8, 0xfa, 0x95, 0xa8, 0xe9, 0x69, 0x76, 0x1c
-    };
-    secp256k1_pubkey pk1;
-    secp256k1_pubkey pk2;
-
-    CHECK(secp256k1_ec_pubkey_parse(CTX, &pk1, pk1_ser, sizeof(pk1_ser)) == 1);
-    CHECK(secp256k1_ec_pubkey_parse(CTX, &pk2, pk2_ser, sizeof(pk2_ser)) == 1);
-
-    CHECK_ILLEGAL_VOID(CTX, CHECK(secp256k1_pubkey_cmp(CTX, NULL, &pk2) < 0));
-    CHECK_ILLEGAL_VOID(CTX, CHECK(secp256k1_pubkey_cmp(CTX, &pk1, NULL) > 0));
-    CHECK(secp256k1_pubkey_cmp(CTX, &pk1, &pk2) < 0);
-    CHECK(secp256k1_pubkey_cmp(CTX, &pk2, &pk1) > 0);
-    CHECK(secp256k1_pubkey_cmp(CTX, &pk1, &pk1) == 0);
-    CHECK(secp256k1_pubkey_cmp(CTX, &pk2, &pk2) == 0);
-    memset(&pk1, 0, sizeof(pk1)); /* illegal pubkey */
-    CHECK_ILLEGAL_VOID(CTX, CHECK(secp256k1_pubkey_cmp(CTX, &pk1, &pk2) < 0));
-    {
-        int32_t ecount = 0;
-        secp256k1_context_set_illegal_callback(CTX, counting_callback_fn, &ecount);
-        CHECK(secp256k1_pubkey_cmp(CTX, &pk1, &pk1) == 0);
-        CHECK(ecount == 2);
-        secp256k1_context_set_illegal_callback(CTX, NULL, NULL);
-    }
-    CHECK_ILLEGAL_VOID(CTX, CHECK(secp256k1_pubkey_cmp(CTX, &pk2, &pk1) > 0));
-
-}
-
 static void test_sort_helper(secp256k1_pubkey *pk, size_t *pk_order, size_t n_pk) {
     size_t i;
     const secp256k1_pubkey *pk_test[5];
@@ -704,7 +668,6 @@ static void run_extrakeys_tests(void) {
     test_keypair_add();
 
     test_hsort();
-    test_pubkey_comparison();
     test_sort_api();
     test_sort();
     test_sort_vectors();

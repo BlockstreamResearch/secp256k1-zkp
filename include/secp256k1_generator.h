@@ -58,7 +58,7 @@ SECP256K1_API int secp256k1_generator_serialize(
  *           1 otherwise.
  *  Args: ctx:     pointer to a context object
  *  Out:  gen:     pointer to a the new generator object
- *  In:   seed32:  a 32-byte seed
+ *  In:   seed32:  32-byte seed
  *
  *  If successful a valid generator will be placed in gen. The produced
  *  generators are distributed uniformly over the curve, and will not have a
@@ -77,8 +77,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *           blind is out of range. 1 otherwise.
  *  Args: ctx:     pointer to a context object (not secp256k1_context_static)
  *  Out:  gen:     pointer to a generator object
- *  In:   seed32:  a 32-byte seed
- *        blind32: a 32-byte secret value to blind the generator with.
+ *  In:   seed32:  32-byte seed
+ *        blind32: 32-byte secret value to blind the generator with.
  *
  *  The result is equivalent to first calling secp256k1_generator_generate,
  *  converting the result to a public key, calling secp256k1_ec_pubkey_tweak_add,
