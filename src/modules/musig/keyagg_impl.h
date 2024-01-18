@@ -169,10 +169,8 @@ static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsig
     secp256k1_sha256 sha;
 
     VERIFY_CHECK(!secp256k1_ge_is_infinity(pk));
-#ifdef VERIFY
     VERIFY_CHECK(pk->x.normalized && pk->y.normalized);
     VERIFY_CHECK(secp256k1_ge_is_infinity(second_pk) || (second_pk->x.normalized && second_pk->y.normalized));
-#endif
 
     if (!secp256k1_ge_is_infinity(second_pk)
           && secp256k1_fe_equal(&pk->x, &second_pk->x)
