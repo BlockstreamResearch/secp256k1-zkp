@@ -111,10 +111,20 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
        wd = 1 + b + t^2
        x3d = c^2 * t^2 = -3 * t^2
 
-       so that
+       so that if j != 0, then
 
        1 / wd = 1/j * x3d
        1 / x3d = 1/j * wd
+
+       x1 = d - c * t^2 * x3d / j
+       x3 = 1 + wd^3 / j
+
+       If j = 0, the function outputs the point (d, f(d)). This point is equal
+       to (x1, f(x1)) as defined above if division by 0 is defined to be 0. In
+       below code this is not special-cased because secp256k1_fe_inv returns 0
+       on input 0.
+
+       j = 0 happens only when t = 0 (since wd != 0 as -8 is not a square).
     */
 
     static const secp256k1_fe negc = SECP256K1_FE_CONST(0xf5d2d456, 0xcaf80e20, 0xdcc88f3d, 0x586869d3, 0x39e092ea, 0x25eb132b, 0x8272d850, 0xe32a03dd);
@@ -123,23 +133,41 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
     secp256k1_fe wd, x3d, jinv, tmp, x1, x2, x3, alphain, betain, gammain, y1, y2, y3;
     int alphaquad, betaquad;
 
+    /* wd = t^2 */
     secp256k1_fe_sqr(&wd, t); /* mag 1 */
+    /* x1 = -c * t^2 */
     secp256k1_fe_mul(&x1, &negc, &wd); /* mag 1 */
+    /* x3d = t^2 */
     x3d = wd; /* mag 1 */
+    /* x3d = 3 * t^2 */
     secp256k1_fe_mul_int(&x3d, 3); /* mag 3 */
+    /* x3d = -3 * t^2 */
     secp256k1_fe_negate(&x3d, &x3d, 3); /* mag 4 */
+    /* wd = 1 + b + t^2 */
     secp256k1_fe_add_int(&wd, SECP256K1_B + 1); /* mag 2 */
+    /* jinv = wd * x3d */
     secp256k1_fe_mul(&jinv, &wd, &x3d); /* mag 1 */
+    /* jinv = 1/(wd * x3d) */
     secp256k1_fe_inv(&jinv, &jinv); /* mag 1 */
+    /* x1 = -c * t^2 * x3d */
     secp256k1_fe_mul(&x1, &x1, &x3d); /* mag 1 */
+    /* x1 = -c * t^2 * x3d * 1/j */
     secp256k1_fe_mul(&x1, &x1, &jinv); /* mag 1 */
+    /* x1 = d + -c * t^2 * x3d * 1/j */
     secp256k1_fe_add(&x1, &d); /* mag 2 */
+    /* x2 = x1 */
     x2 = x1; /* mag 2 */
+    /* x2 = x1 + 1 */
     secp256k1_fe_add_int(&x2, 1); /* mag 3 */
+    /* x2 = - (x1 + 1) */
     secp256k1_fe_negate(&x2, &x2, 3); /* mag 4 */
+    /* x3 = wd^2 */
     secp256k1_fe_sqr(&x3, &wd); /* mag 1 */
+    /* x3 = wd^3 */
     secp256k1_fe_mul(&x3, &x3, &wd); /* mag 1 */
+    /* x3 = wd^3 * 1/j */
     secp256k1_fe_mul(&x3, &x3, &jinv); /* mag 1 */
+    /* x3 = 1 + (wd^3 * 1/j) */
     secp256k1_fe_add_int(&x3, 1); /* mag 2 */
 
     secp256k1_fe_sqr(&alphain, &x1); /* mag 1 */
