@@ -48,7 +48,9 @@ static void test_generator_api(void) {
 
 static void test_shallue_van_de_woestijne(void) {
     /* Matches with the output of the shallue_van_de_woestijne.sage SAGE program */
-    static const secp256k1_ge_storage results[32] = {
+    static const secp256k1_ge_storage results[34] = {
+        SECP256K1_GE_STORAGE_CONST(0x851695d4, 0x9a83f8ef, 0x919bb861, 0x53cbcb16, 0x630fb68a, 0xed0a766a, 0x3ec693d6, 0x8e6afa40, 0x4218f20a, 0xe6c646b3, 0x63db6860, 0x5822fb14, 0x264ca8d2, 0x587fdd6f, 0xbc750d58, 0x7e76a7ee),
+        SECP256K1_GE_STORAGE_CONST(0x851695d4, 0x9a83f8ef, 0x919bb861, 0x53cbcb16, 0x630fb68a, 0xed0a766a, 0x3ec693d6, 0x8e6afa40, 0x4218f20a, 0xe6c646b3, 0x63db6860, 0x5822fb14, 0x264ca8d2, 0x587fdd6f, 0xbc750d58, 0x7e76a7ee),
         SECP256K1_GE_STORAGE_CONST(0xedd1fd3e, 0x327ce90c, 0xc7a35426, 0x14289aee, 0x9682003e, 0x9cf7dcc9, 0xcf2ca974, 0x3be5aa0c, 0x0225f529, 0xee75acaf, 0xccfc4560, 0x26c5e46b, 0xf80237a3, 0x3924655a, 0x16f90e88, 0x085ed52a),
         SECP256K1_GE_STORAGE_CONST(0xedd1fd3e, 0x327ce90c, 0xc7a35426, 0x14289aee, 0x9682003e, 0x9cf7dcc9, 0xcf2ca974, 0x3be5aa0c, 0xfdda0ad6, 0x118a5350, 0x3303ba9f, 0xd93a1b94, 0x07fdc85c, 0xc6db9aa5, 0xe906f176, 0xf7a12705),
         SECP256K1_GE_STORAGE_CONST(0x2c5cdc9c, 0x338152fa, 0x85de92cb, 0x1bee9907, 0x765a922e, 0x4f037cce, 0x14ecdbf2, 0x2f78fe15, 0x56716069, 0x6818286b, 0x72f01a3e, 0x5e8caca7, 0x36249160, 0xc7ded69d, 0xd51913c3, 0x03a2fa97),
@@ -87,7 +89,7 @@ static void test_shallue_van_de_woestijne(void) {
     secp256k1_fe fe;
     secp256k1_ge_storage ges;
     int i, s;
-    for (i = 1; i <= 16; i++) {
+    for (i = 0; i <= 16; i++) {
         secp256k1_fe_set_int(&fe, i);
 
         for (s = 0; s < 2; s++) {
@@ -96,9 +98,9 @@ static void test_shallue_van_de_woestijne(void) {
                 secp256k1_fe_normalize(&fe);
             }
             shallue_van_de_woestijne(&ge, &fe);
+            CHECK(secp256k1_ge_is_valid_var(&ge));
             secp256k1_ge_to_storage(&ges, &ge);
-
-            CHECK(secp256k1_memcmp_var(&ges, &results[i * 2 + s - 2], sizeof(secp256k1_ge_storage)) == 0);
+            CHECK(secp256k1_memcmp_var(&ges, &results[i * 2 + s], sizeof(secp256k1_ge_storage)) == 0);
         }
     }
 }
