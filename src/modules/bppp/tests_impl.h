@@ -60,7 +60,7 @@ static void test_bppp_generators_api(void) {
     /* Check that round-trip succeeded */
     CHECK(gens->n == gens_orig->n);
     for (len = 0; len < gens->n; len++) {
-        ge_equals_ge(&gens->gens[len], &gens_orig->gens[len]);
+        secp256k1_ge_eq_var(&gens->gens[len], &gens_orig->gens[len]);
     }
 
     /* Destroy (we allow destroying a NULL context, it's just a noop. like free().) */
@@ -199,8 +199,8 @@ static void test_serialize_two_points_roundtrip(secp256k1_ge *X, secp256k1_ge *R
     secp256k1_bppp_serialize_points(buf, X, R);
     CHECK(secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0));
     CHECK(secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 1));
-    ge_equals_ge(X, &X_tmp);
-    ge_equals_ge(R, &R_tmp);
+    secp256k1_ge_eq_var(X, &X_tmp);
+    secp256k1_ge_eq_var(R, &R_tmp);
 }
 
 static void test_serialize_two_points(void) {

@@ -246,7 +246,7 @@ AC_ARG_ENABLE(reduced_surjection_proof_size,
 AC_ARG_WITH([test-override-wide-multiply], [] ,[set_widemul=$withval], [set_widemul=auto])
 
 AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=x86_64|arm32|no|auto],
-[assembly optimizations to use (experimental: arm32) [default=auto]])],[req_asm=$withval], [req_asm=auto])
+[assembly to use (experimental: arm32) [default=auto]])],[req_asm=$withval], [req_asm=auto])
 
 AC_ARG_WITH([ecmult-window], [AS_HELP_STRING([--with-ecmult-window=SIZE|auto],
 [window size for ecmult precomputation for verification, specified as integer in range [2..24].]
@@ -336,24 +336,24 @@ else
   x86_64)
     SECP_X86_64_ASM_CHECK
     if test x"$has_x86_64_asm" != x"yes"; then
-      AC_MSG_ERROR([x86_64 assembly optimization requested but not available])
+      AC_MSG_ERROR([x86_64 assembly requested but not available])
     fi
     ;;
   arm32)
     SECP_ARM32_ASM_CHECK
     if test x"$has_arm32_asm" != x"yes"; then
-      AC_MSG_ERROR([ARM32 assembly optimization requested but not available])
+      AC_MSG_ERROR([ARM32 assembly requested but not available])
     fi
     ;;
   no)
     ;;
   *)
-    AC_MSG_ERROR([invalid assembly optimization selection])
+    AC_MSG_ERROR([invalid assembly selection])
     ;;
   esac
 fi
 
-# Select assembly optimization
+# Select assembly
 enable_external_asm=no
 
 case $set_asm in
@@ -366,7 +366,7 @@ arm32)
 no)
   ;;
 *)
-  AC_MSG_ERROR([invalid assembly optimizations])
+  AC_MSG_ERROR([invalid assembly selection])
   ;;
 esac
 
@@ -444,40 +444,53 @@ SECP_CFLAGS="$SECP_CFLAGS $WERROR_CFLAGS"
 ### Handle module options
 ###
 
-# Besides testing whether modules are enabled, the following code also enables
-# module dependencies. The order of the tests matters: the dependency must be
-# tested first.
+# Processing must be done in a reverse topological sorting of the dependency graph
+# (dependent module first).
+if test x"$enable_module_bppp" = x"yes"; then
+  if test x"$enable_module_generator" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.])
+  fi
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_BPPP=1"
+  enable_module_generator=yes
+fi
 
-if test x"$enable_module_ecdh" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDH=1"
+if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
+fi
+
+if test x"$enable_module_ecdsa_s2c" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_S2C=1"
 fi
 
 if test x"$enable_module_musig" = x"yes"; then
+  if test x"$enable_module_schnorrsig" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_MUSIG=1"
   enable_module_schnorrsig=yes
 fi
 
-if test x"$enable_module_recovery" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RECOVERY=1"
-fi
-
 if test x"$enable_module_whitelist" = x"yes"; then
+  if test x"$enable_module_rangeproof" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_WHITELIST=1"
   enable_module_rangeproof=yes
 fi
 
 if test x"$enable_module_surjectionproof" = x"yes"; then
+  if test x"$enable_module_rangeproof" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SURJECTIONPROOF=1"
   enable_module_rangeproof=yes
 fi
 
 if test x"$enable_module_rangeproof" = x"yes"; then
+  if test x"$enable_module_generator" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.])
+  fi
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RANGEPROOF=1"
-  enable_module_generator=yes
-fi
-
-if test x"$enable_module_bppp" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_BPPP=1"
   enable_module_generator=yes
 fi
 
@@ -485,23 +498,28 @@ if test x"$enable_module_generator" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_GENERATOR=1"
 fi
 
-if test x"$enable_module_schnorrsig" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG=1"
-  enable_module_extrakeys=yes
-fi
-
 if test x"$enable_module_ellswift" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ELLSWIFT=1"
 fi
 
-# Test if extrakeys is set after the schnorrsig module to allow the schnorrsig
-# module to set enable_module_extrakeys=yes
+if test x"$enable_module_schnorrsig" = x"yes"; then
+  if test x"$enable_module_extrakeys" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the extrakeys module explicitly, but it is required by the schnorrsig module.])
+  fi
+  enable_module_extrakeys=yes
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG=1"
+fi
+
 if test x"$enable_module_extrakeys" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_EXTRAKEYS=1"
 fi
 
-if test x"$enable_module_ecdsa_s2c" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_S2C=1"
+if test x"$enable_module_recovery" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_RECOVERY=1"
+fi
+
+if test x"$enable_module_ecdh" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDH=1"
 fi
 
 if test x"$enable_external_default_callbacks" = x"yes"; then
@@ -510,10 +528,6 @@ fi
 
 if test x"$use_reduced_surjection_proof_size" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_REDUCED_SURJECTION_PROOF_SIZE=1"
-fi
-
-if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
 fi
 
 ###
@@ -533,6 +547,15 @@ else
   if test x"$enable_module_bppp" = x"yes"; then
     AC_MSG_ERROR([Bulletproofs++ module is experimental. Use --enable-experimental to allow.])
   fi
+  if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+    AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_ecdsa_s2c" = x"yes"; then
+    AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_musig" = x"yes"; then
+    AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_whitelist" = x"yes"; then
     AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
   fi
@@ -545,17 +568,8 @@ else
   if test x"$enable_module_generator" = x"yes"; then
     AC_MSG_ERROR([NUMS generator module is experimental. Use --enable-experimental to allow.])
   fi
-  if test x"$enable_module_musig" = x"yes"; then
-    AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_ecdsa_s2c" = x"yes"; then
-    AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
-  fi
-  if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
-    AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
-  fi
   if test x"$set_asm" = x"arm32"; then
-    AC_MSG_ERROR([ARM32 assembly optimization is experimental. Use --enable-experimental to allow.])
+    AC_MSG_ERROR([ARM32 assembly is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
@@ -572,19 +586,19 @@ AM_CONDITIONAL([USE_CTIME_TESTS], [test x"$enable_ctime_tests" = x"yes"])
 AM_CONDITIONAL([USE_EXHAUSTIVE_TESTS], [test x"$enable_exhaustive_tests" != x"no"])
 AM_CONDITIONAL([USE_EXAMPLES], [test x"$enable_examples" != x"no"])
 AM_CONDITIONAL([USE_BENCHMARK], [test x"$enable_benchmark" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ELLSWIFT], [test x"$enable_module_ellswift" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
 AM_CONDITIONAL([USE_REDUCED_SURJECTION_PROOF_SIZE], [test x"$use_reduced_surjection_proof_size" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$enable_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm32"])
