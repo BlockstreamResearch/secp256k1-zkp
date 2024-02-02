@@ -454,12 +454,12 @@ if test x"$enable_module_bppp" = x"yes"; then
   enable_module_generator=yes
 fi
 
-if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
-fi
-
 if test x"$enable_module_ecdsa_s2c" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_S2C=1"
+fi
+
+if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
 fi
 
 if test x"$enable_module_musig" = x"yes"; then
@@ -497,6 +497,7 @@ fi
 if test x"$enable_module_generator" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_GENERATOR=1"
 fi
+
 
 if test x"$enable_module_ellswift" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ELLSWIFT=1"
