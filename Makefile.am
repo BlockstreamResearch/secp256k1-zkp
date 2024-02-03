@@ -316,3 +316,7 @@ endif
 if ENABLE_MODULE_ECDSA_ADAPTOR
 include src/modules/ecdsa_adaptor/Makefile.am.include
 endif
+
+if ENABLE_MODULE_SCHNORR_ADAPTOR
+include src/modules/schnorr_adaptor/Makefile.am.include
+endif
