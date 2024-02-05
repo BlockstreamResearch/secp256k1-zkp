@@ -205,7 +205,7 @@ AC_ARG_ENABLE(module_surjectionproof,
 AC_ARG_ENABLE(reduced_surjection_proof_size,
     AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
     [],
-    [SECP_SET_DEFAULT([use_reduced_surjection_proof_size], [no], [no])])
+    [SECP_SET_DEFAULT([enable_reduced_surjection_proof_size], [no], [no])])
 
 AC_ARG_ENABLE(module_whitelist,
     AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
@@ -526,7 +526,7 @@ if test x"$enable_external_default_callbacks" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_EXTERNAL_DEFAULT_CALLBACKS=1"
 fi
 
-if test x"$use_reduced_surjection_proof_size" = x"yes"; then
+if test x"$enable_reduced_surjection_proof_size" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_REDUCED_SURJECTION_PROOF_SIZE=1"
 fi
 
@@ -630,6 +630,9 @@ echo "  module ellswift         = $enable_module_ellswift"
 echo "  module generator        = $enable_module_generator"
 echo "  module rangeproof       = $enable_module_rangeproof"
 echo "  module surjectionproof  = $enable_module_surjectionproof"
+if test x"$enable_module_surjectionproof" = x"yes" && test x"$enable_reduced_surjection_proof_size" = x"yes"; then
+echo "    reduced proof size    = $enable_reduced_surjection_proof_size"
+fi
 echo "  module whitelist        = $enable_module_whitelist"
 echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
