@@ -168,38 +168,13 @@ AC_ARG_ENABLE(examples,
     AS_HELP_STRING([--enable-examples],[compile the examples [default=no]]), [],
     [SECP_SET_DEFAULT([enable_examples], [no], [yes])])
 
-AC_ARG_ENABLE(module_bppp,
-    AS_HELP_STRING([--enable-module-bppp],[enable Bulletproofs++ module (experimental)]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_bppp], [no], [yes])])
-
 AC_ARG_ENABLE(module_ecdh,
     AS_HELP_STRING([--enable-module-ecdh],[enable ECDH module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_ecdh], [yes], [yes])])
 
-AC_ARG_ENABLE(module_musig,
-    AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_musig], [no], [yes])])
-
 AC_ARG_ENABLE(module_recovery,
     AS_HELP_STRING([--enable-module-recovery],[enable ECDSA pubkey recovery module [default=no]]), [],
     [SECP_SET_DEFAULT([enable_module_recovery], [no], [yes])])
-
-AC_ARG_ENABLE(module_generator,
-    AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_generator], [no], [yes])])
-
-AC_ARG_ENABLE(module_rangeproof,
-    AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_rangeproof], [no], [yes])])
-
-AC_ARG_ENABLE(module_whitelist,
-    AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_whitelist], [no], [yes])])
 
 AC_ARG_ENABLE(module_extrakeys,
     AS_HELP_STRING([--enable-module-extrakeys],[enable extrakeys module [default=yes]]), [],
@@ -213,10 +188,44 @@ AC_ARG_ENABLE(module_ellswift,
     AS_HELP_STRING([--enable-module-ellswift],[enable ElligatorSwift module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_ellswift], [yes], [yes])])
 
+AC_ARG_ENABLE(module_generator,
+    AS_HELP_STRING([--enable-module-generator],[enable NUMS generator module [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_generator], [no], [yes])])
+
+AC_ARG_ENABLE(module_rangeproof,
+    AS_HELP_STRING([--enable-module-rangeproof],[enable Pedersen / zero-knowledge range proofs module [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_rangeproof], [no], [yes])])
+
+AC_ARG_ENABLE(module_surjectionproof,
+    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_surjectionproof], [no], [yes])])
+AC_ARG_ENABLE(reduced_surjection_proof_size,
+    AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([use_reduced_surjection_proof_size], [no], [no])])
+
+AC_ARG_ENABLE(module_whitelist,
+    AS_HELP_STRING([--enable-module-whitelist],[enable key whitelisting module [default=no]]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_whitelist], [no], [yes])])
+
+AC_ARG_ENABLE(module_musig,
+    AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_musig], [no], [yes])])
+
 AC_ARG_ENABLE(module_ecdsa_s2c,
     AS_HELP_STRING([--enable-module-ecdsa-s2c],[enable ECDSA sign-to-contract module [default=no]]),
     [],
     [SECP_SET_DEFAULT([enable_module_ecdsa_s2c], [no], [yes])])
+
+AC_ARG_ENABLE(module_bppp,
+    AS_HELP_STRING([--enable-module-bppp],[enable Bulletproofs++ module (experimental)]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_bppp], [no], [yes])])
 
 AC_ARG_ENABLE(module_ecdsa-adaptor,
     AS_HELP_STRING([--enable-module-ecdsa-adaptor],[enable ECDSA adaptor module [default=no]]),
@@ -226,16 +235,6 @@ AC_ARG_ENABLE(module_ecdsa-adaptor,
 AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]), [],
     [SECP_SET_DEFAULT([enable_external_default_callbacks], [no], [no])])
-
-AC_ARG_ENABLE(module_surjectionproof,
-    AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_surjectionproof], [no], [yes])])
-
-AC_ARG_ENABLE(reduced_surjection_proof_size,
-    AS_HELP_STRING([--enable-reduced-surjection-proof-size],[use reduced surjection proof size (disabling parsing and verification) [default=no]]),
-    [],
-    [SECP_SET_DEFAULT([use_reduced_surjection_proof_size], [no], [no])])
 
 # Test-only override of the (autodetected by the C code) "widemul" setting.
 # Legal values are:
@@ -627,6 +626,7 @@ echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
 echo "  module ellswift         = $enable_module_ellswift"
+# libsecp256k1-zkp modules, in the order they were added to the libsecp256k1-zkp
 echo "  module generator        = $enable_module_generator"
 echo "  module rangeproof       = $enable_module_rangeproof"
 echo "  module surjectionproof  = $enable_module_surjectionproof"
