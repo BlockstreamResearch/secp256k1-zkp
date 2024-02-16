@@ -610,6 +610,10 @@ AC_SUBST(LIB_VERSION_AGE, _LIB_VERSION_AGE)
 
 AC_OUTPUT
 
+# The order in which all modules are listed here should be considered the
+# canonical order. This order (or, when appropriate, its reserve) should be used
+# everywhere we list or process modules, i.e., here and in other build system
+# files and docs.
 echo
 echo "Build Options:"
 echo "  with external callbacks = $enable_external_default_callbacks"
