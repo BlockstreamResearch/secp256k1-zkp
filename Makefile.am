@@ -265,6 +265,10 @@ EXTRA_DIST += src/wycheproof/WYCHEPROOF_COPYING
 EXTRA_DIST += src/wycheproof/ecdsa_secp256k1_sha256_bitcoin_test.json
 EXTRA_DIST += tools/tests_wycheproof_generate.py
 
+if ENABLE_MODULE_SCHNORRSIG_HALFAGG
+include src/modules/schnorrsig_halfagg/Makefile.am.include
+endif
+
 if ENABLE_MODULE_BPPP
 include src/modules/bppp/Makefile.am.include
 endif

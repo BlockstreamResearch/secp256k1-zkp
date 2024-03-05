@@ -7446,6 +7446,10 @@ static void run_ecdsa_wycheproof(void) {
     test_ecdsa_wycheproof();
 }
 
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+# include "modules/schnorrsig_halfagg/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_BPPP
 # include "modules/bppp/tests_impl.h"
 #endif
@@ -7817,6 +7821,10 @@ int main(int argc, char **argv) {
 
     /* EC key arithmetic test */
     run_eckey_negate_test();
+
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+    run_schnorrsig_halfagg_tests();
+#endif
 
 #ifdef ENABLE_MODULE_BPPP
     run_bppp_tests();

@@ -184,6 +184,10 @@ AC_ARG_ENABLE(module_schnorrsig,
     AS_HELP_STRING([--enable-module-schnorrsig],[enable schnorrsig module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_schnorrsig], [yes], [yes])])
 
+AC_ARG_ENABLE(module_schnorrsig_halfagg,
+    AS_HELP_STRING([--enable-module-schnorrsig-halfagg],[enable schnorrsig half-aggregation module (experimental) [default=no]]), [],
+    [SECP_SET_DEFAULT([enable_module_schnorrsig_halfagg], [no], [yes])])
+
 AC_ARG_ENABLE(module_ellswift,
     AS_HELP_STRING([--enable-module-ellswift],[enable ElligatorSwift module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_ellswift], [yes], [yes])])
@@ -445,6 +449,11 @@ SECP_CFLAGS="$SECP_CFLAGS $WERROR_CFLAGS"
 
 # Processing must be done in a reverse topological sorting of the dependency graph
 # (dependent module first).
+if test x"$enable_module_schnorrsig_halfagg" = x"yes"; then
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_SCHNORRSIG_HALFAGG=1"
+  enable_module_schnorrsig=yes
+fi
+
 if test x"$enable_module_bppp" = x"yes"; then
   if test x"$enable_module_generator" = x"no"; then
     AC_MSG_ERROR([Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.])
@@ -497,7 +506,6 @@ if test x"$enable_module_generator" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_GENERATOR=1"
 fi
 
-
 if test x"$enable_module_ellswift" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ELLSWIFT=1"
 fi
@@ -544,6 +552,9 @@ else
   # module (which automatically enables the module dependencies) we want to
   # print an error for the dependent module, not the module dependency. Hence,
   # we first test dependent modules.
+  if test x"$enable_module_schnorrsig_halfagg" = x"yes"; then
+    AC_MSG_ERROR([Schnorrsig Half-Aggregation module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_bppp" = x"yes"; then
     AC_MSG_ERROR([Bulletproofs++ module is experimental. Use --enable-experimental to allow.])
   fi
@@ -599,6 +610,7 @@ AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG_HALFAGG], [test x"$enable_module_schnorrsig_halfagg" = x"yes"])
 AM_CONDITIONAL([USE_REDUCED_SURJECTION_PROOF_SIZE], [test x"$use_reduced_surjection_proof_size" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$enable_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm32"])
@@ -638,18 +650,19 @@ echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo "  module bppp             = $enable_module_bppp"
+echo "  module schnorrsig-halfagg = $enable_module_schnorrsig_halfagg"
 echo
-echo "  asm                     = $set_asm"
-echo "  ecmult window size      = $set_ecmult_window"
-echo "  ecmult gen prec. bits   = $set_ecmult_gen_precision"
+echo "  asm                       = $set_asm"
+echo "  ecmult window size        = $set_ecmult_window"
+echo "  ecmult gen prec. bits     = $set_ecmult_gen_precision"
 # Hide test-only options unless they're used.
 if test x"$set_widemul" != xauto; then
-echo "  wide multiplication     = $set_widemul"
+echo "  wide multiplication       = $set_widemul"
 fi
 echo
-echo "  valgrind                = $enable_valgrind"
-echo "  CC                      = $CC"
-echo "  CPPFLAGS                = $CPPFLAGS"
-echo "  SECP_CFLAGS             = $SECP_CFLAGS"
-echo "  CFLAGS                  = $CFLAGS"
-echo "  LDFLAGS                 = $LDFLAGS"
+echo "  valgrind                  = $enable_valgrind"
+echo "  CC                        = $CC"
+echo "  CPPFLAGS                  = $CPPFLAGS"
+echo "  SECP_CFLAGS               = $SECP_CFLAGS"
+echo "  CFLAGS                    = $CFLAGS"
+echo "  LDFLAGS                   = $LDFLAGS"
