@@ -497,6 +497,7 @@ fi
 if test x"$enable_module_schnorr_adaptor" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_SCHNORR_ADAPTOR, 1, [Define thsi symbol to enable the Schnorr adaptor module])
   enable_module_extrakeys=yes
+  enable_module_schnorrsig=yes
 fi
 
 if test x"$enable_module_ellswift" = x"yes"; then
@@ -567,7 +568,7 @@ else
     AC_MSG_ERROR([ARM32 assembly optimization is experimental. Use --enable-experimental to allow.])
   fi
   if test x"$enable_module_schnorr_adaptor" = x"yes"; then
-    AC_MSG_ERROR([schnorr adaptor signatures module is experimental. Use --enable-experimental to allow.])
+    AC_MSG_ERROR([Schnorr adaptor signatures module is experimental. Use --enable-experimental to allow.])
   fi
 fi
 
