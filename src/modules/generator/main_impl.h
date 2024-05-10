@@ -296,17 +296,11 @@ int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_
 }
 
 int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsigned char *output, const secp256k1_pedersen_commitment* commit) {
-    secp256k1_ge ge;
-
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output != NULL);
     ARG_CHECK(commit != NULL);
 
-    secp256k1_pedersen_commitment_load(&ge, commit);
-
-    output[0] = 9 ^ secp256k1_fe_is_square_var(&ge.y);
-    secp256k1_fe_normalize_var(&ge.x);
-    secp256k1_fe_get_b32(&output[1], &ge.x);
+    memcpy(output, commit->data, 33);
     return 1;
 }
 

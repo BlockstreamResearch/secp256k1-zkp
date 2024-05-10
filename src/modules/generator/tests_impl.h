@@ -264,7 +264,13 @@ static void test_pedersen(void) {
     }
     CHECK(secp256k1_pedersen_blind_sum(CTX, &blinds[(total - 1) * 32], bptr, total - 1, inputs));
     for (i = 0; i < total; i++) {
+        unsigned char result[33];
+        secp256k1_pedersen_commitment parse;
+
         CHECK(secp256k1_pedersen_commit(CTX, &commits[i], &blinds[i * 32], values[i], secp256k1_generator_h));
+        CHECK(secp256k1_pedersen_commitment_serialize(CTX, result, &commits[i]));
+        CHECK(secp256k1_pedersen_commitment_parse(CTX, &parse, result));
+        CHECK(secp256k1_memcmp_var(&commits[i], &parse, 33) == 0);
     }
     CHECK(secp256k1_pedersen_verify_tally(CTX, cptr, inputs, &cptr[inputs], outputs));
     CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[inputs], outputs, cptr, inputs));
