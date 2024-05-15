@@ -102,7 +102,7 @@ typedef struct {
 /** Parse a signer's public nonce.
  *
  *  Returns: 1 when the nonce could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   nonce: pointer to a nonce object
  *  In:     in66: pointer to the 66-byte nonce to be parsed
  */
@@ -115,7 +115,7 @@ SECP256K1_API int secp256k1_frost_pubnonce_parse(
 /** Serialize a signer's public nonce
  *
  *  Returns: 1 when the nonce could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out66: pointer to a 66-byte array to store the serialized nonce
  *  In:    nonce: pointer to the nonce
  */
@@ -128,7 +128,7 @@ SECP256K1_API int secp256k1_frost_pubnonce_serialize(
 /** Serialize a FROST partial signature
  *
  *  Returns: 1 when the signature could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out32: pointer to a 32-byte array to store the serialized signature
  *  In:      sig: pointer to the signature
  */
@@ -141,7 +141,7 @@ SECP256K1_API int secp256k1_frost_partial_sig_serialize(
 /** Parse a FROST partial signature.
  *
  *  Returns: 1 when the signature could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:     sig: pointer to a signature object
  *  In:     in32: pointer to the 32-byte signature to be parsed
  *
@@ -158,7 +158,7 @@ SECP256K1_API int secp256k1_frost_partial_sig_parse(
 /** Serialize a FROST share
  *
  *  Returns: 1 when the share could be serialized, 0 otherwise
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   out32: pointer to a 32-byte array to store the serialized share
  *  In:    share: pointer to the share
  */
@@ -171,7 +171,7 @@ SECP256K1_API int secp256k1_frost_share_serialize(
 /** Parse a FROST share.
  *
  *  Returns: 1 when the share could be parsed, 0 otherwise.
- *  Args:    ctx: a secp256k1 context object
+ *  Args:    ctx: pointer to a context object
  *  Out:   share: pointer to a share object
  *  In:     in32: pointer to the 32-byte share to be parsed
  */
@@ -181,27 +181,27 @@ SECP256K1_API int secp256k1_frost_share_parse(
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Creates key generation shares
+/** Creates key shares
  *
  *  To generate a key, a trusted dealer generates a share for each other
  *  participant.
  *
- *  Each participant _must_ have a secure channel with the trusted dealer with
- *  which they can transmit shares to each other.
+ *  The trusted dealer must transmit shares over secure channels to
+ *  participants.
  *
- *  A new seed32 _must_ be used for each key generation session. The trusted
- *  dealer must NOT REUSE their respective seed32 again for subsequent key
- *  generation sessions. If a trusted dealer fails to complete this session or
- *  start a new session to generate a new key, they must NOT REUSE their
- *  respective seed32 again, but instead generate a new one. It is recommended
- *  to always choose seed32 uniformly at random to avoid their reuse.
+ *  Each call to this function must have a UNIQUE and uniformly RANDOM seed32
+ *  that must that must NOT BE REUSED in subsequent calls to this function and
+ *  must be KEPT SECRET (even from other participants).
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object
- *  Out:          shares: pointer to the key generation shares
+ *  Out:          shares: pointer to the key shares
  *             pubshares: pointer to the public verification shares
  *                    pk: pointer to the x-only public key
- *   In:          seed32: a 32-byte seed as explained above
+ *   In:          seed32: a 32-byte random seed as explained above. Must be
+ *                        unique to this call to
+ *                        secp256k1_frost_shares_trusted_gen and must be
+ *                        uniformly random.
  *             threshold: the minimum number of signers required to produce a
  *                        signature
  *        n_participants: the total number of participants

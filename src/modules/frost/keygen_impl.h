@@ -124,7 +124,7 @@ int secp256k1_frost_shares_trusted_gen(const secp256k1_context *ctx, secp256k1_f
     secp256k1_sha256_write(&sha, polygen, 16);
     secp256k1_sha256_finalize(&sha, polygen);
 
-    /* Derive share */
+    /* Derive shares */
     /* See draft-irtf-cfrg-frost-08#appendix-C.1 */
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar share_i, idx;
