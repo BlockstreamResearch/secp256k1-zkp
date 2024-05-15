@@ -129,7 +129,7 @@ int secp256k1_frost_shares_trusted_gen(const secp256k1_context *ctx, secp256k1_f
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar share_i, idx;
 
-        secp256k1_scalar_clear(&share_i);
+        secp256k1_scalar_set_int(&share_i, 0);
 
         for (j = 0; j < threshold; j++) {
             unsigned char buf[32];
