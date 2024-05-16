@@ -276,7 +276,6 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
 
 int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
     secp256k1_fe x;
-    secp256k1_ge ge;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
@@ -285,13 +284,11 @@ int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_
 
     if ((input[0] & 0xFE) != 8 ||
         !secp256k1_fe_set_b32_limit(&x, &input[1]) ||
-        !secp256k1_ge_set_xquad(&ge, &x)) {
+        !secp256k1_ge_x_on_curve_var(&x)) {
         return 0;
     }
-    if (input[0] & 1) {
-        secp256k1_ge_neg(&ge, &ge);
-    }
-    secp256k1_pedersen_commitment_save(commit, &ge);
+
+    memcpy(commit->data, input, 33);
     return 1;
 }
 
