@@ -556,12 +556,7 @@ fi
 ### Check for --enable-experimental if necessary
 ###
 
-if test x"$enable_experimental" = x"yes"; then
-  AC_MSG_NOTICE([******])
-  AC_MSG_NOTICE([WARNING: experimental build])
-  AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
-  AC_MSG_NOTICE([******])
-else
+if test x"$enable_experimental" = x"no"; then
   # The order of the following tests matters. If the user enables a dependent
   # module (which automatically enables the module dependencies) we want to
   # print an error for the dependent module, not the module dependency. Hence,
@@ -686,4 +681,11 @@ if test x"$print_msan_notice" = x"yes"; then
   echo "Note:"
   echo "  MemorySanitizer detected, tried to add -fno-sanitize-memory-param-retval to SECP_CFLAGS"
   echo "  to avoid false positives in ctime_tests. Pass --disable-ctime-tests to avoid this."
+fi
+
+if test x"$enable_experimental" = x"yes"; then
+  echo
+  echo "WARNING: Experimental build"
+  echo "  Experimental features do not have stable APIs or properties, and may not be safe for"
+  echo "  production use."
 fi
