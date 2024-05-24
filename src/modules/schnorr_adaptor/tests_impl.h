@@ -881,7 +881,6 @@ static void test_schnorr_adaptor_extract(void) {
     CHECK(secp256k1_memcmp_var(t, adaptor33[0], 33) == 0);
     memset(&sig[0][33], 0xFF, 32);
     CHECK(!secp256k1_schnorr_adaptor_extract(CTX, t, sig[0], msg[0], &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33[0], 33) != 0);
 
     /* Test negative s */
     CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[0], msg[0], &keypair, adaptor33[0], NULL) == 1);
