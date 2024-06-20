@@ -422,6 +422,7 @@ static void test_single_value_proof(uint64_t val) {
 
     uint64_t val_out = 0;
     size_t m_len_out = 0;
+    size_t i;
 
     secp256k1_testrand256(blind);
     secp256k1_testrand256(nonce);
@@ -463,6 +464,30 @@ static void test_single_value_proof(uint64_t val) {
         CHECK(plen == 73);
     }
 
+    /* Test if trailing bytes are rejected. */
+    proof[plen] = 0;
+    CHECK(secp256k1_rangeproof_verify(
+        CTX,
+        &min_val_out, &max_val_out,
+        &commit,
+        proof, plen + 1,
+        NULL, 0,
+        secp256k1_generator_h
+    ) == 0);
+    /* Test if single-bit malleation is caught */
+    for (i = 0; i < plen*8; i++) {
+        proof[i >> 3] ^= 1 << (i & 7);
+        CHECK(secp256k1_rangeproof_verify(
+            CTX,
+            &min_val_out, &max_val_out,
+            &commit,
+            proof, plen,
+            NULL, 0,
+            secp256k1_generator_h
+        ) == 0);
+        proof[i >> 3] ^= 1 << (i & 7);
+    }
+    /* Test if unchanged proof is accepted. */
     CHECK(secp256k1_rangeproof_verify(
         CTX,
         &min_val_out, &max_val_out,
