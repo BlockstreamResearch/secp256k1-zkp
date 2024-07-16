@@ -20,6 +20,39 @@
 #include "../../hash.h"
 #include "../../scalar.h"
 
+static const unsigned char secp256k1_frost_tweak_cache_magic[4] = { 0x40, 0x25, 0x2e, 0x41 };
+
+/* A tweak cache consists of
+ * - 4 byte magic set during initialization to allow detecting an uninitialized
+ *   object.
+ * - 64 byte aggregate (and potentially tweaked) public key
+ * - 1 byte the parity of the internal key (if tweaked, otherwise 0)
+ * - 32 byte tweak
+ */
+/* Requires that cache_i->pk is not infinity. */
+static void secp256k1_tweak_cache_save(secp256k1_frost_tweak_cache *cache, secp256k1_tweak_cache_internal *cache_i) {
+    unsigned char *ptr = cache->data;
+    memcpy(ptr, secp256k1_frost_tweak_cache_magic, 4);
+    ptr += 4;
+    secp256k1_point_save_ext(ptr, &cache_i->pk);
+    ptr += 64;
+    *ptr = cache_i->parity_acc;
+    ptr += 1;
+    secp256k1_scalar_get_b32(ptr, &cache_i->tweak);
+}
+
+static int secp256k1_tweak_cache_load(const secp256k1_context* ctx, secp256k1_tweak_cache_internal *cache_i, const secp256k1_frost_tweak_cache *cache) {
+    const unsigned char *ptr = cache->data;
+    ARG_CHECK(secp256k1_memcmp_var(ptr, secp256k1_frost_tweak_cache_magic, 4) == 0);
+    ptr += 4;
+    secp256k1_point_load_ext(&cache_i->pk, ptr);
+    ptr += 64;
+    cache_i->parity_acc = *ptr & 1;
+    ptr += 1;
+    secp256k1_scalar_set_b32(&cache_i->tweak, ptr, NULL);
+    return 1;
+}
+
 /* Computes indexhash = tagged_hash(pk) */
 static int secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33) {
     secp256k1_sha256 sha;
@@ -410,6 +443,84 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
     secp256k1_frost_share_save(agg_share, &acc);
 
     return ret;
+}
+
+int secp256k1_frost_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *ec_pk, const secp256k1_xonly_pubkey *xonly_pk) {
+    secp256k1_ge pk;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(ec_pk != NULL);
+    memset(ec_pk, 0, sizeof(*ec_pk));
+    ARG_CHECK(xonly_pk != NULL);
+
+    /* The output of keygen is an aggregated public key that *always* has an
+     * even Y coordinate. */
+    if (!secp256k1_xonly_pubkey_load(ctx, &pk, xonly_pk)) {
+        return 0;
+    }
+    secp256k1_pubkey_save(ec_pk, &pk);
+    return 1;
+}
+
+int secp256k1_frost_pubkey_tweak(const secp256k1_context* ctx, secp256k1_frost_tweak_cache *tweak_cache, const secp256k1_xonly_pubkey *pk) {
+    secp256k1_tweak_cache_internal cache_i = { 0 };
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(tweak_cache != NULL);
+    ARG_CHECK(pk != NULL);
+
+    /* The output of keygen is an aggregated public key that *always* has an
+     * even Y coordinate. */
+    if (!secp256k1_xonly_pubkey_load(ctx, &cache_i.pk, pk)) {
+        return 0;
+    }
+    secp256k1_tweak_cache_save(tweak_cache, &cache_i);
+
+    return 1;
+}
+
+static int secp256k1_frost_pubkey_tweak_add_internal(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_tweak_cache *tweak_cache, const unsigned char *tweak32, int xonly) {
+    secp256k1_tweak_cache_internal cache_i;
+    int overflow = 0;
+    secp256k1_scalar tweak;
+
+    VERIFY_CHECK(ctx != NULL);
+    if (output_pubkey != NULL) {
+        memset(output_pubkey, 0, sizeof(*output_pubkey));
+    }
+    ARG_CHECK(tweak_cache != NULL);
+    ARG_CHECK(tweak32 != NULL);
+
+    if (!secp256k1_tweak_cache_load(ctx, &cache_i, tweak_cache)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&tweak, tweak32, &overflow);
+    if (overflow) {
+        return 0;
+    }
+    if (xonly && secp256k1_extrakeys_ge_even_y(&cache_i.pk)) {
+        cache_i.parity_acc ^= 1;
+        secp256k1_scalar_negate(&cache_i.tweak, &cache_i.tweak);
+    }
+    secp256k1_scalar_add(&cache_i.tweak, &cache_i.tweak, &tweak);
+    if (!secp256k1_eckey_pubkey_tweak_add(&cache_i.pk, &tweak)) {
+        return 0;
+    }
+    /* eckey_pubkey_tweak_add fails if cache_i.pk is infinity */
+    VERIFY_CHECK(!secp256k1_ge_is_infinity(&cache_i.pk));
+    secp256k1_tweak_cache_save(tweak_cache, &cache_i);
+    if (output_pubkey != NULL) {
+        secp256k1_pubkey_save(output_pubkey, &cache_i.pk);
+    }
+    return 1;
+}
+
+int secp256k1_frost_pubkey_ec_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_tweak_cache *tweak_cache, const unsigned char *tweak32) {
+    return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, tweak_cache, tweak32, 0);
+}
+
+int secp256k1_frost_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_tweak_cache *tweak_cache, const unsigned char *tweak32) {
+    return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, tweak_cache, tweak32, 1);
 }
 
 #endif
