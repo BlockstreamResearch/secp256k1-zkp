@@ -15,7 +15,7 @@ print_environment() {
             ECMULTWINDOW ECMULTGENPRECISION ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
             EXPERIMENTAL ECDH RECOVERY SCHNORRSIG SCHNORRSIG_HALFAGG ELLSWIFT \
             ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
-            SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
+            FROST SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
             HOST WRAPPER_CMD \
             CC CFLAGS CPPFLAGS AR NM
@@ -83,6 +83,7 @@ esac
     --enable-module-schnorrsig="$SCHNORRSIG"  --enable-module-musig="$MUSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" \
     --enable-module-schnorrsig-halfagg="$SCHNORRSIG_HALFAGG" \
+    --enable-module-frost="$FROST" \
     --enable-examples="$EXAMPLES" \
     --enable-ctime-tests="$CTIMETESTS" \
     --with-valgrind="$WITH_VALGRIND" \
