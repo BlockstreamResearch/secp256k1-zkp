@@ -15,7 +15,8 @@ extern "C" {
  * This module implements a variant of Flexible Round-Optimized Schnorr
  * Threshold Signatures (FROST) by Chelsea Komlo and Ian Goldberg
  * (https://crysp.uwaterloo.ca/software/frost/). Signatures are compatible with
- * BIP-340 ("Schnorr").
+ * BIP-340 ("Schnorr"). There's an example C source file in the module's
+ * directory (examples/frost.c) that demonstrates how it can be used.
  *
  * The module also supports BIP-341 ("Taproot") and BIP-32 ("ordinary") public
  * key tweaking, and adaptor signatures.
