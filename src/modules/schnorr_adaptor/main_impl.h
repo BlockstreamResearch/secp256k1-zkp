@@ -96,7 +96,7 @@ static int nonce_function_schnorr_adaptor(unsigned char *nonce32, const unsigned
 
 const secp256k1_adaptor_nonce_function_hardened secp256k1_nonce_function_schnorr_adaptor = nonce_function_schnorr_adaptor;
 
-static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, secp256k1_adaptor_nonce_function_hardened noncefp, const unsigned char *adaptor33, void *ndata) {
+static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, secp256k1_adaptor_nonce_function_hardened noncefp, const secp256k1_pubkey *adaptor, void *ndata) {
     secp256k1_scalar sk;
     secp256k1_scalar e;
     secp256k1_scalar k;
@@ -109,6 +109,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     unsigned char nonce32[32] = {0};
     unsigned char pk_buf[32];
     unsigned char seckey[32];
+    unsigned char adaptor33_buff[33];
     size_t size = 33;
     size_t msglen = 32;
     int ret = 1;
@@ -118,7 +119,7 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     ARG_CHECK(presig65 != NULL);
     ARG_CHECK(msg32 != NULL);
     ARG_CHECK(keypair != NULL);
-    ARG_CHECK(adaptor33 != NULL);
+    ARG_CHECK(adaptor != NULL);
 
     if (noncefp == NULL) {
         noncefp = secp256k1_nonce_function_schnorr_adaptor;
@@ -135,7 +136,11 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     /* bytes_from_point(P) */
     secp256k1_fe_get_b32(pk_buf, &pk.x);
 
-    ret &= !!noncefp(nonce32, msg32, seckey, adaptor33, pk_buf, adaptor_bip340_algo, sizeof(adaptor_bip340_algo), ndata);
+    /* T = cpoint(T) */
+    ret &= secp256k1_pubkey_load(ctx, &t, adaptor);
+    ret &= secp256k1_eckey_pubkey_serialize(&t, adaptor33_buff, &size, 1);
+
+    ret &= !!noncefp(nonce32, msg32, seckey, adaptor33_buff, pk_buf, adaptor_bip340_algo, sizeof(adaptor_bip340_algo), ndata);
     /* k0 */
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);
@@ -144,9 +149,6 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     /* R = k0*G */
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
     secp256k1_ge_set_gej(&r, &rj);
-
-    /* T = cpoint(T) */
-    ret &= secp256k1_eckey_pubkey_parse(&t, adaptor33, 33);
 
     /* R' = k*G + T, can use gej_add_ge_var since r and t aren't secret */
     secp256k1_gej_add_ge_var(&r0j, &rj, &t, NULL);
@@ -176,12 +178,12 @@ static int secp256k1_schnorr_adaptor_presign_internal(const secp256k1_context *c
     return ret;
 }
 
-int secp256k1_schnorr_adaptor_presign(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, const unsigned char *adaptor33, const unsigned char *aux_rand32) {
+int secp256k1_schnorr_adaptor_presign(const secp256k1_context *ctx, unsigned char *presig65, const unsigned char *msg32, const secp256k1_keypair *keypair, const secp256k1_pubkey *adaptor, const unsigned char *aux_rand32) {
     /* We cast away const from the passed aux_rand32 argument since we know the default nonce function does not modify it. */
-    return secp256k1_schnorr_adaptor_presign_internal(ctx, presig65, msg32, keypair, secp256k1_nonce_function_schnorr_adaptor, adaptor33, (unsigned char*)aux_rand32);
+    return secp256k1_schnorr_adaptor_presign_internal(ctx, presig65, msg32, keypair, secp256k1_nonce_function_schnorr_adaptor, adaptor, (unsigned char*)aux_rand32);
 }
 
-int secp256k1_schnorr_adaptor_extract(const secp256k1_context *ctx, unsigned char *adaptor33, const unsigned char *presig65, const unsigned char *msg32, const secp256k1_xonly_pubkey *pubkey) {
+int secp256k1_schnorr_adaptor_extract(const secp256k1_context *ctx, secp256k1_pubkey *adaptor, const unsigned char *presig65, const unsigned char *msg32, const secp256k1_xonly_pubkey *pubkey) {
     secp256k1_scalar s0;
     secp256k1_scalar e;
     secp256k1_gej rj;
@@ -197,7 +199,7 @@ int secp256k1_schnorr_adaptor_extract(const secp256k1_context *ctx, unsigned cha
     int overflow;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(adaptor33 != NULL);
+    ARG_CHECK(adaptor != NULL);
     ARG_CHECK(presig65 != NULL);
     ARG_CHECK(msg32 != NULL);
     ARG_CHECK(pubkey != NULL);
@@ -246,9 +248,7 @@ int secp256k1_schnorr_adaptor_extract(const secp256k1_context *ctx, unsigned cha
         return 0;
     }
     secp256k1_ge_set_gej(&t, &tj);
-    if (!secp256k1_eckey_pubkey_serialize(&t, adaptor33, &size, 1)) {
-        return 0;
-    }
+    secp256k1_pubkey_save(adaptor, &t);
 
     return 1;
 }

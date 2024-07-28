@@ -57,7 +57,7 @@ SECP256K1_API const secp256k1_adaptor_nonce_function_hardened secp256k1_nonce_fu
  *  Out:   presig65: pointer to a 65-byte array to store the adaptor signature.
  *  In:       msg32: the 32-byte message being signed.
  *          keypair: pointer to an initialized keypair.
- *        adaptor33: pointer to a 33-byte compressed adaptor point.
+ *        adaptor: pointer to an adaptor point.
  *       aux_rand32: 32 bytes of fresh randomness. While recommended to provide
  *                   this, it is only supplemental to security and can be NULL. A
  *                   NULL argument is treated the same as an all-zero one. See
@@ -69,7 +69,7 @@ SECP256K1_API int secp256k1_schnorr_adaptor_presign(
     unsigned char *presig65,
     const unsigned char *msg32,
     const secp256k1_keypair *keypair,
-    const unsigned char *adaptor33,
+    const secp256k1_pubkey *adaptor,
     const unsigned char *aux_rand32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
@@ -77,14 +77,14 @@ SECP256K1_API int secp256k1_schnorr_adaptor_presign(
  *
  *  Returns 1 on success, 0 on failure.
  *  Args:         ctx: pointer to a context object.
- *  Out:    adaptor33: pointer to a 33-byte array to store the compressed adaptor point.
+ *  Out:    adaptor33: pointer to an adaptor point.
  *  In:      presig65: pointer to a 65-byte adaptor signature.
  *              msg32: the 32-byte message being signed.
  *             pubkey: pointer to an x-only public key to verify with
  */
 SECP256K1_API int secp256k1_schnorr_adaptor_extract(
     const secp256k1_context *ctx,
-    unsigned char *adaptor33,
+    secp256k1_pubkey *adaptor,
     const unsigned char *presig65,
     const unsigned char *msg32,
     const secp256k1_xonly_pubkey *pubkey

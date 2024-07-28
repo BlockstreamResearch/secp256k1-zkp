@@ -114,7 +114,7 @@ static void test_schnorr_adaptor_api(void) {
     unsigned char sk[32];
     unsigned char msg[32];
     unsigned char secadaptor[32];
-    unsigned char t[33] = {
+    unsigned char adaptor33[33] = {
         0x02, 0xC6, 0x04, 0x7F, 0x94, 0x41, 0xED, 0x7D,
         0x6D, 0x30, 0x45, 0x40, 0x6E, 0x95, 0xC0, 0x7C,
         0xD8, 0x5C, 0x77, 0x8E, 0x4B, 0x8C, 0xEF, 0x3C,
@@ -126,7 +126,8 @@ static void test_schnorr_adaptor_api(void) {
     secp256k1_xonly_pubkey zero_pk;
     unsigned char sig[65];
     unsigned char sig64[64];
-    unsigned char t2[33];
+    secp256k1_pubkey t;
+    secp256k1_pubkey t2;
     unsigned char extracted_secadaptor[32];
 
     /** setup **/
@@ -137,22 +138,23 @@ static void test_schnorr_adaptor_api(void) {
     CHECK(secp256k1_keypair_create(CTX, &keypair, sk) == 1);
     CHECK(secp256k1_keypair_xonly_pub(CTX, &pk, NULL, &keypair) == 1);
     memset(&zero_pk, 0, sizeof(zero_pk));
+    secp256k1_ec_pubkey_parse(CTX, &t, adaptor33, 33);
 
     /** main test body **/
-    CHECK_ILLEGAL(STATIC_CTX, secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypair, t, NULL));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, NULL, msg, &keypair, t, NULL));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, NULL, &keypair, t, NULL));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, msg, NULL, t, NULL));
+    CHECK_ILLEGAL(STATIC_CTX, secp256k1_schnorr_adaptor_presign(STATIC_CTX, sig, msg, &keypair, &t, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, NULL, msg, &keypair, &t, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, NULL, &keypair, &t, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, msg, NULL, &t, NULL));
     CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, NULL, NULL));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &invalid_keypair, t, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &invalid_keypair, &t, NULL));
 
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, t, NULL) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t2, sig, msg, &pk) == 1);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, &t, NULL) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t2, sig, msg, &pk) == 1);
     CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, NULL, sig, msg, &pk));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, t2, NULL, msg, &pk));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, t2, sig, NULL, &pk));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, t2, sig, msg, NULL));
-    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, t2, sig, msg, &zero_pk));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, &t2, NULL, msg, &pk));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, &t2, sig, NULL, &pk));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, &t2, sig, msg, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_extract(CTX, &t2, sig, msg, &zero_pk));
 
     CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, secadaptor) == 1);
     CHECK_ILLEGAL(CTX, secp256k1_schnorr_adaptor_adapt(CTX, NULL, sig, secadaptor));
@@ -171,30 +173,37 @@ static void test_schnorr_adaptor_api(void) {
  * Signs the message and checks that it's the same as expected_sig. */
 static void test_schnorr_adaptor_vectors_check_presigning(const unsigned char *sk, const unsigned char *pk_serialized, const unsigned char *aux_rand, const unsigned char *msg32, const unsigned char *adaptor33, const unsigned char *expected_sig) {
     unsigned char sig[65];
-    unsigned char t[33];
+    secp256k1_pubkey t;
     secp256k1_keypair keypair;
     secp256k1_xonly_pubkey pk, pk_expected;
+    secp256k1_pubkey adaptor;
+    secp256k1_ec_pubkey_parse(CTX, &adaptor, adaptor33, 33);
 
     CHECK(secp256k1_keypair_create(CTX, &keypair, sk));
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg32, &keypair, adaptor33, aux_rand));
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg32, &keypair, &adaptor, aux_rand));
     CHECK(secp256k1_memcmp_var(sig, expected_sig, 65) == 0);
 
     CHECK(secp256k1_xonly_pubkey_parse(CTX, &pk_expected, pk_serialized));
     CHECK(secp256k1_keypair_xonly_pub(CTX, &pk, NULL, &keypair));
     CHECK(secp256k1_memcmp_var(&pk, &pk_expected, sizeof(pk)) == 0);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig, msg32, &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33, 33) == 0);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig, msg32, &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor) == 0);
 }
 
 /* Helper function for schnorr_adaptor_vectors
  * Extracts the adaptor point and checks if it returns the same value as expected. */
 static void test_schnorr_adaptor_vectors_check_extract(const unsigned char *pk_serialized, const unsigned char *msg32, const unsigned char *sig, const unsigned char *expected_t, int expected) {
     secp256k1_xonly_pubkey pk;
-    unsigned char t[33];
+    secp256k1_pubkey t;
+    unsigned char t33[33];
+    secp256k1_ge adaptor;
+    size_t size = 33;
 
     CHECK(secp256k1_xonly_pubkey_parse(CTX, &pk, pk_serialized));
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig, msg32, &pk));
-    CHECK(expected == (secp256k1_memcmp_var(t, expected_t, 33) == 0));
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig, msg32, &pk));
+    secp256k1_pubkey_load(CTX, &adaptor, &t);
+    secp256k1_eckey_pubkey_serialize(&adaptor, t33, &size, 1);
+    CHECK(expected == (secp256k1_memcmp_var(t33, expected_t, 33) == 0));
  }
 
 /* Helper function for schnorr_adaptor_vectors
@@ -803,7 +812,8 @@ static void test_schnorr_adaptor_presign(void) {
     unsigned char secadaptor[32];
     unsigned char aux_rand[32];
     unsigned char adaptor33[33];
-    unsigned char t[33];
+    secp256k1_pubkey t;
+    secp256k1_pubkey adaptor;
     size_t size = 33;
 
     secp256k1_testrand256(sk);
@@ -815,13 +825,14 @@ static void test_schnorr_adaptor_presign(void) {
     CHECK(secp256k1_eckey_pubkey_serialize(&tg, adaptor33, &size, 1) == 1);
     CHECK(secp256k1_keypair_create(CTX, &keypair, sk) == 1);
     CHECK(secp256k1_keypair_xonly_pub(CTX, &pk, NULL, &keypair) == 1);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, adaptor33, NULL) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig, msg, &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33, 33) == 0);
+    CHECK(secp256k1_ec_pubkey_parse(CTX, &adaptor, adaptor33, 33) == 1);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, &adaptor, NULL) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig, msg, &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor) == 0);
     /* Test with aux_rand */
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig2, msg, &keypair, adaptor33, aux_rand) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig, msg, &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33, 33) == 0);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig2, msg, &keypair, &adaptor, aux_rand) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig, msg, &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor) == 0);
 }
 
 #define N_SIGS 3
@@ -840,7 +851,8 @@ static void test_schnorr_adaptor_extract(void) {
     unsigned char sig[N_SIGS][65];
     unsigned char secadaptor[N_SIGS][32];
     unsigned char adaptor33[N_SIGS][33];
-    unsigned char t[33];
+    secp256k1_pubkey t;
+    secp256k1_pubkey adaptor[N_SIGS];
     size_t size = 33;
     size_t i;
 
@@ -855,9 +867,10 @@ static void test_schnorr_adaptor_extract(void) {
         secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &tj, &adaptor_scalar);
         secp256k1_ge_set_gej(&tg, &tj);
         CHECK(secp256k1_eckey_pubkey_serialize(&tg, adaptor33[i], &size, 1) == 1);
-        CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[i], msg[i], &keypair, adaptor33[i], NULL) == 1);
-        CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[i], msg[i], &pk));
-        CHECK(secp256k1_memcmp_var(t, adaptor33[i], 33) == 0);
+        CHECK(secp256k1_ec_pubkey_parse(CTX, &adaptor[i], adaptor33[i], 33) == 1);
+        CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[i], msg[i], &keypair, &adaptor[i], NULL) == 1);
+        CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[i], msg[i], &pk));
+        CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[i]) == 0);
     }
 
     {
@@ -867,30 +880,30 @@ static void test_schnorr_adaptor_extract(void) {
         size_t byte_idx = secp256k1_testrand_bits(5);
         unsigned char xorbyte = secp256k1_testrand_int(254)+1;
         sig[sig_idx][33 + byte_idx] ^= xorbyte;
-        CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[sig_idx], msg[sig_idx], &pk));
-        CHECK(secp256k1_memcmp_var(t, adaptor33[sig_idx], 33) != 0);
+        CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[sig_idx], msg[sig_idx], &pk));
+        CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[sig_idx]) != 0);
         sig[sig_idx][33 + byte_idx] ^= xorbyte;
 
-        CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[sig_idx], msg[sig_idx], &pk));
-        CHECK(secp256k1_memcmp_var(t, adaptor33[sig_idx], 33) == 0);
+        CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[sig_idx], msg[sig_idx], &pk));
+        CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[sig_idx]) == 0);
     }
 
     /* Test overflowing s */
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[0], msg[0], &keypair, adaptor33[0], NULL) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[0], msg[0], &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33[0], 33) == 0);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[0], msg[0], &keypair, &adaptor[0], NULL) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[0], msg[0], &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[0]) == 0);
     memset(&sig[0][33], 0xFF, 32);
-    CHECK(!secp256k1_schnorr_adaptor_extract(CTX, t, sig[0], msg[0], &pk));
+    CHECK(!secp256k1_schnorr_adaptor_extract(CTX, &t, sig[0], msg[0], &pk));
 
     /* Test negative s */
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[0], msg[0], &keypair, adaptor33[0], NULL) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[0], msg[0], &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33[0], 33) == 0);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig[0], msg[0], &keypair, &adaptor[0], NULL) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[0], msg[0], &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[0]) == 0);
     secp256k1_scalar_set_b32(&s, &sig[0][33], NULL);
     secp256k1_scalar_negate(&s, &s);
     secp256k1_scalar_get_b32(&sig[0][33], &s);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig[0], msg[0], &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33[0], 33) != 0);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig[0], msg[0], &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor[0]) != 0);
 }
 #undef N_SIGS
 
@@ -907,8 +920,9 @@ static void test_schnorr_adaptor_adapt_extract_sec(void) {
     unsigned char secadaptor[32];
     unsigned char aux_rand[32];
     unsigned char adaptor33[33];
-    unsigned char t[33];
+    secp256k1_pubkey t;
     unsigned char t2[32];
+    secp256k1_pubkey adaptor;
     size_t size = 33;
 
     secp256k1_testrand256(sk);
@@ -921,9 +935,10 @@ static void test_schnorr_adaptor_adapt_extract_sec(void) {
     CHECK(secp256k1_eckey_pubkey_serialize(&tg, adaptor33, &size, 1) == 1);
     CHECK(secp256k1_keypair_create(CTX, &keypair, sk) == 1);
     CHECK(secp256k1_keypair_xonly_pub(CTX, &pk, NULL, &keypair) == 1);
-    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, adaptor33, aux_rand) == 1);
-    CHECK(secp256k1_schnorr_adaptor_extract(CTX, t, sig, msg, &pk));
-    CHECK(secp256k1_memcmp_var(t, adaptor33, 33) == 0);
+    CHECK(secp256k1_ec_pubkey_parse(CTX, &adaptor, adaptor33, 33) == 1);
+    CHECK(secp256k1_schnorr_adaptor_presign(CTX, sig, msg, &keypair, &adaptor, aux_rand) == 1);
+    CHECK(secp256k1_schnorr_adaptor_extract(CTX, &t, sig, msg, &pk));
+    CHECK(secp256k1_ec_pubkey_cmp(CTX, &t, &adaptor) == 0);
     CHECK(secp256k1_schnorr_adaptor_adapt(CTX, sig64, sig, secadaptor) == 1);
     CHECK(secp256k1_schnorrsig_verify(CTX, sig64, msg, sizeof(msg), &pk) == 1);
     CHECK(secp256k1_schnorr_adaptor_extract_sec(CTX, t2, sig, sig64) == 1);
