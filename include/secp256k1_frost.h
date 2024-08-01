@@ -255,10 +255,11 @@ SECP256K1_API int secp256k1_frost_share_agg(
     secp256k1_xonly_pubkey *agg_pk,
     const secp256k1_frost_share * const *shares,
     const secp256k1_pubkey * const *vss_commitments,
+    const unsigned char * const *pok64s,
     size_t n_shares,
     size_t threshold,
     const unsigned char *id33
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(8);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(9);
 
 /** Verifies a share received during a key generation session
  *

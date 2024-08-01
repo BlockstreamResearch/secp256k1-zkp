@@ -385,7 +385,7 @@ int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pub
     return 1;
 }
 
-int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_share *agg_share, secp256k1_xonly_pubkey *agg_pk, const secp256k1_frost_share * const* shares, const secp256k1_pubkey * const* vss_commitments, size_t n_shares, size_t threshold, const unsigned char *id33) {
+int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_share *agg_share, secp256k1_xonly_pubkey *agg_pk, const secp256k1_frost_share * const* shares, const secp256k1_pubkey * const* vss_commitments, const unsigned char * const *pok64s, size_t n_shares, size_t threshold, const unsigned char *id33) {
     secp256k1_frost_pubkey_combine_ecmult_data pubkey_combine_ecmult_data;
     secp256k1_gej pkj;
     secp256k1_ge pkp;
@@ -393,6 +393,8 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
     secp256k1_scalar acc;
     size_t i;
     int ret = 1;
+    secp256k1_sha256 sha;
+    unsigned char buf[32];
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(agg_share != NULL);
@@ -400,6 +402,7 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
     ARG_CHECK(agg_pk != NULL);
     memset(agg_pk, 0, sizeof(*agg_pk));
     ARG_CHECK(shares != NULL);
+    ARG_CHECK(pok64s != NULL);
     ARG_CHECK(vss_commitments != NULL);
     ARG_CHECK(id33 != NULL);
     ARG_CHECK(n_shares > 1);
@@ -407,6 +410,20 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
 
     if (threshold > n_shares) {
         return 0;
+    }
+
+    /* Verify proofs-of-knowledge */
+    secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/KeygenPoK", sizeof("FROST/KeygenPoK") - 1);
+    secp256k1_sha256_finalize(&sha, buf);
+    for (i = 0; i < n_shares; i++) {
+        secp256k1_xonly_pubkey pk;
+
+        if (!secp256k1_xonly_pubkey_from_pubkey(ctx, &pk, NULL, &vss_commitments[i][0])) {
+            return 0;
+        }
+        if (!secp256k1_schnorrsig_verify(ctx, pok64s[i], buf, 32, &pk)) {
+            return 0;
+        }
     }
 
     secp256k1_scalar_clear(&acc);

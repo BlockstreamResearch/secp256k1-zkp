@@ -383,6 +383,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         unsigned char id[2][33];
         const unsigned char *id_ptr[2];
         size_t size = 33;
+        const unsigned char *pok_ptr[2];
 
         id_ptr[0] = id[0];
         id_ptr[1] = id[1];
@@ -406,6 +407,8 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         share_ptr[1] = &shares[1][0];
         vss_ptr[0] = vss_commitment[0];
         vss_ptr[1] = vss_commitment[1];
+        pok_ptr[0] = pok[0];
+        pok_ptr[1] = pok[1];
 
         CHECK(secp256k1_keypair_create(ctx, &keypair, key));
         CHECK(secp256k1_keypair_create(ctx, &keypair2, key2));
@@ -431,7 +434,8 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1][0], sizeof(secp256k1_pubkey));
         SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1][1], sizeof(secp256k1_pubkey));
         SECP256K1_CHECKMEM_DEFINE(pok[0], 64);
-        ret = secp256k1_frost_share_agg(ctx, &agg_share, &agg_pk, share_ptr, vss_ptr, 2, 2, id_ptr[0]);
+        SECP256K1_CHECKMEM_DEFINE(pok[1], 64);
+        ret = secp256k1_frost_share_agg(ctx, &agg_share, &agg_pk, share_ptr, vss_ptr, pok_ptr, 2, 2, id_ptr[0]);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         /* nonce_gen */
