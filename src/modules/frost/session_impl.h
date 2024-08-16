@@ -243,7 +243,8 @@ static void secp256k1_nonce_function_frost(secp256k1_scalar *k, const unsigned c
     }
 }
 
-int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const secp256k1_frost_share *share, const unsigned char *msg32, const secp256k1_xonly_pubkey *pk, const unsigned char *extra_input32) {
+int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const secp256k1_frost_share *share, const unsigned char *msg32, const secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *extra_input32) {
+    secp256k1_keygen_cache_internal cache_i;
     secp256k1_scalar k[2];
     secp256k1_ge nonce_pt[2];
     int i;
@@ -272,8 +273,8 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
         memset(&acc, 0, sizeof(acc));
     }
 
+    /* Check that the share is valid to be able to sign for it later. */
     if (share != NULL) {
-        /* Check that the share is valid to be able to sign for it later. */
         secp256k1_scalar sk;
 
         ret &= secp256k1_frost_share_load(ctx, &sk, share);
@@ -288,12 +289,15 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
 #endif
     }
 
-    if (pk != NULL) {
-        if (!secp256k1_xonly_pubkey_serialize(ctx, pk_ser, pk)) {
+    if (keygen_cache != NULL) {
+        if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
             return 0;
         }
+        /* The loaded point cache_i.pk can not be the point at infinity. */
+        secp256k1_fe_get_b32(pk_ser, &cache_i.pk.x);
         pk_ser_ptr = pk_ser;
     }
+
     secp256k1_nonce_function_frost(k, session_id32, msg32, sk_ser_ptr, pk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
@@ -373,62 +377,27 @@ static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, 
     }
     /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
     secp256k1_scalar_set_b32(b, noncehash, NULL);
+    secp256k1_gej_set_infinity(&fin_nonce_ptj);
     secp256k1_ecmult(&fin_nonce_ptj, &aggnoncej[1], b, NULL);
     secp256k1_gej_add_ge_var(&fin_nonce_ptj, &fin_nonce_ptj, &aggnonce[0], NULL);
     secp256k1_ge_set_gej(&fin_nonce_pt, &fin_nonce_ptj);
-
     if (secp256k1_ge_is_infinity(&fin_nonce_pt)) {
-        /* unreachable with overwhelming probability */
-        return 0;
+        fin_nonce_pt = secp256k1_ge_const_g;
     }
+    /* fin_nonce_pt is not the point at infinity */
     secp256k1_fe_normalize_var(&fin_nonce_pt.x);
     secp256k1_fe_get_b32(fin_nonce, &fin_nonce_pt.x);
-
     secp256k1_fe_normalize_var(&fin_nonce_pt.y);
     *fin_nonce_parity = secp256k1_fe_is_odd(&fin_nonce_pt.y);
     return 1;
 }
 
-static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const *ids33, size_t n_participants, const unsigned char *my_id33) {
-    size_t i;
-    secp256k1_scalar num;
-    secp256k1_scalar den;
-    secp256k1_scalar party_idx;
-
-    secp256k1_scalar_set_int(&num, 1);
-    secp256k1_scalar_set_int(&den, 1);
-    if (!secp256k1_frost_compute_indexhash(&party_idx, my_id33)) {
-        return 0;
-    }
-    for (i = 0; i < n_participants; i++) {
-        secp256k1_scalar mul;
-
-        if (!secp256k1_frost_compute_indexhash(&mul, ids33[i])) {
-            return 0;
-        }
-        if (secp256k1_scalar_eq(&mul, &party_idx)) {
-            continue;
-        }
-
-        secp256k1_scalar_negate(&mul, &mul);
-        secp256k1_scalar_mul(&num, &num, &mul);
-        secp256k1_scalar_add(&mul, &mul, &party_idx);
-        secp256k1_scalar_mul(&den, &den, &mul);
-    }
-
-    secp256k1_scalar_inverse_var(&den, &den);
-    secp256k1_scalar_mul(r, &num, &den);
-
-    return 1;
-}
-
-int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_session *session, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *msg32, const secp256k1_xonly_pubkey *pk, const unsigned char *my_id33, const unsigned char * const *ids33, const secp256k1_frost_tweak_cache *tweak_cache, const secp256k1_pubkey *adaptor) {
-    secp256k1_ge aggnonce_pt[2];
+int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_session *session, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *msg32, const unsigned char *my_id33, const unsigned char * const *ids33, const secp256k1_frost_keygen_cache *keygen_cache, const secp256k1_pubkey *adaptor) {
+    secp256k1_keygen_cache_internal cache_i;
     secp256k1_gej aggnonce_ptj[2];
     unsigned char fin_nonce[32];
     secp256k1_frost_session_internal session_i = { 0 };
     unsigned char pk32[32];
-    size_t i;
     secp256k1_scalar l;
 
     VERIFY_CHECK(ctx != NULL);
@@ -437,36 +406,16 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     ARG_CHECK(pubnonces != NULL);
     ARG_CHECK(ids33 != NULL);
     ARG_CHECK(my_id33 != NULL);
-    ARG_CHECK(pk != NULL);
+    ARG_CHECK(keygen_cache != NULL);
     ARG_CHECK(n_pubnonces > 1);
 
-    if (!secp256k1_xonly_pubkey_serialize(ctx, pk32, pk)) {
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
         return 0;
     }
+    secp256k1_fe_get_b32(pk32, &cache_i.pk.x);
 
     if (!secp256k1_frost_sum_nonces(ctx, aggnonce_ptj, pubnonces, n_pubnonces)) {
         return 0;
-    }
-    for (i = 0; i < 2; i++) {
-        if (secp256k1_gej_is_infinity(&aggnonce_ptj[i])) {
-            /* There must be at least one dishonest signer. If we would return 0
-               here, we will never be able to determine who it is. Therefore, we
-               should continue such that the culprit is revealed when collecting
-               and verifying partial signatures.
-               However, dealing with the point at infinity (loading,
-               de-/serializing) would require a lot of extra code complexity.
-               Instead, we set the aggregate nonce to some arbitrary point (the
-               generator). This is secure, because it only restricts the
-               abilities of the attacker: an attacker that forces the sum of
-               nonces to be infinity by sending some maliciously generated nonce
-               pairs can be turned into an attacker that forces the sum to be
-               the generator (by simply adding the generator to one of the
-               malicious nonces), and this does not change the winning condition
-               of the EUF-CMA game. */
-            aggnonce_pt[i] = secp256k1_ge_const_g;
-        } else {
-            secp256k1_ge_set_gej(&aggnonce_pt[i], &aggnonce_ptj[i]);
-        }
     }
     /* Add public adaptor to nonce */
     if (adaptor != NULL) {
@@ -484,19 +433,13 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
 
     /* If there is a tweak then set `challenge` times `tweak` to the `s`-part.*/
     secp256k1_scalar_set_int(&session_i.s_part, 0);
-    if (tweak_cache != NULL) {
-        secp256k1_tweak_cache_internal cache_i;
-        if (!secp256k1_tweak_cache_load(ctx, &cache_i, tweak_cache)) {
-            return 0;
+    if (!secp256k1_scalar_is_zero(&cache_i.tweak)) {
+        secp256k1_scalar e_tmp;
+        secp256k1_scalar_mul(&e_tmp, &session_i.challenge, &cache_i.tweak);
+        if (secp256k1_fe_is_odd(&cache_i.pk.y)) {
+            secp256k1_scalar_negate(&e_tmp, &e_tmp);
         }
-        if (!secp256k1_scalar_is_zero(&cache_i.tweak)) {
-            secp256k1_scalar e_tmp;
-            secp256k1_scalar_mul(&e_tmp, &session_i.challenge, &cache_i.tweak);
-            if (secp256k1_fe_is_odd(&cache_i.pk.y)) {
-                secp256k1_scalar_negate(&e_tmp, &e_tmp);
-            }
-            secp256k1_scalar_add(&session_i.s_part, &session_i.s_part, &e_tmp);
-        }
+        secp256k1_scalar_add(&session_i.s_part, &session_i.s_part, &e_tmp);
     }
     /* Update the challenge by multiplying the Lagrange coefficient to prepare
      * for signing. */
@@ -515,10 +458,11 @@ void secp256k1_frost_partial_sign_clear(secp256k1_scalar *sk, secp256k1_scalar *
     secp256k1_scalar_clear(&k[1]);
 }
 
-int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_partial_sig *partial_sig, secp256k1_frost_secnonce *secnonce, const secp256k1_frost_share *share, const secp256k1_frost_session *session, const secp256k1_frost_tweak_cache *tweak_cache) {
+int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_partial_sig *partial_sig, secp256k1_frost_secnonce *secnonce, const secp256k1_frost_share *share, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
     secp256k1_scalar sk;
     secp256k1_scalar k[2];
     secp256k1_scalar s;
+    secp256k1_keygen_cache_internal cache_i;
     secp256k1_frost_session_internal session_i;
     int ret;
 
@@ -537,26 +481,29 @@ int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_p
 
     ARG_CHECK(partial_sig != NULL);
     ARG_CHECK(share != NULL);
+    ARG_CHECK(keygen_cache != NULL);
     ARG_CHECK(session != NULL);
 
     if (!secp256k1_frost_share_load(ctx, &sk, share)) {
         secp256k1_frost_partial_sign_clear(&sk, k);
         return 0;
     }
-    if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
         secp256k1_frost_partial_sign_clear(&sk, k);
         return 0;
     }
 
-    if (tweak_cache != NULL) {
-        secp256k1_tweak_cache_internal cache_i;
-        if (!secp256k1_tweak_cache_load(ctx, &cache_i, tweak_cache)) {
-            secp256k1_frost_partial_sign_clear(&sk, k);
-            return 0;
-        }
-        if (secp256k1_fe_is_odd(&cache_i.pk.y) != cache_i.parity_acc) {
-            secp256k1_scalar_negate(&sk, &sk);
-        }
+    /* Negate sk if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let d = g⋅gacc⋅d' mod n" in the
+     * specification. */
+    if ((secp256k1_fe_is_odd(&cache_i.pk.y)
+         != cache_i.parity_acc)) {
+        secp256k1_scalar_negate(&sk, &sk);
+    }
+
+    if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
+        secp256k1_frost_partial_sign_clear(&sk, k);
+        return 0;
     }
 
     if (session_i.fin_nonce_parity) {
@@ -574,7 +521,8 @@ int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_p
     return 1;
 }
 
-int secp256k1_frost_partial_sig_verify(const secp256k1_context* ctx, const secp256k1_frost_partial_sig *partial_sig, const secp256k1_frost_pubnonce *pubnonce, const secp256k1_pubkey *pubshare, const secp256k1_frost_session *session, const secp256k1_frost_tweak_cache *tweak_cache) {
+int secp256k1_frost_partial_sig_verify(const secp256k1_context* ctx, const secp256k1_frost_partial_sig *partial_sig, const secp256k1_frost_pubnonce *pubnonce, const secp256k1_pubkey *pubshare, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
+    secp256k1_keygen_cache_internal cache_i;
     secp256k1_frost_session_internal session_i;
     secp256k1_scalar e, s;
     secp256k1_gej pkj;
@@ -587,6 +535,7 @@ int secp256k1_frost_partial_sig_verify(const secp256k1_context* ctx, const secp2
     ARG_CHECK(partial_sig != NULL);
     ARG_CHECK(pubnonce != NULL);
     ARG_CHECK(pubshare != NULL);
+    ARG_CHECK(keygen_cache != NULL);
     ARG_CHECK(session != NULL);
 
     if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
@@ -605,23 +554,24 @@ int secp256k1_frost_partial_sig_verify(const secp256k1_context* ctx, const secp2
     if (!secp256k1_pubkey_load(ctx, &pkp, pubshare)) {
         return 0;
     }
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
+        return 0;
+    }
 
     secp256k1_scalar_set_int(&e, 1);
-    if (tweak_cache != NULL) {
-        secp256k1_tweak_cache_internal cache_i;
-        if (!secp256k1_tweak_cache_load(ctx, &cache_i, tweak_cache)) {
-            return 0;
-        }
-        if (secp256k1_fe_is_odd(&cache_i.pk.y)
-                != cache_i.parity_acc) {
-            secp256k1_scalar_negate(&e, &e);
-        }
+    /* Negate e if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let g' = g⋅gacc mod n" and the multiplication "g'⋅e"
+     * in the specification. */
+    if (secp256k1_fe_is_odd(&cache_i.pk.y)
+            != cache_i.parity_acc) {
+        secp256k1_scalar_negate(&e, &e);
     }
     secp256k1_scalar_mul(&e, &e, &session_i.challenge);
 
     if (!secp256k1_frost_partial_sig_load(ctx, &s, partial_sig)) {
         return 0;
     }
+
     /* Compute -s*G + e*pkj + rj (e already includes the lagrange coefficient l) */
     secp256k1_scalar_negate(&s, &s);
     secp256k1_gej_set_ge(&pkj, &pkp);

@@ -37,7 +37,6 @@ struct signer {
     secp256k1_frost_session session;
     secp256k1_frost_partial_sig partial_sig;
     secp256k1_pubkey vss_commitment[THRESHOLD];
-    unsigned char vss_hash[32];
     unsigned char pok[64];
     unsigned char id[33];
 };
@@ -70,7 +69,7 @@ int create_keypair_and_seed(const secp256k1_context* ctx, struct signer_secrets 
 }
 
 /* Create shares and coefficient commitments */
-int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, secp256k1_xonly_pubkey *pk) {
+int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     int i, j;
     secp256k1_frost_share shares[N_SIGNERS][N_SIGNERS];
     const secp256k1_pubkey *vss_commitments[N_SIGNERS];
@@ -101,7 +100,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
             assigned_shares[j] = &shares[j][i];
         }
         /* Each participant aggregates the shares they received. */
-        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, pk, assigned_shares, vss_commitments, poks, N_SIGNERS, THRESHOLD, signer[i].id)) {
+        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, assigned_shares, vss_commitments, poks, N_SIGNERS, THRESHOLD, signer[i].id)) {
             return 0;
         }
         for (j = 0; j < N_SIGNERS; j++) {
@@ -125,14 +124,10 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
 
 /* Tweak the pubkey corresponding to the provided tweak cache, update the cache
  * and return the tweaked aggregate pk. */
-int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *pk, secp256k1_frost_tweak_cache *cache) {
+int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *pk, secp256k1_frost_keygen_cache *cache) {
     secp256k1_pubkey output_pk;
     unsigned char ordinary_tweak[32] = "this could be a BIP32 tweak....";
     unsigned char xonly_tweak[32] = "this could be a taproot tweak..";
-
-    if (!secp256k1_frost_pubkey_tweak(ctx, cache, pk)) {
-        return 0;
-    }
 
     /* Ordinary tweaking which, for example, allows deriving multiple child
      * public keys from a single aggregate key using BIP32 */
@@ -164,7 +159,7 @@ int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *pk, secp256k1_fr
 
 /* Sign a message hash with the given threshold and aggregate shares and store
  * the result in sig */
-int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, const unsigned char* msg32, secp256k1_xonly_pubkey *pk, unsigned char *sig64, const secp256k1_frost_tweak_cache *cache) {
+int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer, const unsigned char* msg32, unsigned char *sig64, const secp256k1_frost_keygen_cache *cache) {
     int i;
     int signer_id = 0;
     int signers[THRESHOLD];
@@ -183,7 +178,7 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
         }
         /* Initialize session and create secret nonce for signing and public
          * nonce to send to the other signers. */
-        if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, &signer_secrets[i].agg_share, msg32, pk, NULL)) {
+        if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, &signer_secrets[i].agg_share, msg32, cache, NULL)) {
             return 0;
         }
         is_signer[i] = 0; /* Initialize is_signer */
@@ -212,7 +207,7 @@ int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, st
     /* Signing communication round 1: Exchange nonces */
     for (i = 0; i < THRESHOLD; i++) {
         signer_id = signers[i];
-        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, pk, signer[signer_id].id, ids, cache, NULL)) {
+        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, signer[signer_id].id, ids, cache, NULL)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
@@ -251,10 +246,12 @@ int main(void) {
     int i;
     struct signer_secrets signer_secrets[N_SIGNERS];
     struct signer signers[N_SIGNERS];
+    const secp256k1_pubkey *pubshares_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey pk;
-    secp256k1_frost_tweak_cache cache;
+    secp256k1_frost_keygen_cache keygen_cache;
     unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
+    const unsigned char *id_ptr[5];
 
     /* Create a context for signing and verification */
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
@@ -264,23 +261,31 @@ int main(void) {
             printf("FAILED\n");
             return 1;
         }
+        pubshares_ptr[i] = &signers[i].pubshare;
+        id_ptr[i] = signers[i].id;
     }
     printf("ok\n");
     printf("Creating shares.........");
-    if (!create_shares(ctx, signer_secrets, signers, &pk)) {
+    if (!create_shares(ctx, signer_secrets, signers)) {
+        printf("FAILED\n");
+        return 1;
+    }
+    printf("ok\n");
+    printf("Generating public key...");
+    if (!secp256k1_frost_pubkey_gen(ctx, &keygen_cache, pubshares_ptr, N_SIGNERS, id_ptr)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
     printf("Tweaking................");
     /* Optionally tweak the aggregate key */
-    if (!tweak(ctx, &pk, &cache)) {
+    if (!tweak(ctx, &pk, &keygen_cache)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
     printf("Signing message.........");
-    if (!sign(ctx, signer_secrets, signers, msg, &pk, sig, &cache)) {
+    if (!sign(ctx, signer_secrets, signers, msg, sig, &keygen_cache)) {
         printf("FAILED\n");
         return 1;
     }
