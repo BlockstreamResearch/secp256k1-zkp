@@ -129,7 +129,7 @@ static void secp256k1_musig_keyaggcoef_sha256(secp256k1_sha256 *sha) {
 }
 
 /* Compute KeyAgg coefficient which is constant 1 for the second pubkey and
- * otherwise tagged_hash(pk_hash, x) where pk_hash is the hash of public keys.
+ * otherwise tagged_hash(pk_hash, pk) where pk_hash is the hash of public keys.
  * second_pk is the point at infinity in case there is no second_pk. Assumes
  * that pk is not the point at infinity and that the Y-coordinates of pk and
  * second_pk are normalized. */
@@ -162,7 +162,7 @@ static void secp256k1_musig_keyaggcoef_internal(secp256k1_scalar *r, const unsig
     }
 }
 
-/* Assumes both field elements x and second_pk_x are normalized. */
+/* Assumes both field elements pk_x and second_pk_x are normalized. */
 static void secp256k1_musig_keyaggcoef(secp256k1_scalar *r, const secp256k1_keyagg_cache_internal *cache_i, secp256k1_ge *pk) {
     secp256k1_musig_keyaggcoef_internal(r, cache_i->pk_hash, pk, &cache_i->second_pk);
 }
