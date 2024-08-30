@@ -164,7 +164,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_share *share, const unsigne
     int ret = 1;
 
     /* Derive share */
-    /* See draft-irtf-cfrg-frost-08#appendix-C.1 */
+    /* See RFC 9591, appendix C.1 */
     secp256k1_scalar_set_int(&share_i, 0);
     if (!secp256k1_frost_compute_indexhash(&idx, id33)) {
         return 0;
