@@ -81,6 +81,8 @@ static void secp256k1_frost_share_save(secp256k1_frost_share* share, secp256k1_s
 static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_share* share) {
     int overflow;
 
+    /* The magic is non-secret so it can be declassified to allow branching. */
+    secp256k1_declassify(ctx, &share->data[0], 4);
     ARG_CHECK(secp256k1_memcmp_var(&share->data[0], secp256k1_frost_share_magic, 4) == 0);
     secp256k1_scalar_set_b32(s, &share->data[4], &overflow);
     /* Parsed shares cannot overflow */
