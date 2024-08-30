@@ -396,11 +396,11 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_ec_tweak_a
  *  the following pseudocode xonly_pubkey_tweak_add_check (absent earlier
  *  failures) returns 1.
  *
- *  secp256k1_frost_share_agg(..., agg_pk, ...)
- *  secp256k1_frost_pubkey_tweak(..., keygen_cache, agg_pk)
+ *  secp256k1_frost_pubkey_gen(..., keygen_cache, ..., ..., ...)
  *  secp256k1_frost_pubkey_xonly_tweak_add(..., output_pk, keygen_cache, tweak32)
  *  secp256k1_xonly_pubkey_serialize(..., buf, output_pk)
- *  secp256k1_xonly_pubkey_tweak_add_check(..., buf, ..., agg_pk, tweak32)
+ *  secp256k1_frost_pubkey_get(..., pk, keygen_cache)
+ *  secp256k1_xonly_pubkey_tweak_add_check(..., buf, ..., pk, tweak32)
  *
  *  This function is required if you want to _sign_ for a tweaked group key.
  *  On the other hand, if you are only computing a public key, but not intending
