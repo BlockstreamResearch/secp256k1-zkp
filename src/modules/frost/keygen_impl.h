@@ -421,7 +421,7 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
         }
     }
 
-    secp256k1_scalar_clear(&acc);
+    secp256k1_scalar_set_int(&acc, 0);
     for (i = 0; i < n_shares; i++) {
         secp256k1_scalar share_i;
 
