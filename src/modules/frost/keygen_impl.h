@@ -294,7 +294,7 @@ static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *
     return 1;
 }
 
-/* See draft-irtf-cfrg-frost-08#appendix-C.2 */
+/* See RFC 9591 */
 static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_scalar *share, const secp256k1_pubkey * const* vss_commitment) {
     secp256k1_scalar share_neg;
     secp256k1_gej tmpj, snj;
@@ -325,7 +325,6 @@ static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, siz
     return secp256k1_gej_is_infinity(&tmpj);
 }
 
-/* See draft-irtf-cfrg-frost-08#appendix-C.2 */
 int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_frost_share *share, const secp256k1_pubkey * const* vss_commitment) {
     secp256k1_scalar share_i;
 
