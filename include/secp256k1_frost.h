@@ -452,7 +452,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_twea
  *  3. Avoid copying (or serializing) the secnonce. This reduces the possibility
  *     that it is used more than once for signing.
  *
- *  Remember that nonce reuse will leak the secret key!
+ *  Remember that nonce reuse will leak the secret share!
  *  Note that using the same agg_share for multiple FROST sessions is fine.
  *
  *  Returns: 0 if the arguments are invalid and 1 otherwise
@@ -523,7 +523,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
  *  This function overwrites the given secnonce with zeros and will abort if given a
  *  secnonce that is all zeros. This is a best effort attempt to protect against nonce
  *  reuse. However, this is of course easily defeated if the secnonce has been
- *  copied (or serialized). Remember that nonce reuse will leak the secret key!
+ *  copied (or serialized). Remember that nonce reuse will leak the secret share!
  *
  *  Returns: 0 if the arguments are invalid or the provided secnonce has already
  *           been used for signing, 1 otherwise
