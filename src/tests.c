@@ -4075,13 +4075,27 @@ static void test_add_neg_y_diff_x(void) {
 static void test_ge_bytes(void) {
     int i;
 
-    for (i = 0; i < COUNT; i++) {
+    for (i = 0; i < COUNT + 1; i++) {
         unsigned char buf[64];
         secp256k1_ge p, q;
 
-        random_group_element_test(&p);
-        secp256k1_ge_to_bytes(buf, &p);
-        secp256k1_ge_from_bytes(&q, buf);
+        if (i == 0) {
+            secp256k1_ge_set_infinity(&p);
+        } else {
+            random_group_element_test(&p);
+        }
+
+        if (!secp256k1_ge_is_infinity(&p)) {
+            secp256k1_ge_to_bytes(buf, &p);
+
+            secp256k1_ge_from_bytes(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+
+            secp256k1_ge_from_bytes_ext(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+        }
+        secp256k1_ge_to_bytes_ext(buf, &p);
+        secp256k1_ge_from_bytes_ext(&q, buf);
         CHECK(secp256k1_ge_eq_var(&p, &q));
     }
 }
