@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
+#include <stddef.h>
 
 /** This code is currently a work in progress. It's not secure nor stable.
  * IT IS EXTREMELY DANGEROUS AND RECKLESS TO USE THIS MODULE IN PRODUCTION!
