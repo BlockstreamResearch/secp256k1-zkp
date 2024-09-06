@@ -20,6 +20,39 @@
 #include "../../hash.h"
 #include "../../scalar.h"
 
+static const unsigned char secp256k1_frost_keygen_cache_magic[4] = { 0x40, 0x25, 0x2e, 0x41 };
+
+/* A tweak cache consists of
+ * - 4 byte magic set during initialization to allow detecting an uninitialized
+ *   object.
+ * - 64 byte aggregate (and potentially tweaked) public key
+ * - 1 byte the parity of the internal key (if tweaked, otherwise 0)
+ * - 32 byte tweak
+ */
+/* Requires that cache_i->pk is not infinity. */
+static void secp256k1_keygen_cache_save(secp256k1_frost_keygen_cache *cache, secp256k1_keygen_cache_internal *cache_i) {
+    unsigned char *ptr = cache->data;
+    memcpy(ptr, secp256k1_frost_keygen_cache_magic, 4);
+    ptr += 4;
+    secp256k1_ge_to_bytes(ptr, &cache_i->pk);
+    ptr += 64;
+    *ptr = cache_i->parity_acc;
+    ptr += 1;
+    secp256k1_scalar_get_b32(ptr, &cache_i->tweak);
+}
+
+static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_keygen_cache_internal *cache_i, const secp256k1_frost_keygen_cache *cache) {
+    const unsigned char *ptr = cache->data;
+    ARG_CHECK(secp256k1_memcmp_var(ptr, secp256k1_frost_keygen_cache_magic, 4) == 0);
+    ptr += 4;
+    secp256k1_ge_from_bytes(&cache_i->pk, ptr);
+    ptr += 64;
+    cache_i->parity_acc = *ptr & 1;
+    ptr += 1;
+    secp256k1_scalar_set_b32(&cache_i->tweak, ptr, NULL);
+    return 1;
+}
+
 /* Computes indexhash = tagged_hash(pk) */
 static int secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33) {
     secp256k1_sha256 sha;
@@ -182,6 +215,13 @@ typedef struct {
     const secp256k1_pubkey *vss_commitment;
 } secp256k1_frost_evaluate_vss_ecmult_data;
 
+typedef struct {
+    const secp256k1_context *ctx;
+    const secp256k1_pubkey * const* pubshares;
+    const unsigned char * const *ids33;
+    size_t n_pubshares;
+} secp256k1_frost_interpolate_pubkey_ecmult_data;
+
 static int secp256k1_frost_evaluate_vss_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_frost_evaluate_vss_ecmult_data *ctx = (secp256k1_frost_evaluate_vss_ecmult_data *) data;
     if (!secp256k1_pubkey_load(ctx->ctx, pt, &ctx->vss_commitment[idx])) {
@@ -189,6 +229,23 @@ static int secp256k1_frost_evaluate_vss_ecmult_callback(secp256k1_scalar *sc, se
     }
     *sc = ctx->idxn;
     secp256k1_scalar_mul(&ctx->idxn, &ctx->idxn, &ctx->idx);
+
+    return 1;
+}
+
+static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    secp256k1_frost_interpolate_pubkey_ecmult_data *ctx = (secp256k1_frost_interpolate_pubkey_ecmult_data *) data;
+    secp256k1_scalar l;
+
+    if (!secp256k1_pubkey_load(ctx->ctx, pt, ctx->pubshares[idx])) {
+        return 0;
+    }
+
+    if (!secp256k1_frost_lagrange_coefficient(&l, ctx->ids33, ctx->n_pubshares, ctx->ids33[idx])) {
+        return 0;
+    }
+
+    *sc = l;
 
     return 1;
 }
@@ -262,6 +319,124 @@ int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pub
     }
     secp256k1_ge_set_gej(&tmp, &pkj);
     secp256k1_pubkey_save(pubshare, &tmp);
+
+    return 1;
+}
+
+int secp256k1_frost_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, const secp256k1_frost_keygen_cache *keyagg_cache) {
+    secp256k1_keygen_cache_internal cache_i;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(agg_pk != NULL);
+    memset(agg_pk, 0, sizeof(*agg_pk));
+    ARG_CHECK(keyagg_cache != NULL);
+
+    if(!secp256k1_keygen_cache_load(ctx, &cache_i, keyagg_cache)) {
+        return 0;
+    }
+    secp256k1_pubkey_save(agg_pk, &cache_i.pk);
+    return 1;
+}
+
+int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_keygen_cache *cache, const secp256k1_pubkey * const *pubshares, size_t n_pubshares, const unsigned char * const *ids33) {
+    secp256k1_gej pkj;
+    secp256k1_frost_interpolate_pubkey_ecmult_data interpolate_pubkey_ecmult_data;
+    secp256k1_keygen_cache_internal cache_i = { 0 };
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(cache != NULL);
+    ARG_CHECK(pubshares != NULL);
+    ARG_CHECK(ids33 != NULL);
+    ARG_CHECK(n_pubshares > 1);
+
+    interpolate_pubkey_ecmult_data.ctx = ctx;
+    interpolate_pubkey_ecmult_data.pubshares = pubshares;
+    interpolate_pubkey_ecmult_data.ids33 = ids33;
+    interpolate_pubkey_ecmult_data.n_pubshares = n_pubshares;
+
+    /* TODO: add scratch */
+    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, &pkj, NULL, secp256k1_frost_interpolate_pubkey_ecmult_callback, (void *) &interpolate_pubkey_ecmult_data, n_pubshares)) {
+        return 0;
+    }
+    secp256k1_ge_set_gej(&cache_i.pk, &pkj);
+    secp256k1_keygen_cache_save(cache, &cache_i);
+
+    return 1;
+}
+
+static int secp256k1_frost_pubkey_tweak_add_internal(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *tweak32, int xonly) {
+    secp256k1_keygen_cache_internal cache_i;
+    int overflow = 0;
+    secp256k1_scalar tweak;
+
+    VERIFY_CHECK(ctx != NULL);
+    if (output_pubkey != NULL) {
+        memset(output_pubkey, 0, sizeof(*output_pubkey));
+    }
+    ARG_CHECK(keygen_cache != NULL);
+    ARG_CHECK(tweak32 != NULL);
+
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
+        return 0;
+    }
+    secp256k1_scalar_set_b32(&tweak, tweak32, &overflow);
+    if (overflow) {
+        return 0;
+    }
+    if (xonly && secp256k1_extrakeys_ge_even_y(&cache_i.pk)) {
+        cache_i.parity_acc ^= 1;
+        secp256k1_scalar_negate(&cache_i.tweak, &cache_i.tweak);
+    }
+    secp256k1_scalar_add(&cache_i.tweak, &cache_i.tweak, &tweak);
+    if (!secp256k1_eckey_pubkey_tweak_add(&cache_i.pk, &tweak)) {
+        return 0;
+    }
+    /* eckey_pubkey_tweak_add fails if cache_i.pk is infinity */
+    VERIFY_CHECK(!secp256k1_ge_is_infinity(&cache_i.pk));
+    secp256k1_keygen_cache_save(keygen_cache, &cache_i);
+    if (output_pubkey != NULL) {
+        secp256k1_pubkey_save(output_pubkey, &cache_i.pk);
+    }
+    return 1;
+}
+
+int secp256k1_frost_pubkey_ec_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *tweak32) {
+    return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, keygen_cache, tweak32, 0);
+}
+
+int secp256k1_frost_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256k1_pubkey *output_pubkey, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *tweak32) {
+    return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, keygen_cache, tweak32, 1);
+}
+
+static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const *ids33, size_t n_participants, const unsigned char *my_id33) {
+    size_t i;
+    secp256k1_scalar num;
+    secp256k1_scalar den;
+    secp256k1_scalar party_idx;
+
+    secp256k1_scalar_set_int(&num, 1);
+    secp256k1_scalar_set_int(&den, 1);
+    if (!secp256k1_frost_compute_indexhash(&party_idx, my_id33)) {
+        return 0;
+    }
+    for (i = 0; i < n_participants; i++) {
+        secp256k1_scalar mul;
+
+        if (!secp256k1_frost_compute_indexhash(&mul, ids33[i])) {
+            return 0;
+        }
+        if (secp256k1_scalar_eq(&mul, &party_idx)) {
+            continue;
+        }
+
+        secp256k1_scalar_negate(&mul, &mul);
+        secp256k1_scalar_mul(&num, &num, &mul);
+        secp256k1_scalar_add(&mul, &mul, &party_idx);
+        secp256k1_scalar_mul(&den, &den, &mul);
+    }
+
+    secp256k1_scalar_inverse_var(&den, &den);
+    secp256k1_scalar_mul(r, &num, &den);
 
     return 1;
 }
