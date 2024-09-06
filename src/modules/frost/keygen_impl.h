@@ -175,4 +175,95 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sha
     return ret;
 }
 
+typedef struct {
+    const secp256k1_context *ctx;
+    secp256k1_scalar idx;
+    secp256k1_scalar idxn;
+    const secp256k1_pubkey *vss_commitment;
+} secp256k1_frost_evaluate_vss_ecmult_data;
+
+static int secp256k1_frost_evaluate_vss_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    secp256k1_frost_evaluate_vss_ecmult_data *ctx = (secp256k1_frost_evaluate_vss_ecmult_data *) data;
+    if (!secp256k1_pubkey_load(ctx->ctx, pt, &ctx->vss_commitment[idx])) {
+        return 0;
+    }
+    *sc = ctx->idxn;
+    secp256k1_scalar_mul(&ctx->idxn, &ctx->idxn, &ctx->idx);
+
+    return 1;
+}
+
+static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_gej *share, size_t threshold, const unsigned char *id33, const secp256k1_pubkey *vss_commitment) {
+    secp256k1_frost_evaluate_vss_ecmult_data evaluate_vss_ecmult_data;
+
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+
+    /* Use an EC multi-multiplication to verify the following equation:
+     *   0 = - share_i*G + idx^0*vss_commitment[0]
+     *                   + ...
+     *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/
+    evaluate_vss_ecmult_data.ctx = ctx;
+    evaluate_vss_ecmult_data.vss_commitment = vss_commitment;
+    /* Evaluate the public polynomial at the idx */
+    if (!secp256k1_frost_compute_indexhash(&evaluate_vss_ecmult_data.idx, id33)) {
+        return 0;
+    }
+    secp256k1_scalar_set_int(&evaluate_vss_ecmult_data.idxn, 1);
+    /* TODO: add scratch */
+    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, share, NULL, secp256k1_frost_evaluate_vss_ecmult_callback, (void *) &evaluate_vss_ecmult_data, threshold)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+/* See RFC 9591, appendix C.2 */
+int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_frost_share *share, const secp256k1_pubkey *vss_commitment) {
+    secp256k1_scalar share_i;
+    secp256k1_scalar share_neg;
+    secp256k1_gej tmpj, snj;
+    secp256k1_ge sng;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(id33 != NULL);
+    ARG_CHECK(share != NULL);
+    ARG_CHECK(vss_commitment != NULL);
+    ARG_CHECK(threshold > 1);
+
+    if (!secp256k1_frost_share_load(ctx, &share_i, share)) {
+        return 0;
+    }
+
+    if (!secp256k1_frost_evaluate_vss(ctx, &tmpj, threshold, id33, vss_commitment)) {
+        return 0;
+    }
+
+    secp256k1_scalar_negate(&share_neg, &share_i);
+    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &snj, &share_neg);
+    secp256k1_ge_set_gej(&sng, &snj);
+    secp256k1_gej_add_ge(&tmpj, &tmpj, &sng);
+    return secp256k1_gej_is_infinity(&tmpj);
+}
+
+/* See RFC 9591, appendix C.2 */
+int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const unsigned char *id33, const secp256k1_pubkey *vss_commitment) {
+    secp256k1_gej pkj;
+    secp256k1_ge tmp;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(pubshare != NULL);
+    memset(pubshare, 0, sizeof(*pubshare));
+    ARG_CHECK(id33 != NULL);
+    ARG_CHECK(vss_commitment != NULL);
+    ARG_CHECK(threshold > 1);
+
+    if (!secp256k1_frost_evaluate_vss(ctx, &pkj, threshold, id33, vss_commitment)) {
+        return 0;
+    }
+    secp256k1_ge_set_gej(&tmp, &pkj);
+    secp256k1_pubkey_save(pubshare, &tmp);
+
+    return 1;
+}
+
 #endif
