@@ -240,12 +240,6 @@ typedef struct {
 
 typedef struct {
     const secp256k1_context *ctx;
-    const secp256k1_pubkey * const* pks;
-    size_t threshold;
-} secp256k1_frost_pubkey_combine_ecmult_data;
-
-typedef struct {
-    const secp256k1_context *ctx;
     const secp256k1_pubkey * const* pubshares;
     const unsigned char * const *ids33;
     size_t n_pubshares;
