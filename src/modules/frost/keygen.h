@@ -10,4 +10,16 @@
 #include "../../../include/secp256k1.h"
 #include "../../../include/secp256k1_frost.h"
 
+#include "../../group.h"
+#include "../../scalar.h"
+
+typedef struct {
+    secp256k1_ge pk;
+    /* tweak is identical to value tacc[v] in the specification. */
+    secp256k1_scalar tweak;
+    /* parity_acc corresponds to gacc[v] in the spec. If gacc[v] is -1,
+     * parity_acc is 1. Otherwise, parity_acc is 0. */
+    int parity_acc;
+} secp256k1_keygen_cache_internal;
+
 #endif
