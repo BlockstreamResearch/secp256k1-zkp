@@ -93,6 +93,49 @@ SECP256K1_API int secp256k1_frost_shares_gen(
     const unsigned char * const *ids33
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
 
+/** Verifies a share received during a key generation session
+ *
+ *  The signature is verified against the VSS commitment received with the
+ *  share.
+ *
+ *  Returns: 0 if the arguments are invalid or the share does not verify, 1
+ *           otherwise
+ *  Args         ctx: pointer to a context object
+ *  In:    threshold: the minimum number of signers required to produce a
+ *                    signature
+ *              id33: the 33-byte participant ID of the share recipient
+ *             share: pointer to a key generation share
+ *    vss_commitment: input array of the elements of the VSS commitment
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
+    const secp256k1_context *ctx,
+    size_t threshold,
+    const unsigned char *id33,
+    const secp256k1_frost_share *share,
+    const secp256k1_pubkey *vss_commitment
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Computes a public verification share used for verifying partial signatures
+ *
+ *  Returns: 0 if the arguments are invalid, 1 otherwise
+ *  Args:        ctx: pointer to a context object
+ *  Out:    pubshare: pointer to a struct to store the public verification
+ *                    share
+ *  In:    threshold: the minimum number of signers required to produce a
+ *                    signature
+ *              id33: the 33-byte participant ID of the participant whose
+ *                    partial signature will be verified with the pubshare
+ *    vss_commitment: input array of the elements of the VSS commitment
+ *    n_participants: the total number of participants
+ */
+SECP256K1_API int secp256k1_frost_compute_pubshare(
+    const secp256k1_context *ctx,
+    secp256k1_pubkey *pubshare,
+    size_t threshold,
+    const unsigned char *id33,
+    const secp256k1_pubkey *vss_commitment
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
 #ifdef __cplusplus
 }
 #endif
