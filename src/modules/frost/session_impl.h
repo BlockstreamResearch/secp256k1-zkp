@@ -117,6 +117,23 @@ static int secp256k1_frost_session_load(const secp256k1_context* ctx, secp256k1_
     return 1;
 }
 
+static const unsigned char secp256k1_frost_partial_sig_magic[4] = { 0x8d, 0xd8, 0x31, 0x6e };
+
+static void secp256k1_frost_partial_sig_save(secp256k1_frost_partial_sig* sig, secp256k1_scalar *s) {
+    memcpy(&sig->data[0], secp256k1_frost_partial_sig_magic, 4);
+    secp256k1_scalar_get_b32(&sig->data[4], s);
+}
+
+static int secp256k1_frost_partial_sig_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_partial_sig* sig) {
+    int overflow;
+
+    ARG_CHECK(secp256k1_memcmp_var(&sig->data[0], secp256k1_frost_partial_sig_magic, 4) == 0);
+    secp256k1_scalar_set_b32(s, &sig->data[4], &overflow);
+    /* Parsed signatures can not overflow */
+    VERIFY_CHECK(!overflow);
+    return 1;
+}
+
 int secp256k1_frost_pubnonce_serialize(const secp256k1_context* ctx, unsigned char *out66, const secp256k1_frost_pubnonce* nonce) {
     secp256k1_ge ge[2];
     int i;
@@ -160,6 +177,29 @@ int secp256k1_frost_pubnonce_parse(const secp256k1_context* ctx, secp256k1_frost
     }
     /* The group elements can not be infinity because they were just parsed */
     secp256k1_frost_pubnonce_save(nonce, ge);
+    return 1;
+}
+
+int secp256k1_frost_partial_sig_serialize(const secp256k1_context* ctx, unsigned char *out32, const secp256k1_frost_partial_sig* sig) {
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(out32 != NULL);
+    ARG_CHECK(sig != NULL);
+    memcpy(out32, &sig->data[4], 32);
+    return 1;
+}
+
+int secp256k1_frost_partial_sig_parse(const secp256k1_context* ctx, secp256k1_frost_partial_sig* sig, const unsigned char *in32) {
+    secp256k1_scalar tmp;
+    int overflow;
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(sig != NULL);
+    ARG_CHECK(in32 != NULL);
+
+    secp256k1_scalar_set_b32(&tmp, in32, &overflow);
+    if (overflow) {
+        return 0;
+    }
+    secp256k1_frost_partial_sig_save(sig, &tmp);
     return 1;
 }
 
@@ -421,6 +461,163 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     secp256k1_scalar_mul(&session_i.challenge, &session_i.challenge, &l);
     memcpy(session_i.fin_nonce, fin_nonce, sizeof(session_i.fin_nonce));
     secp256k1_frost_session_save(session, &session_i);
+    return 1;
+}
+
+void secp256k1_frost_partial_sign_clear(secp256k1_scalar *sk, secp256k1_scalar *k) {
+    secp256k1_scalar_clear(sk);
+    secp256k1_scalar_clear(&k[0]);
+    secp256k1_scalar_clear(&k[1]);
+}
+
+int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_partial_sig *partial_sig, secp256k1_frost_secnonce *secnonce, const secp256k1_frost_share *share, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
+    secp256k1_scalar sk;
+    secp256k1_scalar k[2];
+    secp256k1_scalar s;
+    secp256k1_keygen_cache_internal cache_i;
+    secp256k1_frost_session_internal session_i;
+    int ret;
+
+    VERIFY_CHECK(ctx != NULL);
+
+    ARG_CHECK(secnonce != NULL);
+    /* Fails if the magic doesn't match */
+    ret = secp256k1_frost_secnonce_load(ctx, k, secnonce);
+    /* Set nonce to zero to avoid nonce reuse. This will cause subsequent calls
+     * of this function to fail */
+    memset(secnonce, 0, sizeof(*secnonce));
+    if (!ret) {
+        secp256k1_frost_partial_sign_clear(&sk, k);
+        return 0;
+    }
+
+    ARG_CHECK(partial_sig != NULL);
+    ARG_CHECK(share != NULL);
+    ARG_CHECK(keygen_cache != NULL);
+    ARG_CHECK(session != NULL);
+
+    if (!secp256k1_frost_share_load(ctx, &sk, share)) {
+        secp256k1_frost_partial_sign_clear(&sk, k);
+        return 0;
+    }
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
+        secp256k1_frost_partial_sign_clear(&sk, k);
+        return 0;
+    }
+
+    /* Negate sk if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let d = g⋅gacc⋅d' mod n" in the
+     * specification. */
+    if ((secp256k1_fe_is_odd(&cache_i.pk.y)
+         != cache_i.parity_acc)) {
+        secp256k1_scalar_negate(&sk, &sk);
+    }
+
+    if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
+        secp256k1_frost_partial_sign_clear(&sk, k);
+        return 0;
+    }
+
+    if (session_i.fin_nonce_parity) {
+        secp256k1_scalar_negate(&k[0], &k[0]);
+        secp256k1_scalar_negate(&k[1], &k[1]);
+    }
+
+    /* Sign */
+    secp256k1_scalar_mul(&s, &session_i.challenge, &sk);
+    secp256k1_scalar_mul(&k[1], &session_i.noncecoef, &k[1]);
+    secp256k1_scalar_add(&k[0], &k[0], &k[1]);
+    secp256k1_scalar_add(&s, &s, &k[0]);
+    secp256k1_frost_partial_sig_save(partial_sig, &s);
+    secp256k1_frost_partial_sign_clear(&sk, k);
+    return 1;
+}
+
+int secp256k1_frost_partial_sig_verify(const secp256k1_context* ctx, const secp256k1_frost_partial_sig *partial_sig, const secp256k1_frost_pubnonce *pubnonce, const secp256k1_pubkey *pubshare, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
+    secp256k1_keygen_cache_internal cache_i;
+    secp256k1_frost_session_internal session_i;
+    secp256k1_scalar e, s;
+    secp256k1_gej pkj;
+    secp256k1_ge nonce_pt[2];
+    secp256k1_gej rj;
+    secp256k1_gej tmp;
+    secp256k1_ge pkp;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(partial_sig != NULL);
+    ARG_CHECK(pubnonce != NULL);
+    ARG_CHECK(pubshare != NULL);
+    ARG_CHECK(keygen_cache != NULL);
+    ARG_CHECK(session != NULL);
+
+    if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
+        return 0;
+    }
+
+    /* Compute "effective" nonce rj = aggnonce[0] + b*aggnonce[1] */
+    /* TODO: use multiexp to compute -s*G + e*pubshare + aggnonce[0] + b*aggnonce[1] */
+    if (!secp256k1_frost_pubnonce_load(ctx, nonce_pt, pubnonce)) {
+        return 0;
+    }
+    secp256k1_gej_set_ge(&rj, &nonce_pt[1]);
+    secp256k1_ecmult(&rj, &rj, &session_i.noncecoef, NULL);
+    secp256k1_gej_add_ge_var(&rj, &rj, &nonce_pt[0], NULL);
+
+    if (!secp256k1_pubkey_load(ctx, &pkp, pubshare)) {
+        return 0;
+    }
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
+        return 0;
+    }
+
+    secp256k1_scalar_set_int(&e, 1);
+    /* Negate e if secp256k1_fe_is_odd(&cache_i.pk.y)) XOR cache_i.parity_acc.
+     * This corresponds to the line "Let g' = g⋅gacc mod n" and the multiplication "g'⋅e"
+     * in the specification. */
+    if (secp256k1_fe_is_odd(&cache_i.pk.y)
+            != cache_i.parity_acc) {
+        secp256k1_scalar_negate(&e, &e);
+    }
+    secp256k1_scalar_mul(&e, &e, &session_i.challenge);
+
+    if (!secp256k1_frost_partial_sig_load(ctx, &s, partial_sig)) {
+        return 0;
+    }
+
+    /* Compute -s*G + e*pkj + rj (e already includes the lagrange coefficient l) */
+    secp256k1_scalar_negate(&s, &s);
+    secp256k1_gej_set_ge(&pkj, &pkp);
+    secp256k1_ecmult(&tmp, &pkj, &e, &s);
+    if (session_i.fin_nonce_parity) {
+        secp256k1_gej_neg(&rj, &rj);
+    }
+    secp256k1_gej_add_var(&tmp, &tmp, &rj, NULL);
+
+    return secp256k1_gej_is_infinity(&tmp);
+}
+
+int secp256k1_frost_partial_sig_agg(const secp256k1_context* ctx, unsigned char *sig64, const secp256k1_frost_session *session, const secp256k1_frost_partial_sig * const* partial_sigs, size_t n_sigs) {
+    size_t i;
+    secp256k1_frost_session_internal session_i;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(sig64 != NULL);
+    ARG_CHECK(session != NULL);
+    ARG_CHECK(partial_sigs != NULL);
+    ARG_CHECK(n_sigs > 0);
+
+    if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
+        return 0;
+    }
+    for (i = 0; i < n_sigs; i++) {
+        secp256k1_scalar term;
+        if (!secp256k1_frost_partial_sig_load(ctx, &term, partial_sigs[i])) {
+            return 0;
+        }
+        secp256k1_scalar_add(&session_i.s_part, &session_i.s_part, &term);
+    }
+    secp256k1_scalar_get_b32(&sig64[32], &session_i.s_part);
+    memcpy(&sig64[0], session_i.fin_nonce, 32);
     return 1;
 }
 
