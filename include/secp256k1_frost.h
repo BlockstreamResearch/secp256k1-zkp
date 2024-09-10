@@ -21,6 +21,9 @@ extern "C" {
  * The module also supports BIP-341 ("Taproot") and BIP-32 ("ordinary") public
  * key tweaking, and adaptor signatures.
  *
+ * It is recommended to read the documentation in this include file carefully.
+ * Further notes on API usage can be found in src/modules/frost/frost.md
+ *
  * Following the convention used in the MuSig module, the API uses the singular
  * term "nonce" to refer to the two "nonces" used by the FROST scheme.
  */
