@@ -13,7 +13,7 @@ print_environment() {
     # does not rely on bash.
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENKB ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
-            EXPERIMENTAL ECDH RECOVERY EXTRAKEYS SCHNORRSIG MUSIG SCHNORRSIG_HALFAGG ELLSWIFT \
+            EXPERIMENTAL ECDH RECOVERY EXTRAKEYS SCHNORRSIG MUSIG FROST SCHNORRSIG_HALFAGG ELLSWIFT \
             ECDSA_S2C GENERATOR RANGEPROOF SURJECTIONPROOF WHITELIST ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS SYMBOL_CHECK \
             EXAMPLES \
@@ -69,6 +69,7 @@ fi
     --enable-module-schnorrsig="$SCHNORRSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-musig="$MUSIG" \
     --enable-module-schnorrsig-halfagg="$SCHNORRSIG_HALFAGG" \
+    --enable-module-frost="$FROST" \
     --enable-examples="$EXAMPLES" \
     --enable-ctime-tests="$CTIMETESTS" \
     --with-valgrind="$WITH_VALGRIND" \
