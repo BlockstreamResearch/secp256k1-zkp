@@ -22,4 +22,8 @@ typedef struct {
     int parity_acc;
 } secp256k1_keygen_cache_internal;
 
+static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_keygen_cache_internal *cache_i, const secp256k1_frost_keygen_cache *cache);
+
+static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_share* share);
+
 #endif
