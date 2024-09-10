@@ -14,7 +14,8 @@ extern "C" {
  *
  * This module implements a variant of Flexible Round-Optimized Schnorr
  * Threshold Signatures (FROST) by Chelsea Komlo and Ian Goldberg
- * (https://crysp.uwaterloo.ca/software/frost/).
+ * (https://crysp.uwaterloo.ca/software/frost/). Signatures are compatible with
+ * BIP-340 ("Schnorr").
  *
  * The module also supports BIP-341 ("Taproot") and BIP-32 ("ordinary") public
  * key tweaking, and adaptor signatures.
@@ -88,6 +89,15 @@ typedef struct {
     unsigned char data[133];
 } secp256k1_frost_session;
 
+/** Opaque data structure that holds a partial FROST signature.
+ *
+ *  Guaranteed to be 36 bytes in size. Serialized and parsed with
+ *  `frost_partial_sig_serialize` and `frost_partial_sig_parse`.
+ */
+typedef struct {
+    unsigned char data[36];
+} secp256k1_frost_partial_sig;
+
 /** Parse a signer's public nonce.
  *
  *  Returns: 1 when the nonce could be parsed, 0 otherwise.
@@ -112,6 +122,36 @@ SECP256K1_API int secp256k1_frost_pubnonce_serialize(
     const secp256k1_context *ctx,
     unsigned char *out66,
     const secp256k1_frost_pubnonce *nonce
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Serialize a FROST partial signature
+ *
+ *  Returns: 1 when the signature could be serialized, 0 otherwise
+ *  Args:    ctx: pointer to a context object
+ *  Out:   out32: pointer to a 32-byte array to store the serialized signature
+ *  In:      sig: pointer to the signature
+ */
+SECP256K1_API int secp256k1_frost_partial_sig_serialize(
+    const secp256k1_context *ctx,
+    unsigned char *out32,
+    const secp256k1_frost_partial_sig *sig
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+
+/** Parse a FROST partial signature.
+ *
+ *  Returns: 1 when the signature could be parsed, 0 otherwise.
+ *  Args:    ctx: pointer to a context object
+ *  Out:     sig: pointer to a signature object
+ *  In:     in32: pointer to the 32-byte signature to be parsed
+ *
+ *  After the call, sig will always be initialized. If parsing failed or the
+ *  encoded numbers are out of range, signature verification with it is
+ *  guaranteed to fail for every message and public key.
+ */
+SECP256K1_API int secp256k1_frost_partial_sig_parse(
+    const secp256k1_context *ctx,
+    secp256k1_frost_partial_sig *sig,
+    const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Serialize a FROST share
@@ -427,6 +467,90 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
     const secp256k1_frost_keygen_cache *keygen_cache,
     const secp256k1_pubkey *adaptor
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
+
+/** Produces a partial signature
+ *
+ *  This function overwrites the given secnonce with zeros and will abort if given a
+ *  secnonce that is all zeros. This is a best effort attempt to protect against nonce
+ *  reuse. However, this is of course easily defeated if the secnonce has been
+ *  copied (or serialized). Remember that nonce reuse will leak the secret share!
+ *
+ *  Returns: 0 if the arguments are invalid or the provided secnonce has already
+ *           been used for signing, 1 otherwise
+ *  Args:         ctx: pointer to a context object
+ *  Out:  partial_sig: pointer to struct to store the partial signature
+ *  In/Out:  secnonce: pointer to the secnonce struct created in
+ *                     frost_nonce_gen that has been never used in a
+ *                     partial_sign call before
+ *  In:     agg_share: the aggregated share
+ *            session: pointer to the session that was created with
+ *                     frost_nonce_process
+ *        keygen_cache: pointer to frost_keygen_cache struct
+ */
+SECP256K1_API int secp256k1_frost_partial_sign(
+    const secp256k1_context *ctx,
+    secp256k1_frost_partial_sig *partial_sig,
+    secp256k1_frost_secnonce *secnonce,
+    const secp256k1_frost_share *agg_share,
+    const secp256k1_frost_session *session,
+    const secp256k1_frost_keygen_cache *keygen_cache
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
+/** Verifies an individual signer's partial signature
+ *
+ *  The signature is verified for a specific signing session. In order to avoid
+ *  accidentally verifying a signature from a different or non-existing signing
+ *  session, you must ensure the following:
+ *    1. The `keygen_cache` argument is identical to the one used to create the
+ *       `session` with `frost_nonce_process`.
+ *    2. The `pubshare` argument must be the output of
+ *       `secp256k1_frost_compute_pubshare` for the signer's ID.
+ *    3. The `pubnonce` argument must be identical to the one sent by the
+ *       signer and used to create the `session` with `frost_nonce_process`.
+ *
+ *  This function can be used to assign blame for a failed signature.
+ *
+ *  Returns: 0 if the arguments are invalid or the partial signature does not
+ *           verify, 1 otherwise
+ *  Args         ctx: pointer to a context object
+ *  In:  partial_sig: pointer to partial signature to verify, sent by
+ *                    the signer associated with `pubnonce` and `pubkey`
+ *          pubnonce: public nonce of the signer in the signing session
+ *          pubshare: public verification share of the signer in the signing
+ *                    session that is the output of
+ *                    `secp256k1_frost_compute_pubshare`
+ *           session: pointer to the session that was created with
+ *                    `frost_nonce_process`
+ *       keygen_cache: pointer to frost_keygen_cache struct
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_partial_sig_verify(
+    const secp256k1_context *ctx,
+    const secp256k1_frost_partial_sig *partial_sig,
+    const secp256k1_frost_pubnonce *pubnonce,
+    const secp256k1_pubkey *pubshare,
+    const secp256k1_frost_session *session,
+    const secp256k1_frost_keygen_cache *keygen_cache
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+
+/** Aggregates partial signatures
+ *
+ *  Returns: 0 if the arguments are invalid, 1 otherwise (which does NOT mean
+ *           the resulting signature verifies).
+ *  Args:         ctx: pointer to a context object
+ *  Out:        sig64: complete (but possibly invalid) Schnorr signature
+ *  In:       session: pointer to the session that was created with
+ *                     frost_nonce_process
+ *       partial_sigs: array of pointers to partial signatures to aggregate
+ *             n_sigs: number of elements in the partial_sigs array. Must be
+ *                     greater than 0.
+ */
+SECP256K1_API int secp256k1_frost_partial_sig_agg(
+    const secp256k1_context *ctx,
+    unsigned char *sig64,
+    const secp256k1_frost_session *session,
+    const secp256k1_frost_partial_sig * const *partial_sigs,
+    size_t n_sigs
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Extracts the nonce_parity bit from a session
  *
