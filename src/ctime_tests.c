@@ -47,6 +47,10 @@
 #include "../include/secp256k1_musig.h"
 #endif
 
+#ifdef ENABLE_MODULE_FROST
+#include "include/secp256k1_frost.h"
+#endif
+
 static void run_tests(secp256k1_context *ctx, unsigned char *key);
 
 int main(void) {
@@ -347,6 +351,105 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_musig_extract_adaptor(ctx, sec_adaptor, sig, pre_sig, nonce_parity);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
+    }
+#endif
+
+#ifdef ENABLE_MODULE_FROST
+    {
+        secp256k1_pubkey pk[2];
+        unsigned char session_id[32];
+        unsigned char seed[32];
+        secp256k1_frost_secnonce secnonce[2];
+        secp256k1_frost_pubnonce pubnonce[2];
+        const secp256k1_frost_pubnonce *pubnonce_ptr[2];
+        secp256k1_frost_keygen_cache cache;
+        secp256k1_frost_session session;
+        secp256k1_frost_partial_sig partial_sig;
+        const secp256k1_frost_partial_sig *partial_sig_ptr[1];
+        unsigned char extra_input[32];
+        unsigned char sec_adaptor[32];
+        secp256k1_pubkey adaptor;
+        unsigned char pre_sig[64];
+        int nonce_parity;
+        secp256k1_frost_share shares[2];
+        secp256k1_pubkey vss_commitment[2];
+        unsigned char key2[32];
+        secp256k1_keypair keypair2;
+        unsigned char id[2][33];
+        const unsigned char *id_ptr[2];
+        size_t size = 33;
+        secp256k1_pubkey pubshare[2];
+        const secp256k1_pubkey *pubshares_ptr[2];
+
+        id_ptr[0] = id[0];
+        id_ptr[1] = id[1];
+        pubnonce_ptr[0] = &pubnonce[0];
+        pubnonce_ptr[1] = &pubnonce[1];
+        SECP256K1_CHECKMEM_DEFINE(key, 32);
+        memcpy(seed, key, 32);
+        seed[0] = seed[0] + 1;
+        memcpy(extra_input, key, sizeof(extra_input));
+        extra_input[0] = extra_input[0] + 2;
+        memcpy(sec_adaptor, key, sizeof(sec_adaptor));
+        sec_adaptor[0] = extra_input[0] + 3;
+        memcpy(key2, key, sizeof(key2));
+        key2[0] = key2[0] + 4;
+        memcpy(session_id, key, sizeof(session_id));
+        session_id[0] = session_id[0] + 5;
+        partial_sig_ptr[0] = &partial_sig;
+        pubshares_ptr[0] = &pubshare[0];
+        pubshares_ptr[1] = &pubshare[1];
+
+        CHECK(secp256k1_keypair_create(ctx, &keypair, key));
+        CHECK(secp256k1_keypair_create(ctx, &keypair2, key2));
+        CHECK(secp256k1_keypair_pub(ctx, &pk[0], &keypair));
+        CHECK(secp256k1_keypair_pub(ctx, &pk[1], &keypair2));
+        CHECK(secp256k1_ec_pubkey_serialize(ctx, id[0], &size, &pk[0], SECP256K1_EC_COMPRESSED));
+        CHECK(secp256k1_ec_pubkey_serialize(ctx, id[1], &size, &pk[1], SECP256K1_EC_COMPRESSED));
+
+        /* shares_gen */
+        SECP256K1_CHECKMEM_UNDEFINE(seed, 32);
+        ret = secp256k1_frost_shares_gen(ctx, shares, vss_commitment, seed, 2, 2, id_ptr);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        SECP256K1_CHECKMEM_UNDEFINE(&shares[0], sizeof(shares[0]));
+        SECP256K1_CHECKMEM_UNDEFINE(&shares[1], sizeof(shares[1]));
+        /* pubkey_gen */
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[0], sizeof(secp256k1_pubkey));
+        SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1], sizeof(secp256k1_pubkey));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 2, id_ptr[0], vss_commitment));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 2, id_ptr[1], vss_commitment));
+        CHECK(secp256k1_frost_pubkey_gen(ctx, &cache, pubshares_ptr, 2, id_ptr));
+        /* nonce_gen */
+        SECP256K1_CHECKMEM_UNDEFINE(session_id, sizeof(session_id));
+        CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor));
+        SECP256K1_CHECKMEM_UNDEFINE(extra_input, sizeof(extra_input));
+        SECP256K1_CHECKMEM_UNDEFINE(sec_adaptor, sizeof(sec_adaptor));
+        ret = secp256k1_frost_nonce_gen(ctx, &secnonce[0], &pubnonce[0], session_id, &shares[0], msg, &cache, extra_input);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        ret = secp256k1_frost_nonce_gen(ctx, &secnonce[1], &pubnonce[1], session_id, &shares[1], msg, &cache, extra_input);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        /* partial_sign */
+        /* Make sure that previous tests don't undefine msg. It's not used as a secret here. */
+        SECP256K1_CHECKMEM_DEFINE(msg, sizeof(msg));
+        CHECK(secp256k1_frost_nonce_process(ctx, &session, pubnonce_ptr, 2, msg, id_ptr[0], id_ptr, &cache, &adaptor) == 1);
+        ret = secp256k1_frost_partial_sign(ctx, &partial_sig, &secnonce[0], &shares[0], &session, &cache);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        /* adapt */
+        SECP256K1_CHECKMEM_DEFINE(&partial_sig, sizeof(partial_sig));
+        CHECK(secp256k1_frost_partial_sig_agg(ctx, pre_sig, &session, partial_sig_ptr, 1));
+        SECP256K1_CHECKMEM_DEFINE(pre_sig, sizeof(pre_sig));
+        CHECK(secp256k1_frost_nonce_parity(ctx, &nonce_parity, &session));
+        ret = secp256k1_frost_adapt(ctx, sig, pre_sig, sec_adaptor, nonce_parity);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        /* extract_adaptor */
+        ret = secp256k1_frost_extract_adaptor(ctx, sec_adaptor, sig, pre_sig, nonce_parity);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1); 
     }
 #endif
 }
