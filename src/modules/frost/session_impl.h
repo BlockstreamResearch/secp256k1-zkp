@@ -74,6 +74,49 @@ static int secp256k1_frost_pubnonce_load(const secp256k1_context* ctx, secp256k1
     return 1;
 }
 
+static const unsigned char secp256k1_frost_session_cache_magic[4] = { 0x5c, 0x11, 0xa8, 0x3 };
+
+/* A session consists of
+ * - 4 byte session cache magic
+ * - 1 byte the parity of the final nonce
+ * - 32 byte serialized x-only final nonce
+ * - 32 byte nonce coefficient b
+ * - 32 byte signature challenge hash e
+ * - 32 byte scalar s that is added to the partial signatures of the signers
+ */
+static void secp256k1_frost_session_save(secp256k1_frost_session *session, const secp256k1_frost_session_internal *session_i) {
+    unsigned char *ptr = session->data;
+
+    memcpy(ptr, secp256k1_frost_session_cache_magic, 4);
+    ptr += 4;
+    *ptr = session_i->fin_nonce_parity;
+    ptr += 1;
+    memcpy(ptr, session_i->fin_nonce, 32);
+    ptr += 32;
+    secp256k1_scalar_get_b32(ptr, &session_i->noncecoef);
+    ptr += 32;
+    secp256k1_scalar_get_b32(ptr, &session_i->challenge);
+    ptr += 32;
+    secp256k1_scalar_get_b32(ptr, &session_i->s_part);
+}
+
+static int secp256k1_frost_session_load(const secp256k1_context* ctx, secp256k1_frost_session_internal *session_i, const secp256k1_frost_session *session) {
+    const unsigned char *ptr = session->data;
+
+    ARG_CHECK(secp256k1_memcmp_var(ptr, secp256k1_frost_session_cache_magic, 4) == 0);
+    ptr += 4;
+    session_i->fin_nonce_parity = *ptr;
+    ptr += 1;
+    memcpy(session_i->fin_nonce, ptr, 32);
+    ptr += 32;
+    secp256k1_scalar_set_b32(&session_i->noncecoef, ptr, NULL);
+    ptr += 32;
+    secp256k1_scalar_set_b32(&session_i->challenge, ptr, NULL);
+    ptr += 32;
+    secp256k1_scalar_set_b32(&session_i->s_part, ptr, NULL);
+    return 1;
+}
+
 int secp256k1_frost_pubnonce_serialize(const secp256k1_context* ctx, unsigned char *out66, const secp256k1_frost_pubnonce* nonce) {
     secp256k1_ge ge[2];
     int i;
@@ -244,6 +287,141 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
     /* nonce_pt won't be infinity because k != 0 with overwhelming probability */
     secp256k1_frost_pubnonce_save(pubnonce, nonce_pt);
     return ret;
+}
+
+static int secp256k1_frost_sum_nonces(const secp256k1_context* ctx, secp256k1_gej *summed_nonces, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces) {
+    size_t i;
+    int j;
+
+    secp256k1_gej_set_infinity(&summed_nonces[0]);
+    secp256k1_gej_set_infinity(&summed_nonces[1]);
+
+    for (i = 0; i < n_pubnonces; i++) {
+        secp256k1_ge nonce_pt[2];
+        if (!secp256k1_frost_pubnonce_load(ctx, nonce_pt, pubnonces[i])) {
+            return 0;
+        }
+        for (j = 0; j < 2; j++) {
+            secp256k1_gej_add_ge_var(&summed_nonces[j], &summed_nonces[j], &nonce_pt[j], NULL);
+        }
+    }
+    return 1;
+}
+
+/* TODO: consider updating to frost-08 to address maleability at the cost of performance */
+/* See https://github.com/cfrg/draft-irtf-cfrg-frost/pull/217 */
+static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces, const unsigned char *pk32, const unsigned char * const *ids33) {
+    unsigned char buf[66];
+    secp256k1_sha256 sha;
+    size_t i;
+
+    secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/noncecoef", sizeof("FROST/noncecoef") - 1);
+    /* TODO: sort by index */
+    for (i = 0; i < n_pubnonces; i++) {
+        secp256k1_scalar idx;
+
+        if (!secp256k1_frost_compute_indexhash(&idx, ids33[i])) {
+            return 0;
+        }
+        secp256k1_scalar_get_b32(buf, &idx);
+        secp256k1_sha256_write(&sha, buf, 32);
+        if (!secp256k1_frost_pubnonce_serialize(ctx, buf, pubnonces[i])) {
+            return 0;
+        }
+        secp256k1_sha256_write(&sha, buf, sizeof(buf));
+    }
+    secp256k1_sha256_write(&sha, pk32, 32);
+    secp256k1_sha256_write(&sha, msg, 32);
+    secp256k1_sha256_finalize(&sha, noncehash);
+    return 1;
+}
+
+static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, int *fin_nonce_parity, unsigned char *fin_nonce, secp256k1_scalar *b, secp256k1_gej *aggnoncej, const unsigned char *msg, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces, const unsigned char *pk32, const unsigned char * const *ids33) {
+    unsigned char noncehash[32];
+    secp256k1_ge fin_nonce_pt;
+    secp256k1_gej fin_nonce_ptj;
+    secp256k1_ge aggnonce[2];
+
+    secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
+    secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
+    if (!secp256k1_frost_compute_noncehash(ctx, noncehash, msg, pubnonces, n_pubnonces, pk32, ids33)) {
+        return 0;
+    }
+    /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
+    secp256k1_scalar_set_b32(b, noncehash, NULL);
+    secp256k1_gej_set_infinity(&fin_nonce_ptj);
+    secp256k1_ecmult(&fin_nonce_ptj, &aggnoncej[1], b, NULL);
+    secp256k1_gej_add_ge_var(&fin_nonce_ptj, &fin_nonce_ptj, &aggnonce[0], NULL);
+    secp256k1_ge_set_gej(&fin_nonce_pt, &fin_nonce_ptj);
+    if (secp256k1_ge_is_infinity(&fin_nonce_pt)) {
+        fin_nonce_pt = secp256k1_ge_const_g;
+    }
+    /* fin_nonce_pt is not the point at infinity */
+    secp256k1_fe_normalize_var(&fin_nonce_pt.x);
+    secp256k1_fe_get_b32(fin_nonce, &fin_nonce_pt.x);
+    secp256k1_fe_normalize_var(&fin_nonce_pt.y);
+    *fin_nonce_parity = secp256k1_fe_is_odd(&fin_nonce_pt.y);
+    return 1;
+}
+
+int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_session *session, const secp256k1_frost_pubnonce * const* pubnonces, size_t n_pubnonces, const unsigned char *msg32, const unsigned char *my_id33, const unsigned char * const *ids33, const secp256k1_frost_keygen_cache *keygen_cache, const secp256k1_pubkey *adaptor) {
+    secp256k1_keygen_cache_internal cache_i;
+    secp256k1_gej aggnonce_ptj[2];
+    unsigned char fin_nonce[32];
+    secp256k1_frost_session_internal session_i = { 0 };
+    unsigned char pk32[32];
+    secp256k1_scalar l;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(session != NULL);
+    ARG_CHECK(msg32 != NULL);
+    ARG_CHECK(pubnonces != NULL);
+    ARG_CHECK(ids33 != NULL);
+    ARG_CHECK(my_id33 != NULL);
+    ARG_CHECK(keygen_cache != NULL);
+    ARG_CHECK(n_pubnonces > 1);
+
+    if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
+        return 0;
+    }
+    secp256k1_fe_get_b32(pk32, &cache_i.pk.x);
+
+    if (!secp256k1_frost_sum_nonces(ctx, aggnonce_ptj, pubnonces, n_pubnonces)) {
+        return 0;
+    }
+    /* Add public adaptor to nonce */
+    if (adaptor != NULL) {
+        secp256k1_ge adaptorp;
+        if (!secp256k1_pubkey_load(ctx, &adaptorp, adaptor)) {
+            return 0;
+        }
+        secp256k1_gej_add_ge_var(&aggnonce_ptj[0], &aggnonce_ptj[0], &adaptorp, NULL);
+    }
+    if (!secp256k1_frost_nonce_process_internal(ctx, &session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_ptj, msg32, pubnonces, n_pubnonces, pk32, ids33)) {
+        return 0;
+    }
+
+    secp256k1_schnorrsig_challenge(&session_i.challenge, fin_nonce, msg32, 32, pk32);
+
+    /* If there is a tweak then set `challenge` times `tweak` to the `s`-part.*/
+    secp256k1_scalar_set_int(&session_i.s_part, 0);
+    if (!secp256k1_scalar_is_zero(&cache_i.tweak)) {
+        secp256k1_scalar e_tmp;
+        secp256k1_scalar_mul(&e_tmp, &session_i.challenge, &cache_i.tweak);
+        if (secp256k1_fe_is_odd(&cache_i.pk.y)) {
+            secp256k1_scalar_negate(&e_tmp, &e_tmp);
+        }
+        secp256k1_scalar_add(&session_i.s_part, &session_i.s_part, &e_tmp);
+    }
+    /* Update the challenge by multiplying the Lagrange coefficient to prepare
+     * for signing. */
+    if (!secp256k1_frost_lagrange_coefficient(&l, ids33, n_pubnonces, my_id33)) {
+        return 0;
+    }
+    secp256k1_scalar_mul(&session_i.challenge, &session_i.challenge, &l);
+    memcpy(session_i.fin_nonce, fin_nonce, sizeof(session_i.fin_nonce));
+    secp256k1_frost_session_save(session, &session_i);
+    return 1;
 }
 
 #endif
