@@ -48,7 +48,7 @@
 #endif
 
 #ifdef ENABLE_MODULE_FROST
-#include "include/secp256k1_frost.h"
+#include "../include/secp256k1_frost.h"
 #endif
 
 static void run_tests(secp256k1_context *ctx, unsigned char *key);
