@@ -49,7 +49,7 @@
 #endif
 
 #ifdef ENABLE_MODULE_FROST
-#include "include/secp256k1_frost.h"
+#include "../include/secp256k1_frost.h"
 #endif
 
 #if defined(__GNUC__)

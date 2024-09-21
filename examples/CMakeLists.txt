@@ -30,4 +30,6 @@ endif()
 
 if(SECP256K1_ENABLE_MODULE_MUSIG)
   add_example(musig)
+if(SECP256K1_ENABLE_MODULE_FROST)
+  add_example(frost)
 endif()
