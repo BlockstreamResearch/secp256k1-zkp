@@ -58,16 +58,13 @@ typedef struct {
  *
  *  Guaranteed to be 68 bytes in size.
  *
- *  WARNING: This structure MUST NOT be copied or read or written to directly.
- *  A signer who is online throughout the whole process and can keep this
+ *  WARNING: This structure MUST NOT be copied or read or written to directly. A
+ *  signer who is online throughout the whole process and can keep this
  *  structure in memory can use the provided API functions for a safe standard
- *  workflow. See
- *  https://blockstream.com/2019/02/18/musig-a-new-multisignature-standard/ for
- *  more details about the risks associated with serializing or deserializing
- *  this structure.
+ *  workflow.
  *
- *  We repeat, copying this data structure can result in nonce reuse which will
- *  leak the secret signing key.
+ *  Copying this data structure can result in nonce reuse which will leak the
+ *  secret signing key.
  */
 typedef struct {
     unsigned char data[68];
