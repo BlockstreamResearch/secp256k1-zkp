@@ -360,9 +360,7 @@ static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsig
     for (i = 0; i < n_pubnonces; i++) {
         secp256k1_scalar idx;
 
-        if (!secp256k1_frost_compute_indexhash(&idx, ids33[i])) {
-            return 0;
-        }
+        secp256k1_frost_compute_indexhash(&idx, ids33[i]);
         secp256k1_scalar_get_b32(buf, &idx);
         secp256k1_sha256_write(&sha, buf, 32);
         if (!secp256k1_frost_pubnonce_serialize(ctx, buf, pubnonces[i])) {
