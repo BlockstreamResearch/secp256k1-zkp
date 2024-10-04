@@ -400,12 +400,9 @@ int secp256k1_frost_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256
 
 static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const *ids33, size_t n_participants, const unsigned char *my_id33) {
     size_t i;
-    secp256k1_scalar num;
-    secp256k1_scalar den;
+    secp256k1_scalar num = secp256k1_scalar_one;
+    secp256k1_scalar den = secp256k1_scalar_one;
     secp256k1_scalar party_idx;
-
-    secp256k1_scalar_set_int(&num, 1);
-    secp256k1_scalar_set_int(&den, 1);
     secp256k1_frost_compute_indexhash(&party_idx, my_id33);
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar mul;
