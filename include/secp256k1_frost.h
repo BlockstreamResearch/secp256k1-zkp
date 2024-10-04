@@ -52,7 +52,7 @@ typedef struct {
  */
 typedef struct {
     unsigned char data[36];
-} secp256k1_frost_share;
+} secp256k1_frost_secshare;
 
 /** Opaque data structure that holds a signer's _secret_ nonce.
  *
@@ -168,7 +168,7 @@ SECP256K1_API int secp256k1_frost_partial_sig_parse(
 SECP256K1_API int secp256k1_frost_share_serialize(
     const secp256k1_context *ctx,
     unsigned char *out32,
-    const secp256k1_frost_share *share
+    const secp256k1_frost_secshare *share
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Parse a FROST share.
@@ -180,7 +180,7 @@ SECP256K1_API int secp256k1_frost_share_serialize(
  */
 SECP256K1_API int secp256k1_frost_share_parse(
     const secp256k1_context *ctx,
-    secp256k1_frost_share *share,
+    secp256k1_frost_secshare *share,
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -209,7 +209,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
  */
 SECP256K1_API int secp256k1_frost_shares_gen(
     const secp256k1_context *ctx,
-    secp256k1_frost_share *shares,
+    secp256k1_frost_secshare *shares,
     secp256k1_pubkey *vss_commitment,
     const unsigned char *seed32,
     size_t threshold,
@@ -235,7 +235,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     const secp256k1_context *ctx,
     size_t threshold,
     const unsigned char *id33,
-    const secp256k1_frost_share *share,
+    const secp256k1_frost_secshare *share,
     const secp256k1_pubkey *vss_commitment
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
@@ -432,7 +432,7 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
     secp256k1_frost_secnonce *secnonce,
     secp256k1_frost_pubnonce *pubnonce,
     const unsigned char *session_id32,
-    const secp256k1_frost_share *agg_share,
+    const secp256k1_frost_secshare *agg_share,
     const unsigned char *msg32,
     const secp256k1_frost_keygen_cache *keygen_cache,
     const unsigned char *extra_input32
@@ -495,7 +495,7 @@ SECP256K1_API int secp256k1_frost_partial_sign(
     const secp256k1_context *ctx,
     secp256k1_frost_partial_sig *partial_sig,
     secp256k1_frost_secnonce *secnonce,
-    const secp256k1_frost_share *agg_share,
+    const secp256k1_frost_secshare *agg_share,
     const secp256k1_frost_session *session,
     const secp256k1_frost_keygen_cache *keygen_cache
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);

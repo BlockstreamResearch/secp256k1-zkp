@@ -21,7 +21,7 @@
 
 struct signer_secrets {
     secp256k1_keypair keypair;
-    secp256k1_frost_share share;
+    secp256k1_frost_secshare share;
     secp256k1_frost_secnonce secnonce;
 };
 
@@ -65,7 +65,7 @@ static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *s
 /* Create shares and coefficient commitments */
 static int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     int i;
-    secp256k1_frost_share shares[N_SIGNERS];
+    secp256k1_frost_secshare shares[N_SIGNERS];
     secp256k1_pubkey vss_commitment[THRESHOLD];
     const unsigned char *ids[N_SIGNERS];
     unsigned char seed[32];
