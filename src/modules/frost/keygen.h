@@ -26,7 +26,7 @@ static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_k
 
 static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_share* share);
 
-static int secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33);
+static void secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33);
 
 static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const *ids33, size_t n_participants, const unsigned char *my_id33);
 
