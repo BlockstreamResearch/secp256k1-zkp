@@ -121,11 +121,10 @@ static void secp256k1_frost_derive_coeff(secp256k1_scalar *coeff, const unsigned
     secp256k1_scalar_set_b32(coeff, buf, NULL);
 }
 
-static int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, const unsigned char *polygen32, size_t threshold) {
+static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, const unsigned char *polygen32, size_t threshold) {
     secp256k1_gej rj;
     secp256k1_ge rp;
     size_t i;
-    int ret = 1;
 
     /* Compute commitment to each coefficient */
     for (i = 0; i < threshold; i++) {
@@ -136,7 +135,6 @@ static int secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubke
         secp256k1_ge_set_gej(&rp, &rj);
         secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
     }
-    return ret;
 }
 
 static int secp256k1_frost_share_gen(secp256k1_frost_share *share, const unsigned char *polygen32, size_t threshold, const unsigned char *id33) {
@@ -193,7 +191,7 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sha
     }
     secp256k1_sha256_finalize(&sha, polygen);
 
-    ret &= secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
+    secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
 
     for (i = 0; i < n_participants; i++) {
         ret &= secp256k1_frost_share_gen(&shares[i], polygen, threshold, ids33[i]);
