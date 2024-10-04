@@ -410,11 +410,11 @@ static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsig
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar mul;
 
-        secp256k1_frost_compute_indexhash(&mul, ids33[i]);
-        if (secp256k1_scalar_eq(&mul, &party_idx)) {
+        if (secp256k1_memcmp_var(ids33[i], my_id33, 33) == 0) {
             continue;
         }
 
+        secp256k1_frost_compute_indexhash(&mul, ids33[i]);
         secp256k1_scalar_negate(&mul, &mul);
         secp256k1_scalar_mul(&num, &num, &mul);
         secp256k1_scalar_add(&mul, &mul, &party_idx);
