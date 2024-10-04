@@ -54,7 +54,7 @@ static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_k
 }
 
 /* Computes indexhash = tagged_hash(pk) */
-static int secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33) {
+static void secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33) {
     secp256k1_sha256 sha;
     unsigned char buf[32];
 
@@ -62,13 +62,9 @@ static int secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const 
     secp256k1_sha256_write(&sha, id33, 33);
     secp256k1_sha256_finalize(&sha, buf);
     secp256k1_scalar_set_b32(indexhash, buf, NULL);
-    /* The x-coordinate must not be zero (see
-     * draft-irtf-cfrg-frost-08#section-4.2.2) */
-    if (secp256k1_scalar_is_zero(indexhash)) {
-        return 0;
-    }
-
-    return 1;
+    /* The x-coordinate must not be zero (see RFC9591 4.2). */
+    /* This occurs with negligble propability (1 in 2^256). */
+    VERIFY_CHECK(!secp256k1_scalar_is_zero(indexhash));
 }
 
 static const unsigned char secp256k1_frost_share_magic[4] = { 0xa1, 0x6a, 0x42, 0x03 };
@@ -152,9 +148,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_share *share, const unsigne
     /* Derive share */
     /* See RFC 9591, appendix C.1 */
     secp256k1_scalar_set_int(&share_i, 0);
-    if (!secp256k1_frost_compute_indexhash(&idx, id33)) {
-        return 0;
-    }
+    secp256k1_frost_compute_indexhash(&idx, id33);
     for (i = 0; i < threshold; i++) {
         secp256k1_scalar coeff_i;
 
@@ -262,9 +256,7 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
     evaluate_vss_ecmult_data.ctx = ctx;
     evaluate_vss_ecmult_data.vss_commitment = vss_commitment;
     /* Evaluate the public polynomial at the idx */
-    if (!secp256k1_frost_compute_indexhash(&evaluate_vss_ecmult_data.idx, id33)) {
-        return 0;
-    }
+    secp256k1_frost_compute_indexhash(&evaluate_vss_ecmult_data.idx, id33);
     secp256k1_scalar_set_int(&evaluate_vss_ecmult_data.idxn, 1);
     /* TODO: add scratch */
     if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, share, NULL, secp256k1_frost_evaluate_vss_ecmult_callback, (void *) &evaluate_vss_ecmult_data, threshold)) {
@@ -416,15 +408,11 @@ static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsig
 
     secp256k1_scalar_set_int(&num, 1);
     secp256k1_scalar_set_int(&den, 1);
-    if (!secp256k1_frost_compute_indexhash(&party_idx, my_id33)) {
-        return 0;
-    }
+    secp256k1_frost_compute_indexhash(&party_idx, my_id33);
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar mul;
 
-        if (!secp256k1_frost_compute_indexhash(&mul, ids33[i])) {
-            return 0;
-        }
+        secp256k1_frost_compute_indexhash(&mul, ids33[i]);
         if (secp256k1_scalar_eq(&mul, &party_idx)) {
             continue;
         }
