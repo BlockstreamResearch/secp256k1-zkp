@@ -195,7 +195,7 @@ SECP256K1_API int secp256k1_frost_share_parse(
  *  Returns: 0 if the arguments are invalid, 1 otherwise
  *  Args:            ctx: pointer to a context object
  *  Out:          shares: pointer to the key shares
- *        vss_commitment: pointer to the VSS commitment
+ *        vss_commitment: output array of the elements of the VSS commitment
  *   In:          seed32: 32-byte random seed as explained above. Must be
  *                        unique to this call to secp256k1_frost_shares_gen
  *                        and must be uniformly random.
