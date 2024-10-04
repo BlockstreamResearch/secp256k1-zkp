@@ -24,7 +24,7 @@ typedef struct {
 
 static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_keygen_cache_internal *cache_i, const secp256k1_frost_keygen_cache *cache);
 
-static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_share* share);
+static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_secshare* share);
 
 static void secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33);
 

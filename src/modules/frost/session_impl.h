@@ -255,7 +255,7 @@ static void secp256k1_nonce_function_frost(secp256k1_scalar *k, const unsigned c
     }
 }
 
-int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const secp256k1_frost_share *share, const unsigned char *msg32, const secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *extra_input32) {
+int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const secp256k1_frost_secshare *share, const unsigned char *msg32, const secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *extra_input32) {
     secp256k1_keygen_cache_internal cache_i;
     secp256k1_scalar k[2];
     secp256k1_ge nonce_pt[2];
@@ -468,7 +468,7 @@ void secp256k1_frost_partial_sign_clear(secp256k1_scalar *sk, secp256k1_scalar *
     secp256k1_scalar_clear(&k[1]);
 }
 
-int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_partial_sig *partial_sig, secp256k1_frost_secnonce *secnonce, const secp256k1_frost_share *share, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
+int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_partial_sig *partial_sig, secp256k1_frost_secnonce *secnonce, const secp256k1_frost_secshare *share, const secp256k1_frost_session *session, const secp256k1_frost_keygen_cache *keygen_cache) {
     secp256k1_scalar sk;
     secp256k1_scalar k[2];
     secp256k1_scalar s;

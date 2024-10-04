@@ -371,7 +371,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         secp256k1_pubkey adaptor;
         unsigned char pre_sig[64];
         int nonce_parity;
-        secp256k1_frost_share shares[2];
+        secp256k1_frost_secshare shares[2];
         secp256k1_pubkey vss_commitment[2];
         unsigned char key2[32];
         secp256k1_keypair keypair2;

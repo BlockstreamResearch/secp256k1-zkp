@@ -45,7 +45,7 @@ void frost_simple_test(void) {
     secp256k1_xonly_pubkey pk_xonly;
     secp256k1_pubkey pk;
     unsigned char buf[32];
-    secp256k1_frost_share shares[5];
+    secp256k1_frost_secshare shares[5];
     secp256k1_frost_secnonce secnonce[5];
     secp256k1_pubkey pubshare[5];
     secp256k1_frost_partial_sig partial_sig[5];
@@ -161,8 +161,8 @@ void frost_api_tests(void) {
     secp256k1_pubkey vss_commitment[3];
     secp256k1_pubkey invalid_vss_commitment[3];
     secp256k1_pubkey invalid_pubshare;
-    secp256k1_frost_share shares[5];
-    secp256k1_frost_share invalid_share;
+    secp256k1_frost_secshare shares[5];
+    secp256k1_frost_secshare invalid_share;
     secp256k1_pubkey pubshare[5];
     int i;
     unsigned char id[5][33];
@@ -577,7 +577,7 @@ void frost_sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char 
 
 /* Attempts to create a signature for the group public key using given secret
  * keys and keygen_cache. */
-void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256k1_frost_share *sr0, const secp256k1_frost_share *sr1, const secp256k1_frost_share *sr2, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char * const* ids33, const secp256k1_pubkey *sr_pk0, const secp256k1_pubkey *sr_pk1, const secp256k1_pubkey *sr_pk2) {
+void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256k1_frost_secshare *sr0, const secp256k1_frost_secshare *sr1, const secp256k1_frost_secshare *sr2, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char * const* ids33, const secp256k1_pubkey *sr_pk0, const secp256k1_pubkey *sr_pk1, const secp256k1_pubkey *sr_pk2) {
     unsigned char session_id[3][32];
     unsigned char msg[32];
     secp256k1_frost_secnonce secnonce[3];
@@ -630,7 +630,7 @@ void frost_tweak_test(void) {
     secp256k1_xonly_pubkey P_xonly[N_TWEAKS + 1];
     unsigned char seed[32];
     secp256k1_pubkey vss_commitment[3];
-    secp256k1_frost_share shares[5];
+    secp256k1_frost_secshare shares[5];
     int i;
     unsigned char id[5][33];
     const unsigned char *id_ptr[5];
@@ -689,7 +689,7 @@ void frost_tweak_test(void) {
 }
 
 /* Performs a FROST DKG */
-void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1_frost_share *shares, const unsigned char * const *ids33) {
+void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1_frost_secshare *shares, const unsigned char * const *ids33) {
     secp256k1_pubkey vss_commitment[3];
     unsigned char seed[32];
     int i;
@@ -708,7 +708,7 @@ void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1
 }
 
 /* Signs a message with a FROST keypair */
-int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_share *shares, const unsigned char * const *ids33, const unsigned char *msg, const secp256k1_pubkey *adaptor, secp256k1_frost_keygen_cache *keygen_cache) {
+int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secshare *shares, const unsigned char * const *ids33, const unsigned char *msg, const secp256k1_pubkey *adaptor, secp256k1_frost_keygen_cache *keygen_cache) {
     unsigned char session_id[3][32];
     secp256k1_frost_secnonce secnonce[3];
     secp256k1_frost_pubnonce pubnonce[3];
@@ -750,8 +750,8 @@ void frost_rand_scalar(secp256k1_scalar *scalar) {
 }
 
 void frost_multi_hop_lock_tests(void) {
-    secp256k1_frost_share shares_a[5];
-    secp256k1_frost_share shares_b[5];
+    secp256k1_frost_secshare shares_a[5];
+    secp256k1_frost_secshare shares_b[5];
     secp256k1_xonly_pubkey pk_a;
     secp256k1_xonly_pubkey pk_b;
     secp256k1_pubkey tmp;
