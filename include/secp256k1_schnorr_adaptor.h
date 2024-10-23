@@ -64,6 +64,47 @@ extern "C" {
  *  [1] https://eprint.iacr.org/2020/476.pdf
  */
 
+/** A pointer to a function to deterministically generate a nonce.
+ *
+ *  In addition to the features of secp256k1_nonce_function_hardened,
+ *  this function introduces an extra argument for a compressed 33-byte
+ *  adaptor point.
+ *
+ *  Returns: 1 if a nonce was successfully generated. 0 will cause signing to
+ *           return an error.
+ *  Out:  nonce32: pointer to a 32-byte array to be filled by the function
+ *  In:     msg32: the 32-byte message being verified (will not be NULL)
+ *          key32: pointer to a 32-byte secret key (will not be NULL)
+*       adaptor33: the 33-byte serialized adaptor point (will not be NULL)
+ *     xonly_pk32: the 32-byte serialized xonly pubkey corresponding to key32
+ *                 (will not be NULL)
+ *           algo: pointer to an array describing the signature
+ *                 algorithm (will not be NULL)
+ *        algolen: the length of the algo array
+ *           data: arbitrary data pointer that is passed through
+ *
+ *  Except for test cases, this function should compute some cryptographic hash of
+ *  the message, the key, the adaptor point, the pubkey, the algorithm description, and data.
+ */
+typedef int (*secp256k1_nonce_function_hardened_schnorr_adaptor)(
+    unsigned char *nonce32,
+    const unsigned char *msg32,
+    const unsigned char *key32,
+    const unsigned char *adaptor33,
+    const unsigned char *xonly_pk32,
+    const unsigned char *algo,
+    size_t algolen,
+    void *data
+);
+
+/** A modified BIP-340 nonce generation function. If a data pointer is passed, it is
+ *  assumed to be a pointer to 32 bytes of auxiliary random data as defined in BIP-340.
+ *  If the data pointer is NULL, the nonce derivation procedure uses a zeroed 32-byte
+ *  auxiliary random data. The hash will be tagged with algo after removing all
+ *  terminating null bytes.
+ */
+SECP256K1_API const secp256k1_nonce_function_hardened_schnorr_adaptor secp256k1_nonce_function_schnorr_adaptor;
+
 #ifdef __cplusplus
 }
 #endif
