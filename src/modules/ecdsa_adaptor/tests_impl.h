@@ -100,10 +100,6 @@ static void dleq_tests(void) {
     CHECK(secp256k1_dleq_nonce(&k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 }
 
-static void rand_flip_bit(unsigned char *array, size_t n) {
-    array[secp256k1_testrand_int(n)] ^= 1 << secp256k1_testrand_int(8);
-}
-
 /* Helper function for test_ecdsa_adaptor_spec_vectors
  * Checks that the adaptor signature is valid for the public and encryption keys. */
 static void test_ecdsa_adaptor_spec_vectors_check_verify(const unsigned char *adaptor_sig162, const unsigned char *msg32, const unsigned char *pubkey33, const unsigned char *encryption_key33, int expected) {
