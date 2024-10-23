@@ -73,6 +73,7 @@ Usage examples
 Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
   * [ECDSA example](examples/ecdsa.c)
   * [Schnorr signatures example](examples/schnorr.c)
+  * [Schnorr adaptor signatures example](examples/schnorr_adaptor.c)
   * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
   * [MuSig example](examples/musig.c)
 
