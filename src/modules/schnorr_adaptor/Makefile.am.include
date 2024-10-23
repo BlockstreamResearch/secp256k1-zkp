@@ -1,0 +1,2 @@
+include_HEADERS += include/secp256k1_schnorr_adaptor.h
+noinst_HEADERS += src/modules/schnorr_adaptor/main_impl.h
