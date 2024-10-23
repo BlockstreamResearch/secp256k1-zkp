@@ -105,6 +105,109 @@ typedef int (*secp256k1_nonce_function_hardened_schnorr_adaptor)(
  */
 SECP256K1_API const secp256k1_nonce_function_hardened_schnorr_adaptor secp256k1_nonce_function_schnorr_adaptor;
 
+/** Creates a pre-signature for a given message and adaptor point.
+ *
+ *  The pre-signature can be converted into a valid BIP-340 Schnorr signature
+ *  (using `schnorr_adaptor_adapt`) by combining it with the discrete logarithm
+ *  of the adaptor point.
+ *
+ *  This function only signs 32-byte messages. If you have messages of a
+ *  different size (or the same size but without a context-specific tag
+ *  prefix), it is recommended to create a 32-byte message hash with
+ *  secp256k1_tagged_sha256 and then sign the hash. Tagged hashing allows
+ *  providing an context-specific tag for domain separation. This prevents
+ *  signatures from being valid in multiple contexts by accident.
+ *
+ *  Returns 1 on success, 0 on failure.
+ *  Args:        ctx: pointer to a context object (not secp256k1_context_static).
+ *  Out:   pre_sig65: pointer to a 65-byte array to store the pre-signature.
+ *  In:        msg32: the 32-byte message being signed.
+ *           keypair: pointer to an initialized keypair.
+ *           adaptor: pointer to an adaptor point encoded as a public key.
+ *        aux_rand32: pointer to arbitrary data used by the nonce generation
+ *                    function (can be NULL). If it is non-NULL and
+ *                    secp256k1_nonce_function_schnorr_adaptor is used, then
+ *                    aux_rand32 must be a pointer to 32-byte auxiliary randomness
+ *                    as per BIP-340.
+ */
+SECP256K1_API int secp256k1_schnorr_adaptor_presign(
+    const secp256k1_context *ctx,
+    unsigned char *pre_sig65,
+    const unsigned char *msg32,
+    const secp256k1_keypair *keypair,
+    const secp256k1_pubkey *adaptor,
+    const unsigned char *aux_rand32
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Extracts the adaptor point from a pre-signature.
+ *
+ *  This function assumes that pre_sig65 was created using the corresponding
+ *  msg32, pubkey, and a valid adaptor point, which it will extract. If these
+ *  inputs are not related (e.g., if pre_sig65 was generated with a different
+ *  key or message), the extracted adaptor point will be incorrect. However,
+ *  the function will still return 1 to indicate a successful extraction.
+ *
+ *  Returns 1 on success, 0 on failure.
+ *  Args:         ctx: pointer to a context object.
+ *  Out:      adaptor: pointer to store the adaptor point.
+ *  In:     pre_sig65: pointer to a 65-byte pre-signature.
+ *              msg32: the 32-byte message associated with presig_65
+ *             pubkey: pointer to the x-only public key associated with pre_sig65
+ */
+SECP256K1_API int secp256k1_schnorr_adaptor_extract(
+    const secp256k1_context *ctx,
+    secp256k1_pubkey *adaptor,
+    const unsigned char *pre_sig65,
+    const unsigned char *msg32,
+    const secp256k1_xonly_pubkey *pubkey
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+
+/** Adapts the pre-signature to produce a BIP-340 Schnorr signature.
+ *
+ *  The output BIP-340 signature is not verified by this function.
+ *  To verify it, use `secp256k1_schnorrsig_verify`.
+ *
+ *  If the pre_sig65 and sec_adaptor32 values are not related, the
+ *  output signature will be invalid. In this case, the function will
+ *  still return 1 to indicate successful execution.
+ *
+ *  Returns 1 on success, 0 on failure.
+ *  Args:           ctx: pointer to a context object.
+ *  Out:          sig64: pointer to a 64-byte array to store the adapted
+ *                       pre-signature. This pointer may point to the same
+ *                       memory area as `pre_sig65`.
+ *  In:       pre_sig65: pointer to a 65-byte pre-signature.
+ *        sec_adaptor32: pointer to a 32-byte secret adaptor associated with pre_sig65
+ */
+SECP256K1_API int secp256k1_schnorr_adaptor_adapt(
+    const secp256k1_context *ctx,
+    unsigned char *sig64,
+    const unsigned char *pre_sig65,
+    const unsigned char *sec_adaptor32
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
+/** Extracts the secret adaptor (discrete logarithm of the adaptor point)
+ *  from a pre-signature and the corresponding BIP-340 signature.
+ *
+ *  This function assumes that the sig64 was created by adapting pre_sig65.
+ *  If these inputs are not related, the extracted secret adaptor will be
+ *  incorrect. However, the function will still return 1 to indicate successful
+ *  extraction.
+ *
+ *  Returns 1 on success, 0 on failure.
+ *  Args:           ctx: pointer to a context object.
+ *  Out:  sec_adaptor32: pointer to a 32-byte array to store the secret adaptor.
+ *  In:       pre_sig65: pointer to a 65-byte pre-signature.
+ *                sig64: pointer to a valid 64-byte BIP-340 Schnorr signature
+ *                       associated with pre_sig65.
+ */
+SECP256K1_API int secp256k1_schnorr_adaptor_extract_sec(
+    const secp256k1_context *ctx,
+    unsigned char *sec_adaptor32,
+    const unsigned char *pre_sig65,
+    const unsigned char *sig64
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
+
 #ifdef __cplusplus
 }
 #endif
