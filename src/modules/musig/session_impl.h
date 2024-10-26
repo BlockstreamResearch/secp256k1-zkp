@@ -368,7 +368,7 @@ int secp256k1_musig_nonce_gen(const secp256k1_context* ctx, secp256k1_musig_secn
     if (!secp256k1_pubkey_load(ctx, &pk, pubkey)) {
         return 0;
     }
-    pk_serialize_success = secp256k1_eckey_pubkey_serialize(&pk, pk_ser, &pk_ser_len, SECP256K1_EC_COMPRESSED);
+    pk_serialize_success = secp256k1_eckey_pubkey_serialize(&pk, pk_ser, &pk_ser_len, 1);
 
 #ifdef VERIFY
     /* A pubkey cannot be the point at infinity */
