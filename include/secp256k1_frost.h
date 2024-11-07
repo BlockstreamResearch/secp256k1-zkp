@@ -237,29 +237,31 @@ SECP256K1_API int secp256k1_frost_shares_gen(
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise (which does NOT mean
  *           the resulting signature verifies).
- *  Args:         ctx: pointer to a context object
- *  Out:    agg_share: the aggregated share
- *  In:        shares: all key generation shares for the partcipant's index
- *    vss_commitments: coefficient commitments of all participants ordered by
- *                     the IDs of the participants
- *             pok64s: proofs of knowledge for the shares ordered by the IDs of
- *                     the participants
- *           n_shares: the total number of shares
- *          threshold: the minimum number of shares required to produce a
- *                     signature
- *               id33: the 33-byte ID of the participant whose shares are being
- *                     aggregated
+ *  Args:          ctx: pointer to a context object
+ *  Out:     agg_share: the aggregated share
+ *  In:         shares: all key generation shares for the partcipant's index
+ *  agg_vss_commitment: the aggregated coefficient commitment
+ *     vss_commitments: coefficient commitment of each participant ordered by
+ *                      the IDs of the participants
+ *              pok64s: proofs of knowledge for the shares ordered by the IDs of
+ *                      the participants
+ *            n_shares: the total number of shares
+ *           threshold: the minimum number of shares required to produce a
+ *                      signature
+ *                id33: the 33-byte ID of the participant whose shares are being
+ *                      aggregated
  */
 SECP256K1_API int secp256k1_frost_share_agg(
     const secp256k1_context *ctx,
     secp256k1_frost_share *agg_share,
+    secp256k1_pubkey *agg_vss_commitment,
     const secp256k1_frost_share * const *shares,
     const secp256k1_pubkey * const *vss_commitments,
     const unsigned char * const *pok64s,
     size_t n_shares,
     size_t threshold,
     const unsigned char *id33
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(8);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(9);
 
 /** Verifies a share received during a key generation session
  *
@@ -281,28 +283,28 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     size_t threshold,
     const unsigned char *id33,
     const secp256k1_frost_share *share,
-    const secp256k1_pubkey * const *vss_commitment
+    const secp256k1_pubkey *vss_commitment
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Computes a public verification share used for verifying partial signatures
  *
  *  Returns: 0 if the arguments are invalid, 1 otherwise
- *  Args:        ctx: pointer to a context object
- *  Out:    pubshare: pointer to a struct to store the public verification
- *                    share
- *  In:    threshold: the minimum number of signers required to produce a
- *                    signature
- *              id33: the 33-byte participant ID of the participant whose
- *                    partial signature will be verified with the pubshare
- *   vss_commitments: coefficient commitments of all participants
- *    n_participants: the total number of participants
+ *  Args:         ctx: pointer to a context object
+ *  Out:     pubshare: pointer to a struct to store the public verification
+ *                     share
+ *  In:     threshold: the minimum number of signers required to produce a
+ *                     signature
+ *               id33: the 33-byte participant ID of the participant whose
+ *                     partial signature will be verified with the pubshare
+ * agg_vss_commitment: the output of `secp256k1_frost_share_agg`
+ *     n_participants: the total number of participants
  */
 SECP256K1_API int secp256k1_frost_compute_pubshare(
     const secp256k1_context *ctx,
     secp256k1_pubkey *pubshare,
     size_t threshold,
     const unsigned char *id33,
-    const secp256k1_pubkey * const *vss_commitments,
+    const secp256k1_pubkey *agg_vss_commitment,
     size_t n_participants
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 

@@ -385,6 +385,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         const unsigned char *pok_ptr[2];
         secp256k1_pubkey pubshare[2];
         const secp256k1_pubkey *pubshares_ptr[2];
+        secp256k1_pubkey agg_vss_commitment[2];
 
         id_ptr[0] = id[0];
         id_ptr[1] = id[1];
@@ -438,12 +439,12 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1][1], sizeof(secp256k1_pubkey));
         SECP256K1_CHECKMEM_DEFINE(pok[0], 64);
         SECP256K1_CHECKMEM_DEFINE(pok[1], 64);
-        ret = secp256k1_frost_share_agg(ctx, &agg_share, share_ptr, vss_ptr, pok_ptr, 2, 2, id_ptr[0]);
+        ret = secp256k1_frost_share_agg(ctx, &agg_share, agg_vss_commitment, share_ptr, vss_ptr, pok_ptr, 2, 2, id_ptr[0]);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         SECP256K1_CHECKMEM_UNDEFINE(&agg_share, sizeof(&agg_share));
-        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 2, id_ptr[0], vss_ptr, 2));
-        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 2, id_ptr[1], vss_ptr, 2));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 2, id_ptr[0], agg_vss_commitment, 2));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 2, id_ptr[1], agg_vss_commitment, 2));
         CHECK(secp256k1_frost_pubkey_gen(ctx, &cache, pubshares_ptr, 2, id_ptr));
         /* nonce_gen */
         SECP256K1_CHECKMEM_UNDEFINE(session_id, sizeof(session_id));

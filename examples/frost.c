@@ -75,6 +75,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
     const secp256k1_pubkey *vss_commitments[N_SIGNERS];
     const unsigned char *ids[N_SIGNERS];
     const unsigned char *poks[N_SIGNERS];
+    secp256k1_pubkey agg_vss_commitment[THRESHOLD];
 
     for (i = 0; i < N_SIGNERS; i++) {
         vss_commitments[i] = signer[i].vss_commitment;
@@ -100,7 +101,7 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
             assigned_shares[j] = &shares[j][i];
         }
         /* Each participant aggregates the shares they received. */
-        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, assigned_shares, vss_commitments, poks, N_SIGNERS, THRESHOLD, signer[i].id)) {
+        if (!secp256k1_frost_share_agg(ctx, &signer_secrets[i].agg_share, agg_vss_commitment, assigned_shares, vss_commitments, poks, N_SIGNERS, THRESHOLD, signer[i].id)) {
             return 0;
         }
         for (j = 0; j < N_SIGNERS; j++) {
@@ -108,12 +109,12 @@ int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_se
              * internally, so it is only neccessary to call this function if
              * share_agg returns an error, to determine which participant(s)
              * submitted faulty data. */
-            if (!secp256k1_frost_share_verify(ctx, THRESHOLD, signer[i].id, assigned_shares[j], &vss_commitments[j])) {
+            if (!secp256k1_frost_share_verify(ctx, THRESHOLD, signer[i].id, assigned_shares[j], vss_commitments[j])) {
                 return 0;
             }
             /* Each participant generates public verification shares that are
              * used for verifying partial signatures. */
-            if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, signer[j].id, vss_commitments, N_SIGNERS)) {
+            if (!secp256k1_frost_compute_pubshare(ctx, &signer[j].pubshare, THRESHOLD, signer[j].id, agg_vss_commitment, N_SIGNERS)) {
                 return 0;
             }
         }

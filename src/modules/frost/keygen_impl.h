@@ -227,7 +227,7 @@ typedef struct {
     const secp256k1_context *ctx;
     secp256k1_scalar idx;
     secp256k1_scalar idxn;
-    const secp256k1_pubkey * const* vss_commitment;
+    const secp256k1_pubkey *vss_commitment;
 } secp256k1_frost_verify_share_ecmult_data;
 
 typedef struct {
@@ -245,9 +245,15 @@ typedef struct {
     size_t n_pubshares;
 } secp256k1_frost_interpolate_pubkey_ecmult_data;
 
+typedef struct {
+    const secp256k1_context *ctx;
+    size_t idxn;
+    const secp256k1_pubkey * const* vss_commitments;
+} secp256k1_frost_vss_agg_ecmult_data;
+
 static int secp256k1_frost_verify_share_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_frost_verify_share_ecmult_data *ctx = (secp256k1_frost_verify_share_ecmult_data *) data;
-    if (!secp256k1_pubkey_load(ctx->ctx, pt, *(ctx->vss_commitment)+idx)) {
+    if (!secp256k1_pubkey_load(ctx->ctx, pt, &ctx->vss_commitment[idx])) {
         return 0;
     }
     *sc = ctx->idxn;
@@ -288,8 +294,20 @@ static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *
     return 1;
 }
 
+static int secp256k1_frost_vss_agg_pubkey_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
+    secp256k1_frost_vss_agg_ecmult_data *ctx = (secp256k1_frost_vss_agg_ecmult_data *) data;
+
+    if (!secp256k1_pubkey_load(ctx->ctx, pt, &ctx->vss_commitments[idx][ctx->idxn])) {
+        return 0;
+    }
+
+    *sc = secp256k1_scalar_one;
+
+    return 1;
+}
+
 /* See RFC 9591 */
-static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_scalar *share, const secp256k1_pubkey * const* vss_commitment) {
+static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_scalar *share, const secp256k1_pubkey *vss_commitment) {
     secp256k1_scalar share_neg;
     secp256k1_gej tmpj, snj;
     secp256k1_ge sng;
@@ -319,7 +337,7 @@ static int secp256k1_frost_vss_verify_internal(const secp256k1_context* ctx, siz
     return secp256k1_gej_is_infinity(&tmpj);
 }
 
-int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_frost_share *share, const secp256k1_pubkey * const* vss_commitment) {
+int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_frost_share *share, const secp256k1_pubkey *vss_commitment) {
     secp256k1_scalar share_i;
 
     VERIFY_CHECK(ctx != NULL);
@@ -335,16 +353,17 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
     return secp256k1_frost_vss_verify_internal(ctx, threshold, id33, &share_i, vss_commitment);
 }
 
-int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const unsigned char *id33, const secp256k1_pubkey * const* vss_commitments, size_t n_participants) {
-    secp256k1_gej pkj;
+int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const unsigned char *id33, const secp256k1_pubkey *agg_vss_commitment, size_t n_participants) {
+    secp256k1_gej tmpj;
     secp256k1_ge tmp;
-    secp256k1_frost_compute_pubshare_ecmult_data compute_pubshare_ecmult_data;
+    secp256k1_frost_verify_share_ecmult_data verify_share_ecmult_data;
 
     VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(pubshare != NULL);
     memset(pubshare, 0, sizeof(*pubshare));
     ARG_CHECK(id33 != NULL);
-    ARG_CHECK(vss_commitments != NULL);
+    ARG_CHECK(agg_vss_commitment != NULL);
     ARG_CHECK(n_participants > 1);
     ARG_CHECK(threshold > 1);
 
@@ -352,34 +371,55 @@ int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pub
         return 0;
     }
 
-    /* Use an EC multi-multiplication to compute the following equation:
-     *   agg_share_i*G = (
-     *      idx^0*vss_commitment[0][0] + ...
-     *                                 + idx^(t - 1)*vss_commitment[0][t - 1]
-     *   )                             + ...
-     *                                 + (
-     *      idx^0*vss_commitment[n - 1][0] + ...
-     *                                     + idx^(t - 1)*vss_commitment[n - 1][t - 1]
-     *   )*/
-    compute_pubshare_ecmult_data.ctx = ctx;
-    compute_pubshare_ecmult_data.vss_commitments = vss_commitments;
-    compute_pubshare_ecmult_data.threshold = threshold;
+    /* Use an EC multi-multiplication to verify the following equation:
+     *   agg_share_i * G = idx^0*agg_vss_commitment[0]
+     *                   + ...
+     *                   + idx^(threshold - 1)*agg_vss_commitment[threshold - 1]*/
+    verify_share_ecmult_data.ctx = ctx;
+    verify_share_ecmult_data.vss_commitment = agg_vss_commitment;
     /* Evaluate the public polynomial at the idx */
-    if (!secp256k1_frost_compute_indexhash(&compute_pubshare_ecmult_data.idx, id33)) {
+    if (!secp256k1_frost_compute_indexhash(&verify_share_ecmult_data.idx, id33)) {
         return 0;
     }
-    secp256k1_scalar_set_int(&compute_pubshare_ecmult_data.idxn, 1);
+    secp256k1_scalar_set_int(&verify_share_ecmult_data.idxn, 1);
     /* TODO: add scratch */
-    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, &pkj, NULL, secp256k1_frost_compute_pubshare_ecmult_callback, (void *) &compute_pubshare_ecmult_data, n_participants*threshold)) {
+    if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, &tmpj, NULL, secp256k1_frost_verify_share_ecmult_callback, (void *) &verify_share_ecmult_data, threshold)) {
         return 0;
     }
-    secp256k1_ge_set_gej(&tmp, &pkj);
+    secp256k1_ge_set_gej(&tmp, &tmpj);
     secp256k1_pubkey_save(pubshare, &tmp);
 
     return 1;
 }
 
-int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_share *agg_share, const secp256k1_frost_share * const* shares, const secp256k1_pubkey * const* vss_commitments, const unsigned char * const *pok64s, size_t n_shares, size_t threshold, const unsigned char *id33) {
+static int secp256k1_frost_vss_agg(const secp256k1_context* ctx, secp256k1_pubkey *agg_vss_commitment, const secp256k1_pubkey * const *vss_commitments, size_t n_participants, size_t threshold) {
+    secp256k1_gej tmpj;
+    secp256k1_ge tmp;
+    secp256k1_frost_vss_agg_ecmult_data vss_agg_ecmult_data;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
+    ARG_CHECK(agg_vss_commitment != NULL);
+    ARG_CHECK(vss_commitments != NULL);
+    ARG_CHECK(n_participants > 1);
+    ARG_CHECK(threshold > 1);
+
+    vss_agg_ecmult_data.ctx = ctx;
+    vss_agg_ecmult_data.vss_commitments = vss_commitments;
+
+    for (vss_agg_ecmult_data.idxn = 0; vss_agg_ecmult_data.idxn < threshold; vss_agg_ecmult_data.idxn++) {
+        /* TODO: add scratch */
+        if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, &tmpj, NULL, secp256k1_frost_vss_agg_pubkey_ecmult_callback, (void *) &vss_agg_ecmult_data, n_participants)) {
+            return 0;
+        }
+        secp256k1_ge_set_gej(&tmp, &tmpj);
+        secp256k1_pubkey_save(&agg_vss_commitment[vss_agg_ecmult_data.idxn], &tmp);
+    }
+
+    return 1;
+}
+
+int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_share *agg_share, secp256k1_pubkey *agg_vss_commitment, const secp256k1_frost_share * const* shares, const secp256k1_pubkey * const* vss_commitments, const unsigned char * const *pok64s, size_t n_shares, size_t threshold, const unsigned char *id33) {
     secp256k1_scalar acc;
     size_t i;
     int ret = 1;
@@ -422,10 +462,13 @@ int secp256k1_frost_share_agg(const secp256k1_context* ctx, secp256k1_frost_shar
             return 0;
         }
         /* Verify share against commitments */
-        ret &= secp256k1_frost_vss_verify_internal(ctx, threshold, id33, &share_i, &vss_commitments[i]);
+        ret &= secp256k1_frost_vss_verify_internal(ctx, threshold, id33, &share_i, vss_commitments[i]);
         secp256k1_scalar_add(&acc, &acc, &share_i);
     }
     secp256k1_frost_share_save(agg_share, &acc);
+    if (!secp256k1_frost_vss_agg(ctx, agg_vss_commitment, vss_commitments, n_shares, threshold)) {
+        return 0;
+    }
 
     return ret;
 }
