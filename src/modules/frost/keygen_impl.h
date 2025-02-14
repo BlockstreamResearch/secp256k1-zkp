@@ -53,18 +53,8 @@ static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_k
     return 1;
 }
 
-/* Computes indexhash = tagged_hash(pk) */
-static void secp256k1_frost_compute_indexhash(secp256k1_scalar *indexhash, const unsigned char *id33) {
-    secp256k1_sha256 sha;
-    unsigned char buf[32];
-
-    secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/index", sizeof("FROST/index") - 1);
-    secp256k1_sha256_write(&sha, id33, 33);
-    secp256k1_sha256_finalize(&sha, buf);
-    secp256k1_scalar_set_b32(indexhash, buf, NULL);
-    /* The x-coordinate must not be zero (see RFC9591 4.2). */
-    /* This occurs with negligble propability (1 in 2^256). */
-    VERIFY_CHECK(!secp256k1_scalar_is_zero(indexhash));
+static void secp256k1_frost_get_scalar_index(secp256k1_scalar *idx, const size_t id) {
+    secp256k1_scalar_set_int(idx, id + 1);
 }
 
 static const unsigned char secp256k1_frost_share_magic[4] = { 0xa1, 0x6a, 0x42, 0x03 };
@@ -137,7 +127,7 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
     }
 }
 
-static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const unsigned char *id33) {
+static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const size_t id) {
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
     size_t i;
@@ -146,7 +136,6 @@ static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsi
     /* Derive share */
     /* See RFC 9591, appendix C.1 */
     secp256k1_scalar_set_int(&share_i, 0);
-    secp256k1_frost_compute_indexhash(&idx, id33);
     for (i = 0; i < threshold; i++) {
         secp256k1_scalar coeff_i;
 
@@ -154,6 +143,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsi
         /* Horner's method to evaluate polynomial to derive shares */
         secp256k1_scalar_add(&share_i, &share_i, &coeff_i);
         if (i < threshold - 1) {
+            secp256k1_frost_get_scalar_index(&idx, id);
             secp256k1_scalar_mul(&share_i, &share_i, &idx);
         }
     }
@@ -162,7 +152,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsi
     return ret;
 }
 
-int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_secshare *shares, secp256k1_pubkey *vss_commitment, const unsigned char *seed32, size_t threshold, size_t n_participants, const unsigned char * const* ids33) {
+int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_secshare *shares, secp256k1_pubkey *vss_commitment, const unsigned char *seed32, size_t threshold, size_t n_participants) {
     secp256k1_sha256 sha;
     unsigned char polygen[32];
     size_t i;
@@ -176,7 +166,6 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
     }
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(seed32 != NULL);
-    ARG_CHECK(ids33 != NULL);
     ARG_CHECK(threshold > 1);
     ARG_CHECK(n_participants >= threshold);
 
@@ -186,15 +175,12 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
     secp256k1_write_be64(&polygen[0], threshold);
     secp256k1_write_be64(&polygen[8], n_participants);
     secp256k1_sha256_write(&sha, polygen, 16);
-    for (i = 0; i < n_participants; i++) {
-        secp256k1_sha256_write(&sha, ids33[i], 33);
-    }
     secp256k1_sha256_finalize(&sha, polygen);
 
     secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
 
     for (i = 0; i < n_participants; i++) {
-        ret &= secp256k1_frost_share_gen(&shares[i], polygen, threshold, ids33[i]);
+        ret &= secp256k1_frost_share_gen(&shares[i], polygen, threshold, i);
     }
 
     return ret;
@@ -210,7 +196,7 @@ typedef struct {
 typedef struct {
     const secp256k1_context *ctx;
     const secp256k1_pubkey * const* pubshares;
-    const unsigned char * const *ids33;
+    const size_t *ids;
     size_t n_pubshares;
 } secp256k1_frost_interpolate_pubkey_ecmult_data;
 
@@ -233,7 +219,7 @@ static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *
         return 0;
     }
 
-    if (!secp256k1_frost_lagrange_coefficient(&l, ctx->ids33, ctx->n_pubshares, ctx->ids33[idx])) {
+    if (!secp256k1_frost_lagrange_coefficient(&l, ctx->ids, ctx->n_pubshares, ctx->ids[idx])) {
         return 0;
     }
 
@@ -242,7 +228,7 @@ static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *
     return 1;
 }
 
-static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_gej *share, size_t threshold, const unsigned char *id33, const secp256k1_pubkey *vss_commitment) {
+static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_gej *share, size_t threshold, const size_t id, const secp256k1_pubkey *vss_commitment) {
     secp256k1_frost_evaluate_vss_ecmult_data evaluate_vss_ecmult_data;
 
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
@@ -254,7 +240,7 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
     evaluate_vss_ecmult_data.ctx = ctx;
     evaluate_vss_ecmult_data.vss_commitment = vss_commitment;
     /* Evaluate the public polynomial at the idx */
-    secp256k1_frost_compute_indexhash(&evaluate_vss_ecmult_data.idx, id33);
+    secp256k1_frost_get_scalar_index(&evaluate_vss_ecmult_data.idx, id);
     secp256k1_scalar_set_int(&evaluate_vss_ecmult_data.idxn, 1);
     /* TODO: add scratch */
     if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, share, NULL, secp256k1_frost_evaluate_vss_ecmult_callback, (void *) &evaluate_vss_ecmult_data, threshold)) {
@@ -265,14 +251,13 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
 }
 
 /* See RFC 9591, appendix C.2 */
-int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const unsigned char *id33, const secp256k1_frost_secshare *share, const secp256k1_pubkey *vss_commitment) {
+int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold, const size_t id, const secp256k1_frost_secshare *share, const secp256k1_pubkey *vss_commitment) {
     secp256k1_scalar share_i;
     secp256k1_scalar share_neg;
     secp256k1_gej tmpj, snj;
     secp256k1_ge sng;
 
     VERIFY_CHECK(ctx != NULL);
-    ARG_CHECK(id33 != NULL);
     ARG_CHECK(share != NULL);
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(threshold > 1);
@@ -281,7 +266,7 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
         return 0;
     }
 
-    if (!secp256k1_frost_evaluate_vss(ctx, &tmpj, threshold, id33, vss_commitment)) {
+    if (!secp256k1_frost_evaluate_vss(ctx, &tmpj, threshold, id, vss_commitment)) {
         return 0;
     }
 
@@ -293,18 +278,17 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
 }
 
 /* See RFC 9591, appendix C.2 */
-int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const unsigned char *id33, const secp256k1_pubkey *vss_commitment) {
+int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pubkey *pubshare, size_t threshold, const size_t id, const secp256k1_pubkey *vss_commitment) {
     secp256k1_gej pkj;
     secp256k1_ge tmp;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(pubshare != NULL);
     memset(pubshare, 0, sizeof(*pubshare));
-    ARG_CHECK(id33 != NULL);
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(threshold > 1);
 
-    if (!secp256k1_frost_evaluate_vss(ctx, &pkj, threshold, id33, vss_commitment)) {
+    if (!secp256k1_frost_evaluate_vss(ctx, &pkj, threshold, id, vss_commitment)) {
         return 0;
     }
     secp256k1_ge_set_gej(&tmp, &pkj);
@@ -327,7 +311,7 @@ int secp256k1_frost_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *a
     return 1;
 }
 
-int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_keygen_cache *cache, const secp256k1_pubkey * const *pubshares, size_t n_pubshares, const unsigned char * const *ids33) {
+int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_keygen_cache *cache, const secp256k1_pubkey * const *pubshares, size_t n_pubshares, const size_t *ids) {
     secp256k1_gej pkj;
     secp256k1_frost_interpolate_pubkey_ecmult_data interpolate_pubkey_ecmult_data;
     secp256k1_keygen_cache_internal cache_i = { 0 };
@@ -336,12 +320,12 @@ int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_key
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(cache != NULL);
     ARG_CHECK(pubshares != NULL);
-    ARG_CHECK(ids33 != NULL);
+    ARG_CHECK(ids != NULL);
     ARG_CHECK(n_pubshares > 1);
 
     interpolate_pubkey_ecmult_data.ctx = ctx;
     interpolate_pubkey_ecmult_data.pubshares = pubshares;
-    interpolate_pubkey_ecmult_data.ids33 = ids33;
+    interpolate_pubkey_ecmult_data.ids = ids;
     interpolate_pubkey_ecmult_data.n_pubshares = n_pubshares;
 
     /* TODO: add scratch */
@@ -398,20 +382,22 @@ int secp256k1_frost_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256
     return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, keygen_cache, tweak32, 1);
 }
 
-static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const unsigned char * const *ids33, size_t n_participants, const unsigned char *my_id33) {
+/* TODO: change to void */
+static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_t *ids, size_t n_participants, const size_t my_id) {
     size_t i;
     secp256k1_scalar num = secp256k1_scalar_one;
     secp256k1_scalar den = secp256k1_scalar_one;
     secp256k1_scalar party_idx;
-    secp256k1_frost_compute_indexhash(&party_idx, my_id33);
+
+    secp256k1_frost_get_scalar_index(&party_idx, my_id);
     for (i = 0; i < n_participants; i++) {
         secp256k1_scalar mul;
 
-        if (secp256k1_memcmp_var(ids33[i], my_id33, 33) == 0) {
+        secp256k1_frost_get_scalar_index(&mul, ids[i]);
+        if (secp256k1_scalar_eq(&mul, &party_idx)) {
             continue;
         }
 
-        secp256k1_frost_compute_indexhash(&mul, ids33[i]);
         secp256k1_scalar_negate(&mul, &mul);
         secp256k1_scalar_mul(&num, &num, &mul);
         secp256k1_scalar_add(&mul, &mul, &party_idx);
