@@ -202,7 +202,6 @@ SECP256K1_API int secp256k1_frost_share_parse(
  *             threshold: the minimum number of signers required to produce a
  *                        signature
  *        n_participants: the total number of participants
- *                 ids33: array of 33-byte participant IDs
  */
 SECP256K1_API int secp256k1_frost_shares_gen(
     const secp256k1_context *ctx,
@@ -210,9 +209,8 @@ SECP256K1_API int secp256k1_frost_shares_gen(
     secp256k1_pubkey *vss_commitment,
     const unsigned char *seed32,
     size_t threshold,
-    size_t n_participants,
-    const unsigned char * const *ids33
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
+    size_t n_participants
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Verifies a share received during a key generation session
  *
@@ -224,17 +222,17 @@ SECP256K1_API int secp256k1_frost_shares_gen(
  *  Args         ctx: pointer to a context object
  *  In:    threshold: the minimum number of signers required to produce a
  *                    signature
- *              id33: the 33-byte participant ID of the share recipient
+ *                id: the participant ID of the share recipient
  *             share: pointer to a key generation share
  *    vss_commitment: input array of the elements of the VSS commitment
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
     const secp256k1_context *ctx,
     size_t threshold,
-    const unsigned char *id33,
+    const size_t id,
     const secp256k1_frost_secshare *share,
     const secp256k1_pubkey *vss_commitment
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
 
 /** Computes a public verification share used for verifying partial signatures
  *
@@ -244,8 +242,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
  *                    share
  *  In:    threshold: the minimum number of signers required to produce a
  *                    signature
- *              id33: the 33-byte participant ID of the participant whose
- *                    partial signature will be verified with the pubshare
+ *                id: the participant ID of the participant whose partial
+ *                    signature will be verified with the pubshare
  *    vss_commitment: input array of the elements of the VSS commitment
  *    n_participants: the total number of participants
  */
@@ -253,9 +251,9 @@ SECP256K1_API int secp256k1_frost_compute_pubshare(
     const secp256k1_context *ctx,
     secp256k1_pubkey *pubshare,
     size_t threshold,
-    const unsigned char *id33,
+    const size_t id,
     const secp256k1_pubkey *vss_commitment
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(5);
 
 /** Computes a group public key and uses it to initialize a keygen_cache
  *
@@ -268,14 +266,14 @@ SECP256K1_API int secp256k1_frost_compute_pubshare(
  *                     shares of the participants ordered by the IDs of the
  *                     participants
  *        n_pubshares: the total number of public verification shares
- *              ids33: array of the 33-byte participant IDs of the signers
+ *                ids: array of the participant IDs of the signers
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_gen(
     const secp256k1_context *ctx,
     secp256k1_frost_keygen_cache *keygen_cache,
     const secp256k1_pubkey * const *pubshares,
     size_t n_pubshares,
-    const unsigned char * const *ids33
+    const size_t *ids
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 
 /** Obtain the group public key from a keygen_cache.
@@ -449,10 +447,10 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
  *         n_pubnonces: number of elements in the pubnonces array. Must be
  *                      greater than 0.
  *               msg32: the 32-byte message to sign
- *            myd_id33: the 33-byte ID of the participant who will use the
- *                      session for signing
- *               ids33: array of the 33-byte participant IDs of the signers
- *         keygen_cache: pointer to frost_keygen_cache struct
+ *              myd_id: the ID of the participant who will use the session for
+ *                      signing
+ *                 ids: array of the participant IDs of the signers
+          keygen_cache: pointer to frost_keygen_cache struct
  *             adaptor: optional pointer to an adaptor point encoded as a
  *                      public key if this signing session is part of an
  *                      adaptor signature protocol (can be NULL)
@@ -463,11 +461,11 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_process(
     const secp256k1_frost_pubnonce * const *pubnonces,
     size_t n_pubnonces,
     const unsigned char *msg32,
-    const unsigned char *my_id33,
-    const unsigned char * const *ids33,
+    const size_t my_id,
+    const size_t *ids,
     const secp256k1_frost_keygen_cache *keygen_cache,
     const secp256k1_pubkey *adaptor
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
 
 /** Produces a partial signature
  *

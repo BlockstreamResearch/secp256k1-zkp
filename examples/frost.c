@@ -20,7 +20,6 @@
 #include "examples_util.h"
 
 struct signer_secrets {
-    secp256k1_keypair keypair;
     secp256k1_frost_secshare share;
     secp256k1_frost_secnonce secnonce;
 };
@@ -30,7 +29,6 @@ struct signer {
     secp256k1_frost_pubnonce pubnonce;
     secp256k1_frost_session session;
     secp256k1_frost_partial_sig partial_sig;
-    unsigned char id[33];
 };
 
 /* Threshold required in creating the aggregate signature */
@@ -39,47 +37,20 @@ struct signer {
 
 /* Number of public keys involved in creating the aggregate signature */
 #define N_SIGNERS 5
-/* Create a key pair, store it in signer_secrets->keypair and signer->pubkey */
-static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
-    secp256k1_pubkey pubkey_tmp;
-    unsigned char seckey[32];
-    size_t size = 33;
-    while (1) {
-        if (!fill_random(seckey, sizeof(seckey))) {
-            printf("Failed to generate randomness\n");
-            return 1;
-        }
-        if (secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
-            break;
-        }
-    }
-    if (!secp256k1_keypair_pub(ctx, &pubkey_tmp, &signer_secrets->keypair)) {
-        return 0;
-    }
-    if (!secp256k1_ec_pubkey_serialize(ctx, signer->id, &size, &pubkey_tmp, SECP256K1_EC_COMPRESSED)) {
-        return 0;
-    }
-    return 1;
-}
 
 /* Create shares and coefficient commitments */
 static int create_shares(const secp256k1_context* ctx, struct signer_secrets *signer_secrets, struct signer *signer) {
     int i;
     secp256k1_frost_secshare shares[N_SIGNERS];
     secp256k1_pubkey vss_commitment[THRESHOLD];
-    const unsigned char *ids[N_SIGNERS];
     unsigned char seed[32];
 
     if (!fill_random(seed, sizeof(seed))) {
         return 0;
     }
 
-    for (i = 0; i < N_SIGNERS; i++) {
-        ids[i] = signer[i].id;
-    }
-
     /* Generate shares for the participants */
-    if (!secp256k1_frost_shares_gen(ctx, shares, vss_commitment, seed, THRESHOLD, N_SIGNERS, ids)) {
+    if (!secp256k1_frost_shares_gen(ctx, shares, vss_commitment, seed, THRESHOLD, N_SIGNERS)) {
         return 0;
     }
 
@@ -87,12 +58,12 @@ static int create_shares(const secp256k1_context* ctx, struct signer_secrets *si
     for (i = 0; i < N_SIGNERS; i++) {
         signer_secrets[i].share = shares[i];
         /* Each participant verifies their share. */
-        if (!secp256k1_frost_share_verify(ctx, THRESHOLD, signer[i].id, &shares[i], vss_commitment)) {
+        if (!secp256k1_frost_share_verify(ctx, THRESHOLD, i, &shares[i], vss_commitment)) {
             return 0;
         }
         /* Each participant generates public verification shares that are
          * used for verifying partial signatures. */
-        if (!secp256k1_frost_compute_pubshare(ctx, &signer[i].pubshare, THRESHOLD, signer[i].id, vss_commitment)) {
+        if (!secp256k1_frost_compute_pubshare(ctx, &signer[i].pubshare, THRESHOLD, i, vss_commitment)) {
             return 0;
         }
     }
@@ -143,7 +114,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     int signers[THRESHOLD];
     int is_signer[N_SIGNERS];
     const secp256k1_frost_pubnonce *pubnonces[THRESHOLD];
-    const unsigned char *ids[THRESHOLD];
+    size_t ids[THRESHOLD];
     const secp256k1_frost_partial_sig *partial_sigs[THRESHOLD];
 
     for (i = 0; i < N_SIGNERS; i++) {
@@ -179,12 +150,12 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
         }
         /* Mark signer as assigned */
         pubnonces[i] = &signer[signer_id].pubnonce;
-        ids[i] = signer[signer_id].id;
+        ids[i] = signer_id;
     }
     /* Signing communication round 1: Exchange nonces */
     for (i = 0; i < THRESHOLD; i++) {
         signer_id = signers[i];
-        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, signer[signer_id].id, ids, cache, NULL)) {
+        if (!secp256k1_frost_nonce_process(ctx, &signer[signer_id].session, pubnonces, THRESHOLD, msg32, signer_id, ids, cache, NULL)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
@@ -220,7 +191,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
 
 int main(void) {
     secp256k1_context* ctx;
-    int i;
+    size_t i;
     struct signer_secrets signer_secrets[N_SIGNERS];
     struct signer signers[N_SIGNERS];
     const secp256k1_pubkey *pubshares_ptr[N_SIGNERS];
@@ -228,20 +199,14 @@ int main(void) {
     secp256k1_frost_keygen_cache keygen_cache;
     const unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
-    const unsigned char *id_ptr[5];
+    size_t ids[5];
 
     /* Create a context for signing and verification */
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-    printf("Creating key pairs......");
     for (i = 0; i < N_SIGNERS; i++) {
-        if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {
-            printf("FAILED\n");
-            return 1;
-        }
         pubshares_ptr[i] = &signers[i].pubshare;
-        id_ptr[i] = signers[i].id;
+        ids[i] = i;
     }
-    printf("ok\n");
     printf("Creating shares.........");
     if (!create_shares(ctx, signer_secrets, signers)) {
         printf("FAILED\n");
@@ -249,7 +214,7 @@ int main(void) {
     }
     printf("ok\n");
     printf("Generating public key...");
-    if (!secp256k1_frost_pubkey_gen(ctx, &keygen_cache, pubshares_ptr, N_SIGNERS, id_ptr)) {
+    if (!secp256k1_frost_pubkey_gen(ctx, &keygen_cache, pubshares_ptr, N_SIGNERS, ids)) {
         printf("FAILED\n");
         return 1;
     }
