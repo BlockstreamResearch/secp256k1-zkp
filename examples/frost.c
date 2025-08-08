@@ -196,7 +196,7 @@ int main(void) {
     struct signer signers[N_SIGNERS];
     const secp256k1_pubkey *pubshares_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey pk;
-    secp256k1_frost_keygen_cache keygen_cache;
+    secp256k1_frost_keygen_cache keygen_cache = {0};
     const unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
     unsigned char sig[64];
     size_t ids[5];
