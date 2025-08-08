@@ -209,7 +209,7 @@ void frost_api_tests(void) {
     }
     CHECK_ILLEGAL(CTX, secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 0));
     CHECK_ILLEGAL(CTX, secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 2));
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 2; i++) {
         CHECK(frost_memcmp_and_randomize(shares[i].data, zeros68, sizeof(shares[i].data)) == 0);
     }
 
@@ -256,7 +256,17 @@ void frost_api_tests(void) {
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 0, id_ptr)); */
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, NULL)); */
 
+    for (i = 0; i < 5; i++) {
+        CHECK(secp256k1_frost_compute_pubshare(
+            CTX, &pubshare[i], 3, i, vss_commitment) == 1);
+        pubshare_ptr[i] = &pubshare[i];
+    }
+    CHECK(secp256k1_frost_pubkey_gen(
+        CTX, &keygen_cache, pubshare_ptr, 5, ids) == 1);
+
+
     /* pubkey_get */
+    memset(&pk, 0, sizeof(pk));
     CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_get(CTX, NULL, &keygen_cache));
     CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_get(CTX, &pk, NULL));
     CHECK(secp256k1_memcmp_var(&pk, zeros68, sizeof(pk)) == 0);
@@ -320,6 +330,34 @@ void frost_api_tests(void) {
     /* CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[0], &pubnonce[0], session_id[0], NULL, NULL, NULL, NULL) == 1); */
     /* CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[1], &pubnonce[1], session_id[1], &shares[1], NULL, NULL, NULL) == 1); */
     /* CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[2], &pubnonce[2], session_id[2], &shares[2], NULL, NULL, NULL) == 1); */
+
+    for (i = 0; i < 3; i++) {
+    CHECK(secp256k1_frost_nonce_gen(
+        CTX,
+        &secnonce[i],
+        &pubnonce[i],
+        session_id[i],
+        &shares[i],
+        NULL,
+        NULL,
+        NULL
+    ) == 1);
+    pubnonce_ptr[i] = &pubnonce[i];
+}
+
+    for (i = 0; i < 3; i++) {
+        CHECK(secp256k1_frost_nonce_process(
+            CTX,
+            &session[i],
+            pubnonce_ptr,
+            3,
+            msg,
+            ids[i],
+            ids,
+            &keygen_cache,
+            &adaptor
+        ) == 1);
+    }
 
     /** Serialize and parse public nonces **/
     CHECK_ILLEGAL(CTX, secp256k1_frost_pubnonce_serialize(CTX, NULL, &pubnonce[0]));
@@ -568,6 +606,7 @@ void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256
     secp256k1_frost_partial_sig partial_sig[3];
     const secp256k1_frost_partial_sig *partial_sig_ptr[3];
     unsigned char final_sig[64];
+    size_t ids[3] = {0, 1, 2};
     int i;
 
     for (i = 0; i < 3; i++) {
@@ -586,6 +625,34 @@ void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256
     /* CHECK(secp256k1_frost_nonce_process(CTX, &session[0], pubnonce_ptr, 3, msg, ids33[0], ids33, keygen_cache, NULL) == 1); */
     /* CHECK(secp256k1_frost_nonce_process(CTX, &session[1], pubnonce_ptr, 3, msg, ids33[1], ids33, keygen_cache, NULL) == 1); */
     /* CHECK(secp256k1_frost_nonce_process(CTX, &session[2], pubnonce_ptr, 3, msg, ids33[2], ids33, keygen_cache, NULL) == 1); */
+
+    for (i = 0; i < 3; i++) {
+        const secp256k1_frost_secshare *share = (i==0 ? sr0 : i==1 ? sr1 : sr2);
+        CHECK(secp256k1_frost_nonce_gen(
+            CTX,
+            &secnonce[i],
+            &pubnonce[i],
+            session_id[i],
+            share,
+            NULL,
+            NULL,
+            NULL
+        ) == 1);
+    }
+
+    for (i = 0; i < 3; i++) {
+        CHECK(secp256k1_frost_nonce_process(
+            CTX,
+            &session[i],
+            pubnonce_ptr,
+            3,
+            msg,
+            ids[i],
+            ids,
+            keygen_cache,
+            NULL
+        ) == 1);
+    }
 
 
     CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[0], &secnonce[0], sr0, &session[0], keygen_cache) == 1);
@@ -624,11 +691,17 @@ void frost_tweak_test(void) {
         pubshare_ptr[i] = &pubshare[i];
     }
     secp256k1_testrand256(seed);
+    size_t ids[5];
+    CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
     /* CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5, id_ptr) == 1); */
     for (i = 0; i < 5; i++) {
+        CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, i, vss_commitment) == 1);
+        pubshare_ptr[i] = &pubshare[i];
+        ids[i] = i;
         /* CHECK(secp256k1_frost_share_verify(CTX, 3, id_ptr[i], &shares[i], vss_commitment) == 1); */
         /* CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, id_ptr[i], vss_commitment) == 1); */
     }
+    CHECK(secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, ids) == 1);
     /* Compute P0 and test signing for it */
     /* CHECK(secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, id_ptr) == 1); */
     CHECK(secp256k1_frost_pubkey_get(CTX, &P[0], &keygen_cache) == 1);
@@ -679,11 +752,14 @@ void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1
     for (i = 0; i < 5; i++) {
         pubshare_ptr[i] = &pubshare[i];
     }
-    /* CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5, ids33) == 1); */
+    CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
     for (i = 0; i < 5; i++) {
-        /* CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, ids33[i], vss_commitment) == 1); */
+        CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, (size_t)i, vss_commitment) == 1);
     }
-    /* CHECK(secp256k1_frost_pubkey_gen(CTX, keygen_cache, pubshare_ptr, 5, ids33) == 1); */
+    {
+        size_t ids[5] = {0,1,2,3,4};
+        CHECK(secp256k1_frost_pubkey_gen(CTX, keygen_cache, pubshare_ptr, 5, ids) == 1);
+    }
 }
 
 /* Signs a message with a FROST keypair */
@@ -694,7 +770,7 @@ int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secsh
     const secp256k1_frost_pubnonce *pubnonce_ptr[3];
     secp256k1_frost_partial_sig partial_sig[5];
     const secp256k1_frost_partial_sig *partial_sig_ptr[5];
-    secp256k1_frost_session session;
+    secp256k1_frost_session session[3];
     int i;
     int nonce_parity;
     secp256k1_frost_session_internal session_i;
@@ -706,14 +782,18 @@ int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secsh
 
     for (i = 0; i < 3; i++) {
         secp256k1_testrand256(session_id[i]);
-
-        /* CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], &shares[i], NULL, NULL, NULL) == 1); */
+        CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], &shares[i], NULL, NULL, NULL) == 1);
+    }
+    {
+        size_t ids[3] = {0, 1, 2};
+        for (i = 0; i < 3; i++) {
+            CHECK(secp256k1_frost_nonce_process(CTX, &session[i], pubnonce_ptr, 3, msg, ids[i], ids, keygen_cache, adaptor) == 1);
+        }
     }
     for (i = 0; i < 3; i++) {
-        /* CHECK(secp256k1_frost_nonce_process(CTX, &session, pubnonce_ptr, 3, msg, ids33[i], ids33, keygen_cache, adaptor) == 1); */
-        CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[i], &secnonce[i], &shares[i], &session, keygen_cache) == 1);
+        CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[i], &secnonce[i], &shares[i], &session[i], keygen_cache) == 1);
     }
-    CHECK(secp256k1_frost_partial_sig_agg(CTX, final_sig, &session, partial_sig_ptr, 3) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, final_sig, &session[0], partial_sig_ptr, 3) == 1);
 
     CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &session));
 
