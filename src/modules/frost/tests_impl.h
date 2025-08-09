@@ -596,13 +596,13 @@ void frost_sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char 
 
 /* Attempts to create a signature for the group public key using given secret
  * keys and keygen_cache. */
-void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256k1_frost_secshare *sr0, const secp256k1_frost_secshare *sr1, const secp256k1_frost_secshare *sr2, secp256k1_frost_keygen_cache *keygen_cache, const unsigned char * const* ids33, const secp256k1_pubkey *sr_pk0, const secp256k1_pubkey *sr_pk1, const secp256k1_pubkey *sr_pk2) {
+void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const secp256k1_frost_secshare *sr0, const secp256k1_frost_secshare *sr1, const secp256k1_frost_secshare *sr2, secp256k1_frost_keygen_cache *keygen_cache, const secp256k1_pubkey *sr_pk0, const secp256k1_pubkey *sr_pk1, const secp256k1_pubkey *sr_pk2) {
     unsigned char session_id[3][32];
     unsigned char msg[32];
     secp256k1_frost_secnonce secnonce[3];
     secp256k1_frost_pubnonce pubnonce[3];
     const secp256k1_frost_pubnonce *pubnonce_ptr[3];
-    secp256k1_frost_session session[5];
+    secp256k1_frost_session session[3];
     secp256k1_frost_partial_sig partial_sig[3];
     const secp256k1_frost_partial_sig *partial_sig_ptr[3];
     unsigned char final_sig[64];
@@ -680,33 +680,30 @@ void frost_tweak_test(void) {
     secp256k1_pubkey vss_commitment[3];
     secp256k1_frost_secshare shares[5];
     int i;
-    unsigned char id[5][33];
-    const unsigned char *id_ptr[5];
     const secp256k1_pubkey *pubshare_ptr[5];
+    size_t ids[5];
 
     /* Key Setup */
     for (i = 0; i < 5; i++) {
         secp256k1_testrand256(sk[i]);
-        id_ptr[i] = id[i];
         pubshare_ptr[i] = &pubshare[i];
+        ids[i] = (size_t)i;
     }
     secp256k1_testrand256(seed);
-    size_t ids[5];
     CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
     /* CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5, id_ptr) == 1); */
     for (i = 0; i < 5; i++) {
-        CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, i, vss_commitment) == 1);
+        CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, (size_t)i, vss_commitment) == 1);
         pubshare_ptr[i] = &pubshare[i];
-        ids[i] = i;
         /* CHECK(secp256k1_frost_share_verify(CTX, 3, id_ptr[i], &shares[i], vss_commitment) == 1); */
         /* CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, id_ptr[i], vss_commitment) == 1); */
     }
     CHECK(secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, ids) == 1);
+    CHECK(secp256k1_frost_pubkey_get(CTX, &P[0], &keygen_cache) == 1);
     /* Compute P0 and test signing for it */
     /* CHECK(secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, id_ptr) == 1); */
-    CHECK(secp256k1_frost_pubkey_get(CTX, &P[0], &keygen_cache) == 1);
     CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &P_xonly[0], NULL, &P[0]));
-    frost_tweak_test_helper(&P_xonly[0], &shares[0], &shares[1], &shares[2], &keygen_cache, id_ptr, &pubshare[0], &pubshare[1], &pubshare[2]);
+    frost_tweak_test_helper(&P_xonly[0], &shares[0], &shares[1], &shares[2], &keygen_cache, &pubshare[0], &pubshare[1], &pubshare[2]);
 
     /* Compute Pi = f(Pj) + tweaki*G where where j = i-1 and try signing for */
     /* that key. If xonly is set to true, the function f is normalizes the input */
@@ -736,34 +733,32 @@ void frost_tweak_test(void) {
             CHECK(secp256k1_memcmp_var(&tmp_key, &P[i], sizeof(tmp_key)) == 0);
         }
         /* Test signing for P[i] */
-        frost_tweak_test_helper(&P_xonly[i], &shares[0], &shares[1], &shares[2], &keygen_cache, id_ptr, &pubshare[0], &pubshare[1], &pubshare[2]);
+        frost_tweak_test_helper(&P_xonly[i], &shares[0], &shares[1], &shares[2], &keygen_cache, &pubshare[0], &pubshare[1], &pubshare[2]);
     }
 }
 
 /* Performs a FROST DKG */
-void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1_frost_secshare *shares, const unsigned char * const *ids33) {
+void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1_frost_secshare *shares) {
     secp256k1_pubkey vss_commitment[3];
     unsigned char seed[32];
     int i;
     secp256k1_pubkey pubshare[5];
     const secp256k1_pubkey *pubshare_ptr[5];
-
+    size_t ids[5];
     secp256k1_testrand256(seed);
     for (i = 0; i < 5; i++) {
         pubshare_ptr[i] = &pubshare[i];
+        ids[i] = (size_t)i;
     }
     CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
     for (i = 0; i < 5; i++) {
         CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, (size_t)i, vss_commitment) == 1);
     }
-    {
-        size_t ids[5] = {0,1,2,3,4};
-        CHECK(secp256k1_frost_pubkey_gen(CTX, keygen_cache, pubshare_ptr, 5, ids) == 1);
-    }
+    CHECK(secp256k1_frost_pubkey_gen(CTX, keygen_cache, pubshare_ptr, 5, ids) == 1);
 }
 
 /* Signs a message with a FROST keypair */
-int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secshare *shares, const unsigned char * const *ids33, const unsigned char *msg, const secp256k1_pubkey *adaptor, secp256k1_frost_keygen_cache *keygen_cache) {
+int frost_sign_test_helper(unsigned char *pre_sig, const secp256k1_frost_secshare *shares, const unsigned char *msg, const secp256k1_pubkey *adaptor, secp256k1_frost_keygen_cache *keygen_cache) {
     unsigned char session_id[3][32];
     secp256k1_frost_secnonce secnonce[3];
     secp256k1_frost_pubnonce pubnonce[3];
@@ -771,6 +766,7 @@ int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secsh
     secp256k1_frost_partial_sig partial_sig[5];
     const secp256k1_frost_partial_sig *partial_sig_ptr[5];
     secp256k1_frost_session session[3];
+    size_t ids[3];
     int i;
     int nonce_parity;
     secp256k1_frost_session_internal session_i;
@@ -778,26 +774,24 @@ int frost_sign_test_helper(unsigned char *final_sig, const secp256k1_frost_secsh
     for (i = 0; i < 3; i++) {
         pubnonce_ptr[i] = &pubnonce[i];
         partial_sig_ptr[i] = &partial_sig[i];
+        ids[i] = (size_t)i;
     }
 
     for (i = 0; i < 3; i++) {
         secp256k1_testrand256(session_id[i]);
         CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], &shares[i], NULL, NULL, NULL) == 1);
     }
-    {
-        size_t ids[3] = {0, 1, 2};
-        for (i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++) {
             CHECK(secp256k1_frost_nonce_process(CTX, &session[i], pubnonce_ptr, 3, msg, ids[i], ids, keygen_cache, adaptor) == 1);
-        }
     }
     for (i = 0; i < 3; i++) {
         CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[i], &secnonce[i], &shares[i], &session[i], keygen_cache) == 1);
     }
-    CHECK(secp256k1_frost_partial_sig_agg(CTX, final_sig, &session[0], partial_sig_ptr, 3) == 1);
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 3) == 1);
 
-    CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &session));
+    CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &session[0]) == 1);
 
-    secp256k1_frost_session_load(CTX, &session_i, &session);
+    CHECK(secp256k1_frost_session_load(CTX, &session_i, &session[0]) == 1);
 
     return nonce_parity;
 }
@@ -814,8 +808,6 @@ void frost_multi_hop_lock_tests(void) {
     secp256k1_xonly_pubkey pk_a;
     secp256k1_xonly_pubkey pk_b;
     secp256k1_pubkey tmp;
-    unsigned char sk_a[5][32];
-    unsigned char sk_b[5][32];
     unsigned char asig_ab[64];
     unsigned char asig_bc[64];
     unsigned char pop[32];
@@ -831,29 +823,16 @@ void frost_multi_hop_lock_tests(void) {
     unsigned char sig_bc[64];
     int nonce_parity_ab;
     int nonce_parity_bc;
-    int i;
-    unsigned char id_a[5][33];
-    const unsigned char *id_ptr_a[5];
-    unsigned char id_b[5][33];
-    const unsigned char *id_ptr_b[5];
     secp256k1_frost_keygen_cache cache_a;
     secp256k1_frost_keygen_cache cache_b;
 
     /* Alice DKG */
-    for (i = 0; i < 5; i++) {
-        secp256k1_testrand256(sk_a[i]);
-        id_ptr_a[i] = id_a[i];
-    }
-    frost_dkg_test_helper(&cache_a, shares_a, id_ptr_a);
+    frost_dkg_test_helper(&cache_a, shares_a);
     CHECK(secp256k1_frost_pubkey_get(CTX, &tmp, &cache_a) == 1);
     CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &pk_a, NULL, &tmp) == 1);
 
     /* Bob DKG */
-    for (i = 0; i < 5; i++) {
-        secp256k1_testrand256(sk_b[i]);
-        id_ptr_b[i] = id_b[i];
-    }
-    frost_dkg_test_helper(&cache_b, shares_b, id_ptr_b);
+    frost_dkg_test_helper(&cache_b, shares_b);
     CHECK(secp256k1_frost_pubkey_get(CTX, &tmp, &cache_b) == 1);
     CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &pk_b, NULL, &tmp) == 1);
 
@@ -876,13 +855,13 @@ void frost_multi_hop_lock_tests(void) {
     CHECK(secp256k1_eckey_pubkey_tweak_add(&r_ge, &tp));
     secp256k1_pubkey_save(&r, &r_ge);
     /* Encrypt Alice's signature with the left lock as the encryption key */
-    nonce_parity_ab = frost_sign_test_helper(asig_ab, shares_a, id_ptr_a, tx_ab, &l, &cache_a);
+    nonce_parity_ab = frost_sign_test_helper(asig_ab, shares_a, tx_ab, &l, &cache_a);
 
     /* Bob setup */
     CHECK(secp256k1_frost_verify_adaptor(CTX, asig_ab, tx_ab, &pk_a, &l, nonce_parity_ab) == 1);
     secp256k1_testrand256(tx_bc);
     /* Encrypt Bob's signature with the right lock as the encryption key */
-    nonce_parity_bc = frost_sign_test_helper(asig_bc, shares_b, id_ptr_b, tx_bc, &r, &cache_b);
+    nonce_parity_bc = frost_sign_test_helper(asig_bc, shares_b, tx_bc, &r, &cache_b);
 
     /* Carol decrypt */
     CHECK(secp256k1_frost_verify_adaptor(CTX, asig_bc, tx_bc, &pk_b, &r, nonce_parity_bc) == 1);
