@@ -8,7 +8,7 @@
 /* We test that the hash initialized by secp256k1_schnorrsig_sha256_tagged_aggregate
  * has the expected state. */
 void test_schnorrsig_sha256_tagged_aggregate(void) {
-    unsigned char tag[18] = "HalfAgg/randomizer";
+    unsigned char tag[] = {'H', 'a', 'l', 'f', 'A', 'g', 'g', '/', 'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'r'};
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_optimized;
 

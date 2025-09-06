@@ -98,7 +98,7 @@ static void secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux(secp256k1_s
 }
 
 /* algo argument for nonce_function_ecdsa_adaptor to derive the nonce using a tagged hash function. */
-static const unsigned char ecdsa_adaptor_algo[16] = "ECDSAadaptor/non";
+static const unsigned char ecdsa_adaptor_algo[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
 
 /* Modified BIP-340 nonce function */
 static int nonce_function_ecdsa_adaptor(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *pk33, const unsigned char *algo, size_t algolen, void *data) {

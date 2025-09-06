@@ -579,8 +579,8 @@ static void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     int nonce_parity_b;
     unsigned char seed_a[2][32] = { "a0", "a1" };
     unsigned char seed_b[2][32] = { "b0", "b1" };
-    const unsigned char msg32_a[32] = "this is the message blockchain a";
-    const unsigned char msg32_b[32] = "this is the message blockchain b";
+    const unsigned char msg32_a[32] = {'t', 'h', 'i', 's', ' ', 'i', 's', ' ', 't', 'h', 'e', ' ', 'm', 'e', 's', 's', 'a', 'g', 'e', ' ', 'b', 'l', 'o', 'c', 'k', 'c', 'h', 'a', 'i', 'n', ' ', 'a'};
+    const unsigned char msg32_b[32] = {'t', 'h', 'i', 's', ' ', 'i', 's', ' ', 't', 'h', 'e', ' ', 'm', 'e', 's', 's', 'a', 'g', 'e', ' ', 'b', 'l', 'o', 'c', 'k', 'c', 'h', 'a', 'i', 'n', ' ', 'b'};
     int i;
 
     /* Step 1: key setup */
@@ -676,12 +676,12 @@ static void sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char
 static void sha256_tag_test(void) {
     secp256k1_sha256 sha_tagged;
     {
-        char tag[11] = "KeyAgg list";
+        char tag[] = {'K', 'e', 'y', 'A', 'g', 'g', ' ', 'l', 'i', 's', 't'};
         secp256k1_musig_keyagglist_sha256(&sha_tagged);
         sha256_tag_test_internal(&sha_tagged, (unsigned char*)tag, sizeof(tag));
     }
     {
-        char tag[18] = "KeyAgg coefficient";
+        char tag[] = {'K', 'e', 'y', 'A', 'g', 'g', ' ', 'c', 'o', 'e', 'f', 'f', 'i', 'c', 'i', 'e', 'n', 't'};
         secp256k1_musig_keyaggcoef_sha256(&sha_tagged);
         sha256_tag_test_internal(&sha_tagged, (unsigned char*)tag, sizeof(tag));
     }

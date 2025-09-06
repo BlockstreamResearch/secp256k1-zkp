@@ -18,7 +18,7 @@ static void secp256k1_nonce_function_dleq_sha256_tagged(secp256k1_sha256 *sha) {
 }
 
 /* algo argument for nonce_function_ecdsa_adaptor to derive the nonce using a tagged hash function. */
-static const unsigned char dleq_algo[4] = "DLEQ";
+static const unsigned char dleq_algo[] = {'D','L','E','Q'};
 
 static int secp256k1_dleq_hash_point(secp256k1_sha256 *sha, secp256k1_ge *p) {
     unsigned char buf[33];
