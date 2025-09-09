@@ -605,7 +605,9 @@ static void test_sort(void) {
         }
         secp256k1_pubkey_sort(CTX, pk_ptr, 5);
         for (j = 1; j < 5; j++) {
-            CHECK(secp256k1_pubkey_sort_cmp(&pk_ptr[j - 1], &pk_ptr[j], CTX) <= 0);
+            secp256k1_pubkey_sort_cmp_data cmp_data;
+            cmp_data.ctx = CTX;
+            CHECK(secp256k1_pubkey_sort_cmp(&pk_ptr[j - 1], &pk_ptr[j], &cmp_data) <= 0);
         }
     }
 }
