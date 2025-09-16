@@ -240,6 +240,11 @@ AC_ARG_ENABLE(external_default_callbacks,
     AS_HELP_STRING([--enable-external-default-callbacks],[enable external default callback functions [default=no]]), [],
     [SECP_SET_DEFAULT([enable_external_default_callbacks], [no], [no])])
 
+AC_ARG_ENABLE(module_frost,
+    AS_HELP_STRING([--enable-module-frost],[enable FROST module (experimental)]),
+    [],
+    [SECP_SET_DEFAULT([enable_module_frost], [no], [yes])])
+
 # Test-only override of the (autodetected by the C code) "widemul" setting.
 # Legal values are:
 #  * int64 (for [u]int64_t),
@@ -530,6 +535,14 @@ if test x"$enable_module_ecdh" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDH=1"
 fi
 
+if test x"$enable_module_frost" = x"yes"; then
+  if test x"$enable_module_schnorrsig" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the frost module.])
+  fi
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_FROST=1"
+  enable_module_schnorrsig=yes
+fi
+
 if test x"$enable_external_default_callbacks" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DUSE_EXTERNAL_DEFAULT_CALLBACKS=1"
 fi
@@ -582,6 +595,9 @@ else
   if test x"$set_asm" = x"arm32"; then
     AC_MSG_ERROR([ARM32 assembly is experimental. Use --enable-experimental to allow.])
   fi
+  if test x"$enable_module_frost" = x"yes"; then
+    AC_MSG_ERROR([FROST module is experimental. Use --enable-experimental to allow.])
+  fi
 fi
 
 ###
@@ -611,6 +627,7 @@ AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG_HALFAGG], [test x"$enable_module_schnorrsig_halfagg" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_FROST], [test x"$enable_module_frost" = x"yes"])
 AM_CONDITIONAL([USE_REDUCED_SURJECTION_PROOF_SIZE], [test x"$use_reduced_surjection_proof_size" = x"yes"])
 AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$enable_external_asm" = x"yes"])
 AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm32"])
@@ -651,6 +668,7 @@ echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo "  module bppp             = $enable_module_bppp"
 echo "  module schnorrsig-halfagg = $enable_module_schnorrsig_halfagg"
+echo "  module frost            = $enable_module_frost"
 echo
 echo "  asm                       = $set_asm"
 echo "  ecmult window size        = $set_ecmult_window"
