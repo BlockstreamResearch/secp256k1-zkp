@@ -169,7 +169,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     const secp256k1_pubkey *pubkeys_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey agg_pk;
     secp256k1_musig_keyagg_cache cache;
-    unsigned char msg[32] = "this_could_be_the_hash_of_a_msg!";
+    unsigned char msg[] = {'t', 'h', 'i', 's', '_', 'c', 'o', 'u', 'l', 'd', ' ', 'b', 'e', ' ', 't', 'h', 'e', '_', 'h', 'a', 's', 'h', '_', 'o', 'f', '_', 'a', '_', 'm', 's', 'g', '!'};
     unsigned char sig[64];
 
     /* Create a secp256k1 context */

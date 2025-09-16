@@ -730,11 +730,11 @@ static void ecdsa_adaptor_test_sha256_eq(const secp256k1_sha256 *sha1, const sec
 }
 
 static void run_nonce_function_ecdsa_adaptor_tests(void) {
-    unsigned char tag[16] = "ECDSAadaptor/non";
-    unsigned char aux_tag[16] = "ECDSAadaptor/aux";
-    unsigned char algo[16] = "ECDSAadaptor/non";
+    unsigned char tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
+    unsigned char aux_tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'a', 'u', 'x'};
+    unsigned char algo[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
     size_t algolen = sizeof(algo);
-    unsigned char dleq_tag[4] = "DLEQ";
+    unsigned char dleq_tag[] = {'D', 'L', 'E', 'Q'};
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_optimized;
     unsigned char nonce[32];

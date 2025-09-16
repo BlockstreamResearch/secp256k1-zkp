@@ -414,7 +414,7 @@ static void test_single_value_proof(uint64_t val) {
     unsigned char blind[32];
     unsigned char blind_out[32];
     unsigned char nonce[32];
-    const unsigned char message[1] = " "; /* no message will fit into a single-value proof */
+    const unsigned char message[] = { ' ' }; /* no message will fit into a single-value proof */
     unsigned char message_out[sizeof(proof)] = { 0 };
     size_t plen = sizeof(proof);
     uint64_t min_val_out = 0;

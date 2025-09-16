@@ -103,7 +103,7 @@ static void test_bppp_generators_fixed(void) {
 }
 
 static void test_bppp_tagged_hash(void) {
-    unsigned char tag_data[29] = "Bulletproofs_pp/v0/commitment";
+    unsigned char tag_data[] = {'B', 'u', 'l', 'l', 'e', 't', 'p', 'r', 'o', 'o', 'f', 's', '_', 'p', 'p', '/', 'v', '0', '/', 'c', 'o', 'm', 'm', 'i', 't', 'm', 'e', 'n', 't'};
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_cached;
     unsigned char output[32];

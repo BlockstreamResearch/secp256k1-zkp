@@ -579,8 +579,8 @@ static void scriptless_atomic_swap(secp256k1_scratch_space *scratch) {
     int nonce_parity_b;
     unsigned char seed_a[2][32] = { "a0", "a1" };
     unsigned char seed_b[2][32] = { "b0", "b1" };
-    const unsigned char msg32_a[32] = "this is the message blockchain a";
-    const unsigned char msg32_b[32] = "this is the message blockchain b";
+    const unsigned char msg32_a[32] = {'t', 'h', 'i', 's', ' ', 'i', 's', ' ', 't', 'h', 'e', ' ', 'm', 'e', 's', 's', 'a', 'g', 'e', ' ', 'b', 'l', 'o', 'c', 'k', 'c', 'h', 'a', 'i', 'n', ' ', 'a'};
+    const unsigned char msg32_b[32] = {'t', 'h', 'i', 's', ' ', 'i', 's', ' ', 't', 'h', 'e', ' ', 'm', 'e', 's', 's', 'a', 'g', 'e', ' ', 'b', 'l', 'o', 'c', 'k', 'c', 'h', 'a', 'i', 'n', ' ', 'b'};
     int i;
 
     /* Step 1: key setup */
@@ -676,12 +676,12 @@ static void sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char
 static void sha256_tag_test(void) {
     secp256k1_sha256 sha_tagged;
     {
-        char tag[11] = "KeyAgg list";
+        char tag[] = {'K', 'e', 'y', 'A', 'g', 'g', ' ', 'l', 'i', 's', 't'};
         secp256k1_musig_keyagglist_sha256(&sha_tagged);
         sha256_tag_test_internal(&sha_tagged, (unsigned char*)tag, sizeof(tag));
     }
     {
-        char tag[18] = "KeyAgg coefficient";
+        char tag[] = {'K', 'e', 'y', 'A', 'g', 'g', ' ', 'c', 'o', 'e', 'f', 'f', 'i', 'c', 'i', 'e', 'n', 't'};
         secp256k1_musig_keyaggcoef_sha256(&sha_tagged);
         sha256_tag_test_internal(&sha_tagged, (unsigned char*)tag, sizeof(tag));
     }
@@ -1013,6 +1013,8 @@ static void musig_test_vectors_signverify(void) {
         if (!expected) {
             continue;
         }
+        CHECK(secp256k1_ec_pubkey_parse(CTX, &pubkey, vector->pubkeys[0], sizeof(vector->pubkeys[0])));
+        CHECK(secp256k1_keypair_create(CTX, &keypair, vector->sk));
 
         expected = c->error != MUSIG_AGGNONCE;
         CHECK(expected == secp256k1_musig_aggnonce_parse(CTX, &aggnonce, vector->aggnonces[c->aggnonce_index]));
@@ -1022,13 +1024,10 @@ static void musig_test_vectors_signverify(void) {
         CHECK(secp256k1_musig_nonce_process(CTX, &session, &aggnonce, vector->msgs[c->msg_index], &keyagg_cache, NULL));
 
         CHECK(secp256k1_ec_pubkey_parse(CTX, &pubkey, vector->pubkeys[0], sizeof(vector->pubkeys[0])));
-        musig_test_set_secnonce(&secnonce, vector->secnonces[c->secnonce_index], &pubkey);
         expected = c->error != MUSIG_SECNONCE;
-        if (expected) {
-            CHECK(secp256k1_musig_partial_sign(CTX, &partial_sig, &secnonce, &keypair, &keyagg_cache, &session));
-        } else {
-            CHECK_ILLEGAL(CTX, secp256k1_musig_partial_sign(CTX, &partial_sig, &secnonce, &keypair, &keyagg_cache, &session));
-        }
+        CHECK(!expected);
+        musig_test_set_secnonce(&secnonce, vector->secnonces[c->secnonce_index], &pubkey);
+        CHECK_ILLEGAL(CTX, secp256k1_musig_partial_sign(CTX, &partial_sig, &secnonce, &keypair, &keyagg_cache, &session));
     }
     for (i = 0; i < sizeof(vector->verify_fail_case)/sizeof(vector->verify_fail_case[0]); i++) {
         const struct musig_verify_fail_error_case *c = &vector->verify_fail_case[i];
