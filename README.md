@@ -12,6 +12,7 @@ Added features:
 * Experimental module for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
 * Experimental module for Bulletproofs++ range proofs.
 * Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
+* Experimental module for Schnorr adaptor signatures.
 
 Experimental features are made available for testing and review by the community. The APIs of these features should not be considered stable.
 
@@ -72,6 +73,7 @@ Usage examples
 Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
   * [ECDSA example](examples/ecdsa.c)
   * [Schnorr signatures example](examples/schnorr.c)
+  * [Schnorr adaptor signatures example](examples/schnorr_adaptor.c)
   * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
   * [MuSig example](examples/musig.c)
 

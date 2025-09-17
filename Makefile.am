@@ -195,6 +195,17 @@ musig_example_LDFLAGS += -lbcrypt
 endif
 TESTS += musig_example
 endif
+if ENABLE_MODULE_SCHNORR_ADAPTOR
+noinst_PROGRAMS += schnorr_adaptor_example
+schnorr_adaptor_example_SOURCES = examples/schnorr_adaptor.c
+schnorr_adaptor_example_CPPFLAGS = -I$(top_srcdir)/include -DSECP256K1_STATIC
+schnorr_adaptor_example_LDADD = libsecp256k1.la
+schnorr_adaptor_example_LDFLAGS = -static
+if BUILD_WINDOWS
+schnorr_adaptor_example_LDFLAGS += -lbcrypt
+endif
+TESTS += schnorr_adaptor_example
+endif
 endif
 
 ### Precomputed tables
@@ -319,4 +330,8 @@ endif
 
 if ENABLE_MODULE_ECDSA_ADAPTOR
 include src/modules/ecdsa_adaptor/Makefile.am.include
+endif
+
+if ENABLE_MODULE_SCHNORR_ADAPTOR
+include src/modules/schnorr_adaptor/Makefile.am.include
 endif
