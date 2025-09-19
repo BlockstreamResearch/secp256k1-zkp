@@ -115,7 +115,6 @@ void frost_api_tests(void) {
     unsigned char final_sig[64];
     unsigned char pre_sig[64];
     unsigned char buf[32];
-    unsigned char sk[5][32];
     unsigned char max64[64];
     unsigned char zeros68[68] = { 0 };
     unsigned char session_id[5][32];
@@ -128,7 +127,6 @@ void frost_api_tests(void) {
     unsigned char pubnonce_ser[66];
     secp256k1_frost_pubnonce inf_pubnonce[5];
     secp256k1_frost_pubnonce invalid_pubnonce;
-    const secp256k1_frost_pubnonce *invalid_pubnonce_ptr[5];
     unsigned char msg[32];
     secp256k1_pubkey pk;
     secp256k1_xonly_pubkey pk_xonly;
@@ -143,6 +141,7 @@ void frost_api_tests(void) {
     unsigned char sec_adaptor1[32];
     secp256k1_pubkey adaptor;
     secp256k1_pubkey vss_commitment[3];
+    const secp256k1_frost_pubnonce *invalid_pubnonce_ptr[5];
     secp256k1_pubkey invalid_vss_commitment[3];
     secp256k1_pubkey invalid_pubshare;
     secp256k1_frost_secshare shares[5];
@@ -152,6 +151,9 @@ void frost_api_tests(void) {
     size_t ids[5];
     const secp256k1_pubkey *pubshare_ptr[5];
 
+    (void)invalid_vss_commitment;
+    (void)invalid_pubnonce_ptr;
+    
     /** setup **/
     memset(max64, 0xff, sizeof(max64));
     /* Simulate structs being uninitialized by setting it to 0s. We don't want
@@ -180,15 +182,16 @@ void frost_api_tests(void) {
         ids[i] = i;
         pubshare_ptr[i] = &pubshare[i];
         secp256k1_testrand256(session_id[i]);
-        secp256k1_testrand256(sk[i]);
     }
+
+    invalid_partial_sig_ptr[0] = &invalid_partial_sig;
     for (i = 0; i < 3; i++) {
         invalid_vss_commitment[i] = vss_commitment[i];
     }
-
-    invalid_pubnonce_ptr[0] = &invalid_pubnonce;
-    invalid_partial_sig_ptr[0] = &invalid_partial_sig;
     invalid_vss_commitment[0] = invalid_pubshare;
+    invalid_pubnonce_ptr[0] = &invalid_pubnonce;
+    invalid_pubnonce_ptr[1] = &pubnonce[1];
+    invalid_pubnonce_ptr[2] = &pubnonce[2];
 
     /** main test body **/
 
@@ -216,26 +219,26 @@ void frost_api_tests(void) {
     CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
 
     /* Share verification */
-    /* CHECK(secp256k1_frost_share_verify(CTX, 3, id_ptr[0], &shares[0], vss_commitment) == 1); */
-    /* CHECK(secp256k1_frost_share_verify(CTX, 3, id_ptr[1], &shares[0], vss_commitment) == 0); */
+    CHECK(secp256k1_frost_share_verify(CTX, 3, 0, &shares[0], vss_commitment) == 1);
+    CHECK(secp256k1_frost_share_verify(CTX, 3, 1, &shares[0], vss_commitment) == 0);
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, NULL, &shares[0], vss_commitment)); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, id_ptr[0], NULL, vss_commitment)); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, id_ptr[0], &invalid_share, vss_commitment)); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, id_ptr[0], &shares[0], NULL)); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, id_ptr[0], &shares[0], invalid_vss_commitment)); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 0, id_ptr[4], &shares[0], vss_commitment)); */
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, 0, NULL, vss_commitment));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, 0, &invalid_share, vss_commitment));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, 0, &shares[0], NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 3, 0, &shares[0], invalid_vss_commitment));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 0, 4, &shares[0], vss_commitment));
 
     /* Compute public verification share */
-    /* CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, id_ptr[0], vss_commitment) == 1); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, NULL, 3, id_ptr[0], vss_commitment)); */
+    CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, 0, vss_commitment) == 1);
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, NULL, 3, 0, vss_commitment));
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, NULL, vss_commitment)); */
     /* CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, id_ptr[0], NULL)); */
-    /* CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, id_ptr[0], invalid_vss_commitment)); */
-    /* CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0); */
-    /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 0, id_ptr[0], invalid_vss_commitment)); */
-    /* CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0); */
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, 0, NULL));
+    CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, 0, invalid_vss_commitment));
+    CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 0, 0, vss_commitment));
+    CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0);
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 0, id_ptr[0], NULL)); */
     /* CHECK(frost_memcmp_and_randomize(pubshare[0].data, zeros68, sizeof(pubshare[0].data)) == 0); */
     /* CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare[0], 3, id_ptr[0], invalid_vss_commitment)); */
@@ -359,6 +362,7 @@ void frost_api_tests(void) {
         ) == 1);
     }
 
+    CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &session[0], invalid_pubnonce_ptr, 3, msg, ids[0], ids, &keygen_cache, &adaptor));
     /** Serialize and parse public nonces **/
     CHECK_ILLEGAL(CTX, secp256k1_frost_pubnonce_serialize(CTX, NULL, &pubnonce[0]));
     CHECK_ILLEGAL(CTX, secp256k1_frost_pubnonce_serialize(CTX, pubnonce_ser, NULL));
