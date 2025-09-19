@@ -356,13 +356,12 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
 
 #ifdef ENABLE_MODULE_FROST
     {
-        secp256k1_pubkey pk[2];
         unsigned char session_id[32];
         unsigned char seed[32];
         secp256k1_frost_secnonce secnonce[2];
         secp256k1_frost_pubnonce pubnonce[2];
         const secp256k1_frost_pubnonce *pubnonce_ptr[2];
-        secp256k1_frost_keygen_cache cache;
+        secp256k1_frost_keygen_cache cache = {0};
         secp256k1_frost_session session;
         secp256k1_frost_partial_sig partial_sig;
         const secp256k1_frost_partial_sig *partial_sig_ptr[1];
@@ -373,16 +372,10 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         int nonce_parity;
         secp256k1_frost_secshare shares[2];
         secp256k1_pubkey vss_commitment[2];
-        unsigned char key2[32];
-        secp256k1_keypair keypair2;
-        unsigned char id[2][33];
-        const unsigned char *id_ptr[2];
-        size_t size = 33;
         secp256k1_pubkey pubshare[2];
         const secp256k1_pubkey *pubshares_ptr[2];
+        size_t ids[2] = {0, 1};
 
-        id_ptr[0] = id[0];
-        id_ptr[1] = id[1];
         pubnonce_ptr[0] = &pubnonce[0];
         pubnonce_ptr[1] = &pubnonce[1];
         SECP256K1_CHECKMEM_DEFINE(key, 32);
@@ -392,24 +385,15 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         extra_input[0] = extra_input[0] + 2;
         memcpy(sec_adaptor, key, sizeof(sec_adaptor));
         sec_adaptor[0] = extra_input[0] + 3;
-        memcpy(key2, key, sizeof(key2));
-        key2[0] = key2[0] + 4;
         memcpy(session_id, key, sizeof(session_id));
         session_id[0] = session_id[0] + 5;
         partial_sig_ptr[0] = &partial_sig;
         pubshares_ptr[0] = &pubshare[0];
         pubshares_ptr[1] = &pubshare[1];
 
-        CHECK(secp256k1_keypair_create(ctx, &keypair, key));
-        CHECK(secp256k1_keypair_create(ctx, &keypair2, key2));
-        CHECK(secp256k1_keypair_pub(ctx, &pk[0], &keypair));
-        CHECK(secp256k1_keypair_pub(ctx, &pk[1], &keypair2));
-        CHECK(secp256k1_ec_pubkey_serialize(ctx, id[0], &size, &pk[0], SECP256K1_EC_COMPRESSED));
-        CHECK(secp256k1_ec_pubkey_serialize(ctx, id[1], &size, &pk[1], SECP256K1_EC_COMPRESSED));
-
         /* shares_gen */
         SECP256K1_CHECKMEM_UNDEFINE(seed, 32);
-        ret = secp256k1_frost_shares_gen(ctx, shares, vss_commitment, seed, 2, 2, id_ptr);
+        ret = secp256k1_frost_shares_gen(ctx, shares, vss_commitment, seed, 2, 2);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
         SECP256K1_CHECKMEM_UNDEFINE(&shares[0], sizeof(shares[0]));
@@ -417,9 +401,9 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         /* pubkey_gen */
         SECP256K1_CHECKMEM_DEFINE(&vss_commitment[0], sizeof(secp256k1_pubkey));
         SECP256K1_CHECKMEM_DEFINE(&vss_commitment[1], sizeof(secp256k1_pubkey));
-        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 2, id_ptr[0], vss_commitment));
-        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 2, id_ptr[1], vss_commitment));
-        CHECK(secp256k1_frost_pubkey_gen(ctx, &cache, pubshares_ptr, 2, id_ptr));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[0], 2, 0, vss_commitment));
+        CHECK(secp256k1_frost_compute_pubshare(ctx, &pubshare[1], 2, 1, vss_commitment));
+        CHECK(secp256k1_frost_pubkey_gen(ctx, &cache, pubshares_ptr, 2, ids));
         /* nonce_gen */
         SECP256K1_CHECKMEM_UNDEFINE(session_id, sizeof(session_id));
         CHECK(secp256k1_ec_pubkey_create(ctx, &adaptor, sec_adaptor));
@@ -434,7 +418,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         /* partial_sign */
         /* Make sure that previous tests don't undefine msg. It's not used as a secret here. */
         SECP256K1_CHECKMEM_DEFINE(msg, sizeof(msg));
-        CHECK(secp256k1_frost_nonce_process(ctx, &session, pubnonce_ptr, 2, msg, id_ptr[0], id_ptr, &cache, &adaptor) == 1);
+        CHECK(secp256k1_frost_nonce_process(ctx, &session, pubnonce_ptr, 2, msg, 0, ids, &cache, &adaptor) == 1);
         ret = secp256k1_frost_partial_sign(ctx, &partial_sig, &secnonce[0], &shares[0], &session, &cache);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
