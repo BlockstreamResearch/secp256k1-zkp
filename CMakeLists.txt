@@ -69,9 +69,18 @@ option(SECP256K1_ENABLE_MODULE_MUSIG "Enable MuSig module." ON)
 option(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR "Enable ecdsa adaptor signatures module." ON)
 option(SECP256K1_ENABLE_MODULE_ECDSA_S2C "Enable ECDSA sign-to-contract module." ON)
 option(SECP256K1_ENABLE_MODULE_BPPP "Enable Bulletproofs++ module." ON)
+option(SECP256K1_ENABLE_MODULE_FROST "Enable FROST module." ON)
 
 # Processing must be done in a topological sorting of the dependency graph
 # (dependent module first).
+if(SECP256K1_ENABLE_MODULE_FROST)
+  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the frost module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
+  add_compile_definitions(ENABLE_MODULE_FROST=1)
+endif()
+
 if(SECP256K1_ENABLE_MODULE_BPPP)
   if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
     message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.")
@@ -362,6 +371,7 @@ message("  musig ............................... ${SECP256K1_ENABLE_MODULE_MUSIG
 message("  ecdsa-s2c ........................... ${SECP256K1_ENABLE_MODULE_ECDSA_S2C}")
 message("  ecdsa-adaptor ....................... ${SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR}")
 message("  bppp ................................ ${SECP256K1_ENABLE_MODULE_BPPP}")
+message("  frost ............................... ${SECP256K1_ENABLE_MODULE_FROST}")
 message("Parameters:")
 message("  ecmult window size .................. ${SECP256K1_ECMULT_WINDOW_SIZE}")
 message("  ecmult gen precision bits ........... ${SECP256K1_ECMULT_GEN_PREC_BITS}")

@@ -4075,13 +4075,27 @@ static void test_add_neg_y_diff_x(void) {
 static void test_ge_bytes(void) {
     int i;
 
-    for (i = 0; i < COUNT; i++) {
+    for (i = 0; i < COUNT + 1; i++) {
         unsigned char buf[64];
         secp256k1_ge p, q;
 
-        random_group_element_test(&p);
-        secp256k1_ge_to_bytes(buf, &p);
-        secp256k1_ge_from_bytes(&q, buf);
+        if (i == 0) {
+            secp256k1_ge_set_infinity(&p);
+        } else {
+            random_group_element_test(&p);
+        }
+
+        if (!secp256k1_ge_is_infinity(&p)) {
+            secp256k1_ge_to_bytes(buf, &p);
+
+            secp256k1_ge_from_bytes(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+
+            secp256k1_ge_from_bytes_ext(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+        }
+        secp256k1_ge_to_bytes_ext(buf, &p);
+        secp256k1_ge_from_bytes_ext(&q, buf);
         CHECK(secp256k1_ge_eq_var(&p, &q));
     }
 }
@@ -7502,6 +7516,10 @@ static void run_ecdsa_wycheproof(void) {
 # include "modules/ecdsa_adaptor/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_FROST
+# include "modules/frost/tests_impl.h"
+#endif
+
 static void run_secp256k1_memczero_test(void) {
     unsigned char buf1[6] = {1, 2, 3, 4, 5, 6};
     unsigned char buf2[sizeof(buf1)];
@@ -7890,6 +7908,10 @@ int main(int argc, char **argv) {
 
 #ifdef ENABLE_MODULE_ECDSA_ADAPTOR
     run_ecdsa_adaptor_tests();
+#endif
+
+#ifdef ENABLE_MODULE_FROST
+    run_frost_tests();
 #endif
 
     /* util tests */
