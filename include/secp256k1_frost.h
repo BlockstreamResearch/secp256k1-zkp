@@ -36,7 +36,8 @@ extern "C" {
  *  comparison, use the corresponding serialization and parsing functions.
  */
 
-/** Opaque data structure that caches information about key tweaking.
+/** Opaque data structure that caches information about the FROST group public
+ *  key and tweak state used for signing and verification.
  *
  *  Guaranteed to be 101 bytes in size. It can be safely copied/moved. No
  *  serialization and parsing functions.
@@ -106,7 +107,7 @@ typedef struct {
  *  Out:   nonce: pointer to a nonce object
  *  In:     in66: pointer to the 66-byte nonce to be parsed
  */
-SECP256K1_API int secp256k1_frost_pubnonce_parse(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubnonce_parse(
     const secp256k1_context *ctx,
     secp256k1_frost_pubnonce *nonce,
     const unsigned char *in66
@@ -149,7 +150,7 @@ SECP256K1_API int secp256k1_frost_partial_sig_serialize(
  *  encoded numbers are out of range, signature verification with it is
  *  guaranteed to fail for every message and public key.
  */
-SECP256K1_API int secp256k1_frost_partial_sig_parse(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_partial_sig_parse(
     const secp256k1_context *ctx,
     secp256k1_frost_partial_sig *sig,
     const unsigned char *in32
@@ -175,7 +176,7 @@ SECP256K1_API int secp256k1_frost_share_serialize(
  *  Out:   share: pointer to a share object
  *  In:     in32: pointer to the 32-byte share to be parsed
  */
-SECP256K1_API int secp256k1_frost_share_parse(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_parse(
     const secp256k1_context *ctx,
     secp256k1_frost_secshare *share,
     const unsigned char *in32
@@ -245,9 +246,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
  *                id: the participant ID of the participant whose partial
  *                    signature will be verified with the pubshare
  *    vss_commitment: input array of the elements of the VSS commitment
- *    n_participants: the total number of participants
  */
-SECP256K1_API int secp256k1_frost_compute_pubshare(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_compute_pubshare(
     const secp256k1_context *ctx,
     secp256k1_pubkey *pubshare,
     size_t threshold,
@@ -303,10 +303,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_get(
  *  earlier failures).
  *
  *  secp256k1_frost_pubkey_gen(..., keygen_cache, ...)
- *  secp256k1_frost_pubkey_tweak(..., keygen_cache, xonly_pk)
  *  secp256k1_frost_pubkey_ec_tweak_add(..., output_pk, keygen_cache, tweak32)
  *  secp256k1_ec_pubkey_serialize(..., buf, output_pk)
- *  secp256k1_frost_pubkey_get(..., ec_pk, xonly_pk)
+ *  secp256k1_frost_pubkey_get(..., ec_pk, keygen_cache)
  *  secp256k1_ec_pubkey_tweak_add(..., ec_pk, tweak32)
  *  secp256k1_ec_pubkey_serialize(..., buf2, ec_pk)
  *
@@ -323,7 +322,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_get(
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
  *  In/Out:  keygen_cache: pointer to a `frost_keygen_cache` struct initialized by
- *                       `frost_pubkey_tweak`
+ *                       `frost_pubkey_gen`
  *  In:          tweak32: pointer to a 32-byte tweak. If the tweak is invalid
  *                        according to `secp256k1_ec_seckey_verify`, this function
  *                        returns 0. For uniformly random 32-byte arrays the
@@ -364,7 +363,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_ec_tweak_a
  *                        to an invalid value if this function returns 0. If you
  *                        do not need it, this arg can be NULL.
  *  In/Out:  keygen_cache: pointer to a `frost_keygen_cache` struct initialized by
- *                       `frost_pubkey_tweak`
+ *                       `frost_pubkey_gen`
  *  In:          tweak32: pointer to a 32-byte tweak. If the tweak is invalid
  *                        according to secp256k1_ec_seckey_verify, this function
  *                        returns 0. For uniformly random 32-byte arrays the
@@ -422,7 +421,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_twea
  *      extra_input32: an optional 32-byte array that is input to the nonce
  *                     derivation function (can be NULL)
  */
-SECP256K1_API int secp256k1_frost_nonce_gen(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_gen(
     const secp256k1_context *ctx,
     secp256k1_frost_secnonce *secnonce,
     secp256k1_frost_pubnonce *pubnonce,
@@ -447,10 +446,10 @@ SECP256K1_API int secp256k1_frost_nonce_gen(
  *         n_pubnonces: number of elements in the pubnonces array. Must be
  *                      greater than 0.
  *               msg32: the 32-byte message to sign
- *              myd_id: the ID of the participant who will use the session for
+ *              my_id: the ID of the participant who will use the session for
  *                      signing
  *                 ids: array of the participant IDs of the signers
-          keygen_cache: pointer to frost_keygen_cache struct
+ *         keygen_cache: pointer to frost_keygen_cache struct
  *             adaptor: optional pointer to an adaptor point encoded as a
  *                      public key if this signing session is part of an
  *                      adaptor signature protocol (can be NULL)
@@ -582,7 +581,7 @@ SECP256K1_API int secp256k1_frost_nonce_parity(
  *       nonce_parity: the output of `frost_nonce_parity` called with the
  *                     session used for producing the pre-signature
  */
-SECP256K1_API int secp256k1_frost_verify_adaptor(
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_verify_adaptor(
     const secp256k1_context *ctx,
     const unsigned char *pre_sig64,
     const unsigned char *msg32,
@@ -628,7 +627,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_adapt(
  *           grossly invalid (overflowing) values. 1 otherwise (which does NOT
  *           mean the signatures or the adaptor are valid!)
  *  Args:         ctx: pointer to a context object
- *  Out:sec_adaptor32: 32-byte secret adaptor
+ *  Out: sec_adaptor32: 32-byte secret adaptor
  *  In:         sig64: complete, valid 64-byte signature
  *          pre_sig64: the pre-signature corresponding to sig64, i.e., the
  *                     aggregate of partial signatures without the secret
