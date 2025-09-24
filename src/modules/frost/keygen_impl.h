@@ -22,7 +22,7 @@
 
 static const unsigned char secp256k1_frost_keygen_cache_magic[4] = { 0x40, 0x25, 0x2e, 0x41 };
 
-/* A tweak cache consists of
+/* A keygen cache consists of
  * - 4 byte magic set during initialization to allow detecting an uninitialized
  *   object.
  * - 64 byte aggregate (and potentially tweaked) public key
@@ -236,11 +236,20 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
     /* Use an EC multi-multiplication to verify the following equation:
      *   0 = - share_i*G + idx^0*vss_commitment[0]
      *                   + ...
-     *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/
+     *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/  
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(share != NULL);
+    ARG_CHECK(vss_commitment != NULL);
+    ARG_CHECK(threshold > 1);
+
     evaluate_vss_ecmult_data.ctx = ctx;
     evaluate_vss_ecmult_data.vss_commitment = vss_commitment;
+
     /* Evaluate the public polynomial at the idx */
     secp256k1_frost_get_scalar_index(&evaluate_vss_ecmult_data.idx, id);
+
+    /* Initialize idx power accumulator to 1 (idx^0) */
     secp256k1_scalar_set_int(&evaluate_vss_ecmult_data.idxn, 1);
     /* TODO: add scratch */
     if (!secp256k1_ecmult_multi_var(&ctx->error_callback, NULL, share, NULL, secp256k1_frost_evaluate_vss_ecmult_callback, (void *) &evaluate_vss_ecmult_data, threshold)) {
@@ -297,14 +306,14 @@ int secp256k1_frost_compute_pubshare(const secp256k1_context* ctx, secp256k1_pub
     return 1;
 }
 
-int secp256k1_frost_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, const secp256k1_frost_keygen_cache *keyagg_cache) {
+int secp256k1_frost_pubkey_get(const secp256k1_context* ctx, secp256k1_pubkey *agg_pk, const secp256k1_frost_keygen_cache *keygen_cache) {
     secp256k1_keygen_cache_internal cache_i;
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(agg_pk != NULL);
     memset(agg_pk, 0, sizeof(*agg_pk));
-    ARG_CHECK(keyagg_cache != NULL);
+    ARG_CHECK(keygen_cache != NULL);
 
-    if(!secp256k1_keygen_cache_load(ctx, &cache_i, keyagg_cache)) {
+    if(!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
         return 0;
     }
     secp256k1_pubkey_save(agg_pk, &cache_i.pk);
