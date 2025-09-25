@@ -195,6 +195,52 @@ static void secp256k1_ge_set_gej_var(secp256k1_ge *r, secp256k1_gej *a) {
     SECP256K1_GE_VERIFY(r);
 }
 
+static void secp256k1_ge_set_all_gej(secp256k1_ge *r, const secp256k1_gej *a, size_t len) {
+    secp256k1_fe u;
+    size_t i;
+    size_t last_i = SIZE_MAX;
+#ifdef VERIFY
+    for (i = 0; i < len; i++) {
+        SECP256K1_GEJ_VERIFY(&a[i]);
+        VERIFY_CHECK(!secp256k1_gej_is_infinity(&a[i]));
+    }
+#endif
+
+    for (i = 0; i < len; i++) {
+        /* Use destination's x coordinates as scratch space */
+        if (last_i == SIZE_MAX) {
+            r[i].x = a[i].z;
+        } else {
+            secp256k1_fe_mul(&r[i].x, &r[last_i].x, &a[i].z);
+        }
+        last_i = i;
+    }
+    if (last_i == SIZE_MAX) {
+        return;
+    }
+    secp256k1_fe_inv(&u, &r[last_i].x);
+
+    i = last_i;
+    while (i > 0) {
+        i--;
+        secp256k1_fe_mul(&r[last_i].x, &r[i].x, &u);
+        secp256k1_fe_mul(&u, &u, &a[last_i].z);
+        last_i = i;
+    }
+    VERIFY_CHECK(!a[last_i].infinity);
+    r[last_i].x = u;
+
+    for (i = 0; i < len; i++) {
+        secp256k1_ge_set_gej_zinv(&r[i], &a[i], &r[i].x);
+    }
+
+#ifdef VERIFY
+    for (i = 0; i < len; i++) {
+        SECP256K1_GE_VERIFY(&r[i]);
+    }
+#endif
+}
+
 static void secp256k1_ge_set_all_gej_var(secp256k1_ge *r, const secp256k1_gej *a, size_t len) {
     secp256k1_fe u;
     size_t i;
@@ -965,7 +1011,7 @@ static int secp256k1_ge_x_frac_on_curve_var(const secp256k1_fe *xn, const secp25
      return secp256k1_fe_is_square_var(&r);
 }
 
-static void secp256k1_ge_to_bytes(unsigned char *buf, secp256k1_ge *a) {
+static void secp256k1_ge_to_bytes(unsigned char *buf, const secp256k1_ge *a) {
     secp256k1_ge_storage s;
 
     /* We require that the secp256k1_ge_storage type is exactly 64 bytes.
@@ -983,6 +1029,23 @@ static void secp256k1_ge_from_bytes(secp256k1_ge *r, const unsigned char *buf) {
     STATIC_ASSERT(sizeof(secp256k1_ge_storage) == 64);
     memcpy(&s, buf, 64);
     secp256k1_ge_from_storage(r, &s);
+}
+
+static void secp256k1_ge_to_bytes_ext(unsigned char *data, const secp256k1_ge *ge) {
+    if (secp256k1_ge_is_infinity(ge)) {
+        memset(data, 0, 64);
+    } else {
+        secp256k1_ge_to_bytes(data, ge);
+    }
+}
+
+static void secp256k1_ge_from_bytes_ext(secp256k1_ge *ge, const unsigned char *data) {
+    unsigned char zeros[64] = { 0 };
+    if (secp256k1_memcmp_var(data, zeros, sizeof(zeros)) == 0) {
+        secp256k1_ge_set_infinity(ge);
+    } else {
+        secp256k1_ge_from_bytes(ge, data);
+    }
 }
 
 #endif /* SECP256K1_GROUP_IMPL_H */
