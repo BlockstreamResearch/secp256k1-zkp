@@ -3,18 +3,30 @@
 set -eou pipefail
 
 help() {
-    echo "$0 [-b <branch>] range [end]"
-    echo "    merges every merge commit present in upstream and missing in <branch> (default: master)."
-    echo "    If the optional [end] commit is provided, only merges up to [end]."
-    echo "    If the optional [-b branch] provided, then ."
+    echo "Sync merge commits from bitcoin-core/secp256k1 into secp256k1-zkp."
     echo
-    echo "$0 [-b <branch>] select <commit> ... <commit>"
-    echo "    merges every selected merge commit into <branch> (default: master)"
+    echo "Usage:"
+    echo "  $0 [-b <branch>] range [end]"
+    echo "      Merges every merge commit present in upstream/master and missing in <branch>"
+    echo "      (default: master). If the optional [end] commit is provided, only merges"
+    echo "      up to and including [end]."
     echo
-    echo "This tool creates a branch and a script that can be executed to create the"
-    echo "PR automatically. The script requires the github-cli tool (aka gh)."
-    echo ""
-    echo "Tip: \`git log --oneline upstream/master --merges\` shows merge commits."
+    echo "  $0 [-b <branch>] select <commit> ... <commit>"
+    echo "      Merges every selected merge commit into <branch> (default: master)."
+    echo
+    echo "This tool creates a temporary branch and attempts to merge the upstream commits."
+    echo "If there are merge conflicts, resolve them and run tests, then use the generated"
+    echo "script contrib/gh-pr-create.sh to create the PR (requires the gh tool)."
+    echo
+    echo "Setup:"
+    echo "  Requires a remote named 'upstream' pointing to bitcoin-core/secp256k1."
+    echo "  The script will fetch it automatically, and offer to create it if missing."
+    echo "  To add manually: git remote add upstream git@github.com:bitcoin-core/secp256k1.git"
+    echo
+    echo "Listing upstream merge commits:"
+    echo "  To list merge commits in upstream/master that are missing from <branch> (oldest first):"
+    echo "    git log --oneline --merges \$(git merge-base upstream/master <branch>)..upstream/master | tac"
+    echo "  Use these for [end] in 'range' or as arguments to 'select'."
     exit 1
 }
 
