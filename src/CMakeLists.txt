@@ -120,6 +120,9 @@ if(SECP256K1_INSTALL)
     "${PROJECT_SOURCE_DIR}/include/secp256k1.h"
     "${PROJECT_SOURCE_DIR}/include/secp256k1_preallocated.h"
   )
+  if(SECP256K1_ENABLE_MODULE_FROST)
+    list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_frost.h")
+  endif()
   if(SECP256K1_ENABLE_MODULE_BPPP)
     list(APPEND ${PROJECT_NAME}_headers "${PROJECT_SOURCE_DIR}/include/secp256k1_bppp.h")
   endif()

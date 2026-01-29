@@ -66,6 +66,7 @@ libsecp256k1.pc
 contrib/gh-pr-create.sh
 
 musig_example
+frost_example
 
 ### CMake
 /CMakeUserPresets.json

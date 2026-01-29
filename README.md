@@ -12,6 +12,7 @@ Added features:
 * Experimental module for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
 * Experimental module for Bulletproofs++ range proofs.
 * Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
+* Experimental module for [FROST](src/modules/frost/frost.md).
 
 Experimental features are made available for testing and review by the community. The APIs of these features should not be considered stable.
 

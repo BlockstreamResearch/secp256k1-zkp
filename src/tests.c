@@ -3921,14 +3921,27 @@ static void test_ge(void) {
 
     /* Test batch gej -> ge conversion without known z ratios. */
     {
+        secp256k1_ge *ge_set_all_var = (secp256k1_ge *)checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
         secp256k1_ge *ge_set_all = (secp256k1_ge *)checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
-        secp256k1_ge_set_all_gej_var(ge_set_all, gej, 4 * runs + 1);
+        secp256k1_ge_set_all_gej_var(&ge_set_all_var[0], &gej[0], 4 * runs + 1);
         for (i = 0; i < 4 * runs + 1; i++) {
             secp256k1_fe s;
             random_fe_non_zero(&s);
             secp256k1_gej_rescale(&gej[i], &s);
-            CHECK(secp256k1_gej_eq_ge_var(&gej[i], &ge_set_all[i]));
+            CHECK(secp256k1_gej_eq_ge_var(&gej[i], &ge_set_all_var[i]));
         }
+
+        /* Skip infinity at &gej[0]. */
+        secp256k1_ge_set_all_gej(&ge_set_all[1], &gej[1], 4 * runs);
+        for (i = 1; i < 4 * runs + 1; i++) {
+            secp256k1_fe s;
+            random_fe_non_zero(&s);
+            secp256k1_gej_rescale(&gej[i], &s);
+            CHECK(secp256k1_gej_eq_ge_var(&gej[i], &ge_set_all[i]));
+            CHECK(secp256k1_ge_eq_var(&ge_set_all_var[i], &ge_set_all[i]));
+        }
+
+        free(ge_set_all_var);
         free(ge_set_all);
     }
 
@@ -4084,13 +4097,27 @@ static void test_add_neg_y_diff_x(void) {
 static void test_ge_bytes(void) {
     int i;
 
-    for (i = 0; i < COUNT; i++) {
+    for (i = 0; i < COUNT + 1; i++) {
         unsigned char buf[64];
         secp256k1_ge p, q;
 
-        random_group_element_test(&p);
-        secp256k1_ge_to_bytes(buf, &p);
-        secp256k1_ge_from_bytes(&q, buf);
+        if (i == 0) {
+            secp256k1_ge_set_infinity(&p);
+        } else {
+            random_group_element_test(&p);
+        }
+
+        if (!secp256k1_ge_is_infinity(&p)) {
+            secp256k1_ge_to_bytes(buf, &p);
+
+            secp256k1_ge_from_bytes(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+
+            secp256k1_ge_from_bytes_ext(&q, buf);
+            CHECK(secp256k1_ge_eq_var(&p, &q));
+        }
+        secp256k1_ge_to_bytes_ext(buf, &p);
+        secp256k1_ge_from_bytes_ext(&q, buf);
         CHECK(secp256k1_ge_eq_var(&p, &q));
     }
 }
@@ -7511,6 +7538,10 @@ static void run_ecdsa_wycheproof(void) {
 # include "modules/ecdsa_adaptor/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_FROST
+# include "modules/frost/tests_impl.h"
+#endif
+
 static void run_secp256k1_memczero_test(void) {
     unsigned char buf1[6] = {1, 2, 3, 4, 5, 6};
     unsigned char buf2[sizeof(buf1)];
@@ -7524,6 +7555,18 @@ static void run_secp256k1_memczero_test(void) {
     memset(buf2, 0, sizeof(buf2));
     secp256k1_memczero(buf1, sizeof(buf1) , 1);
     CHECK(secp256k1_memcmp_var(buf1, buf2, sizeof(buf1)) == 0);
+}
+
+
+static void run_secp256k1_is_zero_array_test(void) {
+    unsigned char buf1[3] = {0, 1};
+    unsigned char buf2[3] = {1, 0};
+
+    CHECK(secp256k1_is_zero_array(buf1, 0) == 1);
+    CHECK(secp256k1_is_zero_array(buf1, 1) == 1);
+    CHECK(secp256k1_is_zero_array(buf1, 2) == 0);
+    CHECK(secp256k1_is_zero_array(buf2, 1) == 0);
+    CHECK(secp256k1_is_zero_array(buf2, 2) == 0);
 }
 
 static void run_secp256k1_byteorder_tests(void) {
@@ -7901,8 +7944,13 @@ int main(int argc, char **argv) {
     run_ecdsa_adaptor_tests();
 #endif
 
+#ifdef ENABLE_MODULE_FROST
+    run_frost_tests();
+#endif
+
     /* util tests */
     run_secp256k1_memczero_test();
+    run_secp256k1_is_zero_array_test();
     run_secp256k1_byteorder_tests();
 
     run_cmov_tests();
