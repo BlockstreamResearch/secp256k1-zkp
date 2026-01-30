@@ -170,7 +170,10 @@ static SECP256K1_INLINE void *checked_malloc(const secp256k1_callback* cb, size_
 #define ALIGNMENT 16
 #endif
 
-#define ROUND_TO_ALIGN(size) ((((size) + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT)
+/* ceil(x/y) for integers x > 0 and y > 0. Here, / denotes rational division. */
+#define CEIL_DIV(x, y) (1 + ((x) - 1) / (y))
+
+#define ROUND_TO_ALIGN(size) (CEIL_DIV(size, ALIGNMENT) * ALIGNMENT)
 
 /* Extract the sign of an int64, take the abs and return a uint64, constant time. */
 SECP256K1_INLINE static int secp256k1_sign_and_abs64(uint64_t *out, int64_t in) {
@@ -415,6 +418,18 @@ SECP256K1_INLINE static void secp256k1_write_be64(unsigned char* p, uint64_t x) 
     p[2] = x >> 40;
     p[1] = x >> 48;
     p[0] = x >> 56;
+}
+
+/* Rotate a uint32_t to the right. */
+SECP256K1_INLINE static uint32_t secp256k1_rotr32(const uint32_t x, const unsigned int by) {
+#if defined(_MSC_VER)
+    return _rotr(x, by);  /* needs <stdlib.h> */
+#else
+    /* Reduce rotation amount to avoid UB when shifting. */
+    const unsigned int mask = CHAR_BIT * sizeof(x) - 1;
+    /* Turned into a rot instruction by GCC and clang. */
+    return (x >> (by & mask)) | (x << ((-by) & mask));
+#endif
 }
 
 #endif /* SECP256K1_UTIL_H */
