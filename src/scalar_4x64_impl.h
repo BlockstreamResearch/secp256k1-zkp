@@ -51,6 +51,8 @@ SECP256K1_INLINE static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint6
     r->d[1] = 0;
     r->d[2] = 0;
     r->d[3] = 0;
+
+    SECP256K1_SCALAR_VERIFY(r);
 }
 
 SECP256K1_INLINE static uint32_t secp256k1_scalar_get_bits_limb32(const secp256k1_scalar *a, unsigned int offset, unsigned int count) {
