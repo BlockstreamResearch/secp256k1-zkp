@@ -116,7 +116,17 @@ do
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
-BODY=$(printf "%s\n\n%s\n%s" "$BODY" "This PR can be recreated with \`$REPRODUCE_COMMAND\`." "Tip: Use \`git show --remerge-diff\` to show the changes manually added to the merge commit.")
+BODY+=$(cat <<EOF
+
+
+This PR can be recreated with \`$REPRODUCE_COMMAND\`.
+
+Tips:
+ * Use \`git show --remerge-diff <pr-branch>\` to show the conflict resolution in the merge commit.
+ * Use \`git read-tree --reset -u <pr-branch>\` to replay these resolutions during the conflict resolution stage when recreating the PR branch locally.
+   Be aware that this may discard your index as well as the uncommitted changes and untracked files in your worktree.
+EOF
+)
 
 echo "-----------------------------------"
 echo "$TITLE"
