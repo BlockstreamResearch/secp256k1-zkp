@@ -755,13 +755,13 @@ jobs:
       fail-fast: false
       matrix:
         env_vars:
-          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes' }
+          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128_struct', ECMULTGENKB: 2, ECMULTWINDOW: 4 }
-          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes' }
+          - { WIDEMUL: 'int128',                  ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128', RECOVERY: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', CC: 'gcc' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', CPPFLAGS: '-DVERIFY' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', SCHNORRSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', MUSIG: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
           - BUILD: 'distcheck'
 
     steps:
