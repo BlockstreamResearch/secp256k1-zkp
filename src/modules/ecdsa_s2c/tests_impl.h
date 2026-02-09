@@ -69,7 +69,7 @@ static void run_s2c_opening_test(void) {
             CHECK(secp256k1_ecdsa_s2c_opening_serialize(CTX, output, &opening) == 1);
             CHECK(secp256k1_memcmp_var(output, input, sizeof(output)) == 0);
         }
-        secp256k1_testrand256(&input[1]);
+        testrand256(&input[1]);
         /* Set pubkey oddness tag to first bit of input[1] */
         input[0] = (input[1] & 1) + 2;
     }
@@ -195,14 +195,14 @@ static void test_ecdsa_s2c_sign_verify(void) {
     /* Generate a random key, message, noncedata and s2c_data. */
     {
         secp256k1_scalar key;
-        random_scalar_order_test(&key);
+        testutil_random_scalar_order_test(&key);
         secp256k1_scalar_get_b32(privkey, &key);
         CHECK(secp256k1_ec_pubkey_create(CTX, &pubkey, privkey) == 1);
 
-        secp256k1_testrand256_test(message);
-        secp256k1_testrand256_test(noncedata);
-        secp256k1_testrand256_test(s2c_data);
-        secp256k1_testrand256_test(s2c_data2);
+        testrand256_test(message);
+        testrand256_test(noncedata);
+        testrand256_test(s2c_data);
+        testrand256_test(s2c_data2);
     }
 
     { /* invalid privkeys */
@@ -270,11 +270,11 @@ static void test_ecdsa_anti_exfil(void) {
     /* Generate a random key, message. */
     {
         secp256k1_scalar key;
-        random_scalar_order_test(&key);
+        testutil_random_scalar_order_test(&key);
         secp256k1_scalar_get_b32(signer_privkey, &key);
         CHECK(secp256k1_ec_pubkey_create(CTX, &signer_pubkey, signer_privkey) == 1);
-        secp256k1_testrand256_test(host_msg);
-        secp256k1_testrand256_test(host_nonce_contribution);
+        testrand256_test(host_msg);
+        testrand256_test(host_nonce_contribution);
     }
 
     /* Protocol step 1. */
@@ -307,7 +307,7 @@ static void test_ecdsa_anti_exfil(void) {
     }
     { /* host_verify: message does not match */
         unsigned char bad_msg[32];
-        secp256k1_testrand256_test(bad_msg);
+        testrand256_test(bad_msg);
         CHECK(secp256k1_anti_exfil_host_verify(CTX, &signature, host_msg, &signer_pubkey, host_nonce_contribution, &s2c_opening) == 1);
         CHECK(secp256k1_anti_exfil_host_verify(CTX, &signature, bad_msg, &signer_pubkey, host_nonce_contribution, &s2c_opening) == 0);
     }

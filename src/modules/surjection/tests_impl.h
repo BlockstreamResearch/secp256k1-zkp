@@ -29,14 +29,14 @@ static void test_surjectionproof_api(void) {
     size_t input_index;
     size_t i;
 
-    secp256k1_testrand256(seed);
+    testrand256(seed);
 
     for (i = 0; i < n_inputs; i++) {
-        secp256k1_testrand256(input_blinding_key[i]);
-        secp256k1_testrand256(fixed_input_tags[i].data);
+        testrand256(input_blinding_key[i]);
+        testrand256(fixed_input_tags[i].data);
         CHECK(secp256k1_generator_generate_blinded(CTX, &ephemeral_input_tags[i], fixed_input_tags[i].data, input_blinding_key[i]));
     }
-    secp256k1_testrand256(output_blinding_key);
+    testrand256(output_blinding_key);
     memcpy(&fixed_output_tag, &fixed_input_tags[0], sizeof(fixed_input_tags[0]));
     CHECK(secp256k1_generator_generate_blinded(CTX, &ephemeral_output_tag, fixed_output_tag.data, output_blinding_key));
 
@@ -149,10 +149,10 @@ static void test_input_selection(size_t n_inputs) {
     const size_t max_n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]) - 1;
 
     CHECK(n_inputs < max_n_inputs);
-    secp256k1_testrand256(seed);
+    testrand256(seed);
 
     for (i = 0; i < n_inputs + 1; i++) {
-        secp256k1_testrand256(fixed_input_tags[i].data);
+        testrand256(fixed_input_tags[i].data);
     }
 
     /* cannot match output when told to use zero keys */
@@ -217,7 +217,7 @@ static void test_input_selection_distribution_helper(const secp256k1_fixed_asset
         used_inputs[i] = 0;
     }
     for(j = 0; j < 10000; j++) {
-        secp256k1_testrand256(seed);
+        testrand256(seed);
         result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, &fixed_input_tags[0], 64, seed);
         CHECK(result > 0);
 
@@ -240,7 +240,7 @@ static void test_input_selection_distribution(void) {
     size_t used_inputs[4];
 
     for (i = 0; i < n_inputs; i++) {
-        secp256k1_testrand256(fixed_input_tags[i].data);
+        testrand256(fixed_input_tags[i].data);
     }
 
     /* If there is one input tag to use, initialize must choose the one equal to fixed_output_tag. */
@@ -323,16 +323,16 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     /* setup */
     CHECK(n_used <= n_inputs);
     CHECK(n_inputs < max_n_inputs);
-    secp256k1_testrand256(seed);
+    testrand256(seed);
 
     key_index = (((size_t) seed[0] << 8) + seed[1]) % n_inputs;
 
     for (i = 0; i < n_inputs + 1; i++) {
         input_blinding_key[i] = malloc(32);
-        secp256k1_testrand256(input_blinding_key[i]);
+        testrand256(input_blinding_key[i]);
         /* choose random fixed tag, except that for the output one copy from the key_index */
         if (i < n_inputs) {
-            secp256k1_testrand256(fixed_input_tags[i].data);
+            testrand256(fixed_input_tags[i].data);
         } else {
             memcpy(&fixed_input_tags[i], &fixed_input_tags[key_index], sizeof(fixed_input_tags[i]));
         }
@@ -412,11 +412,11 @@ static void test_no_used_inputs_verify(void) {
     memset(proof.used_inputs, 0, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8);
 
     /* create different fixed input and output tags */
-    secp256k1_testrand256(fixed_input_tag.data);
-    secp256k1_testrand256(fixed_output_tag.data);
+    testrand256(fixed_input_tag.data);
+    testrand256(fixed_output_tag.data);
 
     /* blind fixed output tags with random blinding key */
-    secp256k1_testrand256(blinding_key);
+    testrand256(blinding_key);
     CHECK(secp256k1_generator_generate_blinded(CTX, &ephemeral_input_tags[0], fixed_input_tag.data, blinding_key));
     CHECK(secp256k1_generator_generate_blinded(CTX, &ephemeral_output_tag, fixed_output_tag.data, blinding_key));
 
@@ -464,9 +464,9 @@ static void test_input_eq_output(void) {
     unsigned char entropy[32];
     size_t input_index;
 
-    secp256k1_testrand256(fixed_tag.data);
-    secp256k1_testrand256(blinding_key);
-    secp256k1_testrand256(entropy);
+    testrand256(fixed_tag.data);
+    testrand256(blinding_key);
+    testrand256(entropy);
 
     CHECK(secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 100, entropy) == 1);
     CHECK(input_index == 0);
