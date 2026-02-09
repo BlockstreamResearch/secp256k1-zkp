@@ -208,20 +208,20 @@ static void test_serialize_two_points(void) {
     int i;
 
     for (i = 0; i < COUNT; i++) {
-        random_group_element_test(&X);
-        random_group_element_test(&R);
+        testutil_random_ge_test(&X);
+        testutil_random_ge_test(&R);
         test_serialize_two_points_roundtrip(&X, &R);
     }
 
     for (i = 0; i < COUNT; i++) {
-        random_group_element_test(&X);
+        testutil_random_ge_test(&X);
         secp256k1_ge_set_infinity(&R);
         test_serialize_two_points_roundtrip(&X, &R);
     }
 
     for (i = 0; i < COUNT; i++) {
         secp256k1_ge_set_infinity(&X);
-        random_group_element_test(&R);
+        testutil_random_ge_test(&R);
         test_serialize_two_points_roundtrip(&X, &R);
     }
 
@@ -233,12 +233,12 @@ static void test_serialize_two_points(void) {
     {
         secp256k1_ge X_tmp, R_tmp;
         unsigned char buf[65];
-        random_group_element_test(&X);
-        random_group_element_test(&R);
+        testutil_random_ge_test(&X);
+        testutil_random_ge_test(&R);
         secp256k1_bppp_serialize_points(buf, &X, &R);
 
         /* buf is valid if 0 <= buf[0] < 4. */
-        buf[0] = (unsigned char)secp256k1_testrandi64(4, 255);
+        buf[0] = (unsigned char)testrandi64(4, 255);
         CHECK(!secp256k1_bppp_parse_one_of_points(&X_tmp, buf, 0));
         CHECK(!secp256k1_bppp_parse_one_of_points(&R_tmp, buf, 0));
     }
@@ -247,8 +247,8 @@ static void test_serialize_two_points(void) {
         secp256k1_ge X_tmp, R_tmp;
         unsigned char buf[65];
         int expect;
-        random_group_element_test(&X);
-        random_group_element_test(&R);
+        testutil_random_ge_test(&X);
+        testutil_random_ge_test(&R);
         secp256k1_bppp_serialize_points(buf, &X, &R);
         memset(&buf[1], 0, 32);
         if ((buf[0] & 2) == 0) {
@@ -446,12 +446,12 @@ static void norm_arg_verify_zero_len(void) {
     secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n_vec_len + c_vec_len);
     size_t plen = sizeof(proof);
 
-    random_scalar_order(&rho);
+    testutil_random_scalar_order(&rho);
     secp256k1_scalar_sqr(&mu, &rho);
 
-    random_scalar_order(&n_vec[0]);
-    random_scalar_order(&c_vec[0]);
-    random_scalar_order(&l_vec[0]);
+    testutil_random_scalar_order(&n_vec[0]);
+    testutil_random_scalar_order(&c_vec[0]);
+    testutil_random_scalar_order(&l_vec[0]);
     CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
     CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
     CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
@@ -472,16 +472,16 @@ static void norm_arg_test(unsigned int n, unsigned int m) {
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
     unsigned char proof[1000];
     plen = 1000;
-    random_scalar_order(&rho);
+    testutil_random_scalar_order(&rho);
     secp256k1_scalar_sqr(&mu, &rho);
 
     for (i = 0; i < n; i++) {
-        random_scalar_order(&n_vec[i]);
+        testutil_random_scalar_order(&n_vec[i]);
     }
 
     for (i = 0; i < m; i++) {
-        random_scalar_order(&l_vec[i]);
-        random_scalar_order(&c_vec[i]);
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
     }
 
     res = secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n, l_vec, m, c_vec, m, &mu);

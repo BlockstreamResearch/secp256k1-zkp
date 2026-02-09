@@ -23,8 +23,8 @@ static void test_generator_api(void) {
     unsigned char sergen[33];
     secp256k1_generator gen;
 
-    secp256k1_testrand256(key);
-    secp256k1_testrand256(blind);
+    testrand256(key);
+    testrand256(blind);
 
     CHECK(secp256k1_generator_generate(CTX, &gen, key) == 1);
     CHECK_ILLEGAL(CTX, secp256k1_generator_generate(CTX, NULL, key));
@@ -196,9 +196,9 @@ static void test_pedersen_api(void) {
     unsigned char blind_out[32];
     const unsigned char *blind_ptr = blind;
     unsigned char *blind_out_ptr = blind_out;
-    uint64_t val = secp256k1_testrand32();
+    uint64_t val = testrand32();
 
-    secp256k1_testrand256(blind);
+    testrand256(blind);
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h) != 0);
     CHECK_ILLEGAL(STATIC_CTX, secp256k1_pedersen_commit(STATIC_CTX, &commit, blind, val, secp256k1_generator_h));
 
@@ -240,8 +240,8 @@ static void test_pedersen(void) {
     int inputs;
     int outputs;
     int total;
-    inputs = (secp256k1_testrand32() & 7) + 1;
-    outputs = (secp256k1_testrand32() & 7) + 2;
+    inputs = (testrand32() & 7) + 1;
+    outputs = (testrand32() & 7) + 2;
     total = inputs + outputs;
     for (i = 0; i < 19; i++) {
         cptr[i] = &commits[i];
@@ -249,17 +249,17 @@ static void test_pedersen(void) {
     }
     totalv = 0;
     for (i = 0; i < inputs; i++) {
-        values[i] = secp256k1_testrandi64(0, INT64_MAX - totalv);
+        values[i] = testrandi64(0, INT64_MAX - totalv);
         totalv += values[i];
     }
     for (i = 0; i < outputs - 1; i++) {
-        values[i + inputs] = secp256k1_testrandi64(0, totalv);
+        values[i + inputs] = testrandi64(0, totalv);
         totalv -= values[i + inputs];
     }
     values[total - 1] = totalv;
 
     for (i = 0; i < total - 1; i++) {
-        random_scalar_order(&s);
+        testutil_random_scalar_order(&s);
         secp256k1_scalar_get_b32(&blinds[i * 32], &s);
     }
     CHECK(secp256k1_pedersen_blind_sum(CTX, &blinds[(total - 1) * 32], bptr, total - 1, inputs));
@@ -277,7 +277,7 @@ static void test_pedersen(void) {
     if (inputs > 0 && values[0] > 0) {
         CHECK(!secp256k1_pedersen_verify_tally(CTX, cptr, inputs - 1, &cptr[inputs], outputs));
     }
-    random_scalar_order(&s);
+    testutil_random_scalar_order(&s);
     for (i = 0; i < 4; i++) {
         secp256k1_scalar_get_b32(&blinds[i * 32], &s);
     }
