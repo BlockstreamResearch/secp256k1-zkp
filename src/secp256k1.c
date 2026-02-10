@@ -97,7 +97,7 @@ const secp256k1_context *secp256k1_context_no_precomp = &secp256k1_context_stati
 
 /* Helper function that determines if a context is proper, i.e., is not the static context or a copy thereof.
  *
- * This is intended for "context" functions such as secp256k1_context_clone. Function which need specific
+ * This is intended for "context" functions such as secp256k1_context_clone. Functions that need specific
  * features of a context should still check for these features directly. For example, a function that needs
  * ecmult_gen should directly check for the existence of the ecmult_gen context. */
 static int secp256k1_context_is_proper(const secp256k1_context* ctx) {
@@ -558,7 +558,7 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
             break;
         }
         is_nonce_valid = secp256k1_scalar_set_b32_seckey(&non, nonce32);
-        /* The nonce is still secret here, but it being invalid is is less likely than 1:2^255. */
+        /* The nonce is still secret here, but it being invalid is less likely than 1:2^255. */
         secp256k1_declassify(ctx, &is_nonce_valid, sizeof(is_nonce_valid));
         if (is_nonce_valid) {
             if (s2c_data32 != NULL) {

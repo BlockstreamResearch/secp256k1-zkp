@@ -40,7 +40,7 @@ To maintain a pristine source tree, CMake encourages to perform an out-of-source
     $ cmake ..
     $ cmake --build .
     $ ctest  # run the test suite
-    $ sudo cmake --build . --target install  # optional
+    $ sudo cmake --install .  # optional
 
 To compile optional modules (such as Schnorr signatures), you need to run `cmake` with additional flags (such as `-DSECP256K1_ENABLE_MODULE_SCHNORRSIG=ON`). Run `cmake .. -LH` to see the full list of available flags.
 
@@ -73,6 +73,7 @@ Usage examples can be found in the [examples](examples) directory. To compile th
   * [ECDSA example](examples/ecdsa.c)
   * [Schnorr signatures example](examples/schnorr.c)
   * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
+  * [ElligatorSwift key exchange example](examples/ellswift.c)
   * [MuSig example](examples/musig.c)
 
 To compile the Schnorr signature, ECDH and MuSig examples, you need to enable the corresponding module by providing a flag to the `configure` script, for example `--enable-module-schnorrsig`.
