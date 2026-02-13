@@ -902,6 +902,10 @@ static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
 # include "modules/schnorrsig/main_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_MUSIG
+# include "modules/musig/main_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
 # include "modules/schnorrsig_halfagg/main_impl.h"
 #endif
