@@ -139,7 +139,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     /* Every signer creates a partial signature */
     for (i = 0; i < N_SIGNERS; i++) {
         /* Initialize the signing session by processing the aggregate nonce */
-        if (!secp256k1_musig_nonce_process(ctx, &session, &agg_pubnonce, msg32, cache)) {
+        if (!secp256k1_musig_nonce_process(ctx, &session, &agg_pubnonce, msg32, cache, NULL)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
