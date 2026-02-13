@@ -7592,10 +7592,6 @@ static void run_ecdsa_wycheproof(void) {
 # include "modules/ecdh/tests_impl.h"
 #endif
 
-#ifdef ENABLE_MODULE_MUSIG
-# include "modules/musig/tests_impl.h"
-#endif
-
 #ifdef ENABLE_MODULE_RECOVERY
 # include "modules/recovery/tests_impl.h"
 #endif
@@ -7970,10 +7966,6 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_MODULE_ECDH
     /* ecdh tests */
     run_ecdh_tests();
-#endif
-
-#ifdef ENABLE_MODULE_MUSIG
-    run_musig_tests();
 #endif
 
     /* ecdsa tests */

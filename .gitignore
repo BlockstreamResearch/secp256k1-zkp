@@ -7,7 +7,6 @@ bench_internal
 bench_whitelist
 noverify_tests
 tests
-example_musig
 exhaustive_tests
 precompute_ecmult_gen
 precompute_ecmult
@@ -65,8 +64,6 @@ build-aux/compile
 build-aux/test-driver
 libsecp256k1.pc
 contrib/gh-pr-create.sh
-
-musig_example
 
 ### CMake
 /CMakeUserPresets.json

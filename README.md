@@ -3,12 +3,11 @@ libsecp256k1-zkp
 
 ![Dependencies: None](https://img.shields.io/badge/dependencies-none-success)
 
-A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features such as Confidential Assets and MuSig2 
+A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features such as Confidential Assets and Bulletproofs++ range proofs 
 
 Added features:
 * Experimental module for ECDSA adaptor signatures.
 * Experimental module for ECDSA sign-to-contract.
-* Experimental module for [MuSig2](src/modules/musig/musig.md).
 * Experimental module for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
 * Experimental module for Bulletproofs++ range proofs.
 * Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
@@ -27,7 +26,7 @@ Building with Autotools
     $ make check  # run the test suite
     $ sudo make install  # optional
 
-To compile optional modules (such as Schnorr signatures), you need to run `./configure` with additional flags (such as `--enable-module-schnorrsig`). Run `./configure --help` to see the full list of available flags. For experimental modules, you will also need `--enable-experimental` as well as a flag for each individual module, e.g. `--enable-module-musig`.
+To compile optional modules (such as Schnorr signatures), you need to run `./configure` with additional flags (such as `--enable-module-schnorrsig`). Run `./configure --help` to see the full list of available flags. For experimental modules, you will also need `--enable-experimental` as well as a flag for each individual module, e.g. `--enable-module-rangeproof`.
 
 Building with CMake (experimental)
 ----------------------------------
@@ -74,9 +73,8 @@ Usage examples can be found in the [examples](examples) directory. To compile th
   * [Schnorr signatures example](examples/schnorr.c)
   * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
   * [ElligatorSwift key exchange example](examples/ellswift.c)
-  * [MuSig example](examples/musig.c)
 
-To compile the Schnorr signature, ECDH and MuSig examples, you need to enable the corresponding module by providing a flag to the `configure` script, for example `--enable-module-schnorrsig`.
+To compile the Schnorr signature and ECDH examples, you need to enable the corresponding module by providing a flag to the `configure` script, for example `--enable-module-schnorrsig`.
 
 Benchmark
 ------------

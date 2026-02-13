@@ -216,11 +216,6 @@ AC_ARG_ENABLE(module_whitelist,
     [],
     [SECP_SET_DEFAULT([enable_module_whitelist], [no], [yes])])
 
-AC_ARG_ENABLE(module_musig,
-    AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
-    [],
-    [SECP_SET_DEFAULT([enable_module_musig], [no], [yes])])
-
 AC_ARG_ENABLE(module_ecdsa_s2c,
     AS_HELP_STRING([--enable-module-ecdsa-s2c],[enable ECDSA sign-to-contract module [default=no]]),
     [],
@@ -475,14 +470,6 @@ if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ECDSA_ADAPTOR=1"
 fi
 
-if test x"$enable_module_musig" = x"yes"; then
-  if test x"$enable_module_schnorrsig" = x"no"; then
-    AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.])
-  fi
-  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_MUSIG=1"
-  enable_module_schnorrsig=yes
-fi
-
 if test x"$enable_module_whitelist" = x"yes"; then
   if test x"$enable_module_rangeproof" = x"no"; then
     AC_MSG_ERROR([Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.])
@@ -564,9 +551,6 @@ if test x"$enable_experimental" = x"no"; then
   if test x"$enable_module_ecdsa_s2c" = x"yes"; then
     AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
   fi
-  if test x"$enable_module_musig" = x"yes"; then
-    AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
-  fi
   if test x"$enable_module_whitelist" = x"yes"; then
     AC_MSG_ERROR([Key whitelisting module is experimental. Use --enable-experimental to allow.])
   fi
@@ -606,7 +590,6 @@ AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"
 AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SURJECTIONPROOF], [test x"$enable_module_surjectionproof" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_WHITELIST], [test x"$enable_module_whitelist" = x"yes"])
-AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_S2C], [test x"$enable_module_ecdsa_s2c" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDSA_ADAPTOR], [test x"$enable_module_ecdsa_adaptor" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_BPPP], [test x"$enable_module_bppp" = x"yes"])
@@ -646,7 +629,6 @@ if test x"$enable_module_surjectionproof" = x"yes" && test x"$enable_reduced_sur
 echo "    reduced proof size    = $enable_reduced_surjection_proof_size"
 fi
 echo "  module whitelist        = $enable_module_whitelist"
-echo "  module musig            = $enable_module_musig"
 echo "  module ecdsa-s2c        = $enable_module_ecdsa_s2c"
 echo "  module ecdsa-adaptor    = $enable_module_ecdsa_adaptor"
 echo "  module bppp             = $enable_module_bppp"
