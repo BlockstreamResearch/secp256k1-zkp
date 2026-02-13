@@ -13,7 +13,7 @@ print_environment() {
     # does not rely on bash.
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENKB ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
-            EXPERIMENTAL ECDH RECOVERY SCHNORRSIG SCHNORRSIG_HALFAGG ELLSWIFT \
+            EXPERIMENTAL ECDH RECOVERY EXTRAKEYS SCHNORRSIG SCHNORRSIG_HALFAGG ELLSWIFT \
             ECDSA_S2C GENERATOR RANGEPROOF WHITELIST MUSIG ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS\
             EXAMPLES \
@@ -78,6 +78,7 @@ esac
     --with-ecmult-gen-kb="$ECMULTGENKB" \
     --enable-module-ecdh="$ECDH" --enable-module-recovery="$RECOVERY" \
     --enable-module-ellswift="$ELLSWIFT" \
+    --enable-module-extrakeys="$EXTRAKEYS" \
     --enable-module-ecdsa-s2c="$ECDSA_S2C" \
     --enable-module-bppp="$BPPP" \
     --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
