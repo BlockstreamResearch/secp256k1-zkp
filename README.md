@@ -3,7 +3,7 @@ libsecp256k1-zkp
 
 ![Dependencies: None](https://img.shields.io/badge/dependencies-none-success)
 
-A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features such as Confidential Assets and Bulletproofs++ range proofs 
+A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features
 
 Added features:
 * Experimental module for ECDSA adaptor signatures.

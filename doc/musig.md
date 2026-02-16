@@ -54,7 +54,7 @@ Similarly, the API supports an alternative protocol flow where generating the ag
 
 A participant who wants to verify the partial signatures, but does not sign itself may do so using the above instructions except that the verifier skips steps 1, 4 and 7.
 
-# Atomic Swaps
+## Atomic Swaps
 
 The signing API supports the production of "adaptor signatures", modified partial signatures
 which are offset by an auxiliary secret known to one party. That is,
