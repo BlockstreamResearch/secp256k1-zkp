@@ -1,5 +1,4 @@
 /*************************************************************************
- * Written in 2018 by Jonas Nick                                         *
  * To the extent possible under law, the author(s) have dedicated all    *
  * copyright and related and neighboring rights to the software in this  *
  * file to the public domain worldwide. This software is distributed     *
@@ -9,7 +8,7 @@
 
 /** This file demonstrates how to use the MuSig module to create a
  *  3-of-3 multisignature. Additionally, see the documentation in
- *  include/secp256k1_musig.h and src/modules/musig/musig.md.
+ *  include/secp256k1_musig.h and doc/musig.md.
  */
 
 #include <stdio.h>
@@ -17,8 +16,9 @@
 #include <string.h>
 
 #include <secp256k1.h>
-#include <secp256k1_schnorrsig.h>
+#include <secp256k1_extrakeys.h>
 #include <secp256k1_musig.h>
+#include <secp256k1_schnorrsig.h>
 
 #include "examples_util.h"
 
@@ -41,7 +41,7 @@ static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *s
     while (1) {
         if (!fill_random(seckey, sizeof(seckey))) {
             printf("Failed to generate randomness\n");
-            return 1;
+            return 0;
         }
         if (secp256k1_keypair_create(ctx, &signer_secrets->keypair, seckey)) {
             break;
@@ -50,6 +50,8 @@ static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *s
     if (!secp256k1_keypair_pub(ctx, &signer->pubkey, &signer_secrets->keypair)) {
         return 0;
     }
+
+    secure_erase(seckey, sizeof(seckey));
     return 1;
 }
 
@@ -57,8 +59,12 @@ static int create_keypair(const secp256k1_context* ctx, struct signer_secrets *s
  * and return the tweaked aggregate pk. */
 static int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, secp256k1_musig_keyagg_cache *cache) {
     secp256k1_pubkey output_pk;
+    /* For BIP 32 tweaking the plain_tweak is set to a hash as defined in BIP
+     * 32. */
     unsigned char plain_tweak[32] = "this could be a BIP32 tweak....";
-    unsigned char xonly_tweak[32] = "this could be a taproot tweak..";
+    /* For Taproot tweaking the xonly_tweak is set to the TapTweak hash as
+     * defined in BIP 341 */
+    unsigned char xonly_tweak[32] = "this could be a Taproot tweak..";
 
 
     /* Plain tweaking which, for example, allows deriving multiple child
@@ -66,14 +72,14 @@ static int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, s
     if (!secp256k1_musig_pubkey_ec_tweak_add(ctx, NULL, cache, plain_tweak)) {
         return 0;
     }
-    /* Note that we did not provided an output_pk argument, because the
+    /* Note that we did not provide an output_pk argument, because the
      * resulting pk is also saved in the cache and so if one is just interested
-     * in signing the output_pk argument is unnecessary. On the other hand, if
+     * in signing, the output_pk argument is unnecessary. On the other hand, if
      * one is not interested in signing, the same output_pk can be obtained by
      * calling `secp256k1_musig_pubkey_get` right after key aggregation to get
      * the full pubkey and then call `secp256k1_ec_pubkey_tweak_add`. */
 
-    /* Xonly tweaking which, for example, allows creating taproot commitments */
+    /* Xonly tweaking which, for example, allows creating Taproot commitments */
     if (!secp256k1_musig_pubkey_xonly_tweak_add(ctx, &output_pk, cache, xonly_tweak)) {
         return 0;
     }
@@ -85,7 +91,7 @@ static int tweak(const secp256k1_context* ctx, secp256k1_xonly_pubkey *agg_pk, s
     /* Now we convert the output_pk to an xonly pubkey to allow to later verify
      * the Schnorr signature against it. For this purpose we can ignore the
      * `pk_parity` output argument; we would need it if we would have to open
-     * the taproot commitment. */
+     * the Taproot commitment. */
     if (!secp256k1_xonly_pubkey_from_pubkey(ctx, agg_pk, NULL, &output_pk)) {
         return 0;
     }
@@ -99,14 +105,15 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     const secp256k1_musig_partial_sig *partial_sigs[N_SIGNERS];
     /* The same for all signers */
     secp256k1_musig_session session;
+    secp256k1_musig_aggnonce agg_pubnonce;
 
     for (i = 0; i < N_SIGNERS; i++) {
         unsigned char seckey[32];
-        unsigned char session_id[32];
+        unsigned char session_secrand[32];
         /* Create random session ID. It is absolutely necessary that the session ID
          * is unique for every call of secp256k1_musig_nonce_gen. Otherwise
          * it's trivial for an attacker to extract the secret key! */
-        if (!fill_random(session_id, sizeof(session_id))) {
+        if (!fill_random(session_secrand, sizeof(session_secrand))) {
             return 0;
         }
         if (!secp256k1_keypair_sec(ctx, seckey, &signer_secrets[i].keypair)) {
@@ -114,25 +121,29 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
         }
         /* Initialize session and create secret nonce for signing and public
          * nonce to send to the other signers. */
-        if (!secp256k1_musig_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, seckey, &signer[i].pubkey, msg32, NULL, NULL)) {
+        if (!secp256k1_musig_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_secrand, seckey, &signer[i].pubkey, msg32, NULL, NULL)) {
             return 0;
         }
         pubnonces[i] = &signer[i].pubnonce;
-    }
-    /* Communication round 1: A production system would exchange public nonces
-     * here before moving on. */
-    for (i = 0; i < N_SIGNERS; i++) {
-        secp256k1_musig_aggnonce agg_pubnonce;
 
-        /* Create aggregate nonce and initialize the session */
-        if (!secp256k1_musig_nonce_agg(ctx, &agg_pubnonce, pubnonces, N_SIGNERS)) {
-            return 0;
-        }
+        secure_erase(seckey, sizeof(seckey));
+    }
+
+    /* Communication round 1: Every signer sends their pubnonce to the
+     * coordinator. The coordinator runs secp256k1_musig_nonce_agg and sends
+     * agg_pubnonce to each signer */
+    if (!secp256k1_musig_nonce_agg(ctx, &agg_pubnonce, pubnonces, N_SIGNERS)) {
+        return 0;
+    }
+
+    /* Every signer creates a partial signature */
+    for (i = 0; i < N_SIGNERS; i++) {
+        /* Initialize the signing session by processing the aggregate nonce */
         if (!secp256k1_musig_nonce_process(ctx, &session, &agg_pubnonce, msg32, cache, NULL)) {
             return 0;
         }
         /* partial_sign will clear the secnonce by setting it to 0. That's because
-         * you must _never_ reuse the secnonce (or use the same session_id to
+         * you must _never_ reuse the secnonce (or use the same session_secrand to
          * create a secnonce). If you do, you effectively reuse the nonce and
          * leak the secret key. */
         if (!secp256k1_musig_partial_sign(ctx, &signer[i].partial_sig, &signer_secrets[i].secnonce, &signer_secrets[i].keypair, cache, &session)) {
@@ -140,8 +151,8 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
         }
         partial_sigs[i] = &signer[i].partial_sig;
     }
-    /* Communication round 2: A production system would exchange
-     * partial signatures here before moving on. */
+    /* Communication round 2: Every signer sends their partial signature to the
+     * coordinator, who verifies the partial signatures and aggregates them. */
     for (i = 0; i < N_SIGNERS; i++) {
         /* To check whether signing was successful, it suffices to either verify
          * the aggregate signature with the aggregate public key using
@@ -161,7 +172,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     return secp256k1_musig_partial_sig_agg(ctx, sig64, &session, partial_sigs, N_SIGNERS);
 }
 
- int main(void) {
+int main(void) {
     secp256k1_context* ctx;
     int i;
     struct signer_secrets signer_secrets[N_SIGNERS];
@@ -169,12 +180,13 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     const secp256k1_pubkey *pubkeys_ptr[N_SIGNERS];
     secp256k1_xonly_pubkey agg_pk;
     secp256k1_musig_keyagg_cache cache;
-    unsigned char msg[] = {'t', 'h', 'i', 's', '_', 'c', 'o', 'u', 'l', 'd', ' ', 'b', 'e', ' ', 't', 'h', 'e', '_', 'h', 'a', 's', 'h', '_', 'o', 'f', '_', 'a', '_', 'm', 's', 'g', '!'};
+    unsigned char msg[32] = "this_could_be_the_hash_of_a_msg";
     unsigned char sig[64];
 
     /* Create a secp256k1 context */
     ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
     printf("Creating key pairs......");
+    fflush(stdout);
     for (i = 0; i < N_SIGNERS; i++) {
         if (!create_keypair(ctx, &signer_secrets[i], &signers[i])) {
             printf("FAILED\n");
@@ -183,14 +195,32 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
         pubkeys_ptr[i] = &signers[i].pubkey;
     }
     printf("ok\n");
+
+    /* The aggregate public key produced by secp256k1_musig_pubkey_agg depends
+     * on the order of the provided public keys. If there is no canonical order
+     * of the signers, the individual public keys can optionally be sorted with
+     * secp256k1_ec_pubkey_sort to ensure that the aggregate public key is
+     * independent of the order of signers. */
+    printf("Sorting public keys.....");
+    fflush(stdout);
+    if (!secp256k1_ec_pubkey_sort(ctx, pubkeys_ptr, N_SIGNERS)) {
+        printf("FAILED\n");
+        return 1;
+    }
+    printf("ok\n");
+
     printf("Combining public keys...");
-    /* If you just want to aggregate and not sign the cache can be NULL */
-    if (!secp256k1_musig_pubkey_agg(ctx, NULL, &agg_pk, &cache, pubkeys_ptr, N_SIGNERS)) {
+    fflush(stdout);
+    /* If you just want to aggregate and not sign, you can call
+     * secp256k1_musig_pubkey_agg with the keyagg_cache argument set to NULL
+     * while providing a non-NULL agg_pk argument. */
+    if (!secp256k1_musig_pubkey_agg(ctx, NULL, &cache, pubkeys_ptr, N_SIGNERS)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
     printf("Tweaking................");
+    fflush(stdout);
     /* Optionally tweak the aggregate key */
     if (!tweak(ctx, &agg_pk, &cache)) {
         printf("FAILED\n");
@@ -198,17 +228,30 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     }
     printf("ok\n");
     printf("Signing message.........");
+    fflush(stdout);
     if (!sign(ctx, signer_secrets, signers, &cache, msg, sig)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
     printf("Verifying signature.....");
+    fflush(stdout);
     if (!secp256k1_schnorrsig_verify(ctx, sig, msg, 32, &agg_pk)) {
         printf("FAILED\n");
         return 1;
     }
     printf("ok\n");
+
+    /* It's best practice to try to clear secrets from memory after using them.
+     * This is done because some bugs can allow an attacker to leak memory, for
+     * example through "out of bounds" array access (see Heartbleed), or the OS
+     * swapping them to disk. Hence, we overwrite secret key material with zeros.
+     *
+     * Here we are preventing these writes from being optimized out, as any good compiler
+     * will remove any writes that aren't used. */
+    for (i = 0; i < N_SIGNERS; i++) {
+        secure_erase(&signer_secrets[i], sizeof(signer_secrets[i]));
+    }
     secp256k1_context_destroy(ctx);
     return 0;
 }
