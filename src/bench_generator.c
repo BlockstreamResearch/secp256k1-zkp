@@ -5,6 +5,7 @@
  **********************************************************************/
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../include/secp256k1_generator.h"
@@ -56,5 +57,5 @@ int main(void) {
     run_benchmark("generator_generate_blinded", bench_generator_generate_blinded, bench_generator_setup, NULL, &data, 10, iters);
 
     secp256k1_context_destroy(data.ctx);
-    return 0;
+    return EXIT_SUCCESS;
 }

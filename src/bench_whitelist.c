@@ -4,6 +4,7 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../include/secp256k1.h"
 
@@ -104,5 +105,5 @@ int main(void) {
     }
 
     secp256k1_context_destroy(data.ctx);
-    return(0);
+    return EXIT_SUCCESS;
 }
