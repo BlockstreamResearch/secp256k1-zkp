@@ -153,6 +153,7 @@ static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_cs
             secp256k1_sha256_initialize(&sha);
             secp256k1_sha256_write(&sha, csprng->state, 32);
             secp256k1_sha256_finalize(&sha, csprng->state);
+            secp256k1_sha256_clear(&sha);
             csprng->state_i = 0;
         }
         val = csprng->state[csprng->state_i];

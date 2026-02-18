@@ -114,6 +114,7 @@ static int nonce_function_ecdsa_adaptor(unsigned char *nonce32, const unsigned c
         secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux(&sha);
         secp256k1_sha256_write(&sha, data, 32);
         secp256k1_sha256_finalize(&sha, masked_key);
+        secp256k1_sha256_clear(&sha);
         for (i = 0; i < 32; i++) {
             masked_key[i] ^= key32[i];
         }
@@ -141,6 +142,7 @@ static int nonce_function_ecdsa_adaptor(unsigned char *nonce32, const unsigned c
     secp256k1_sha256_write(&sha, pk33, 33);
     secp256k1_sha256_write(&sha, msg32, 32);
     secp256k1_sha256_finalize(&sha, nonce32);
+    secp256k1_sha256_clear(&sha);
     return 1;
 }
 

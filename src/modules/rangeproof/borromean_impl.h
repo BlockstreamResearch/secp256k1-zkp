@@ -33,6 +33,7 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
     secp256k1_sha256_write(&sha256_en, ring, 4);
     secp256k1_sha256_write(&sha256_en, epos, 4);
     secp256k1_sha256_finalize(&sha256_en, hash);
+    secp256k1_sha256_clear(&sha256_en);
 }
 
 /**  "Borromean" ring signature.
@@ -99,6 +100,7 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
     secp256k1_sha256_finalize(&sha256_e0, tmp);
+    secp256k1_sha256_clear(&sha256_e0);
     return secp256k1_memcmp_var(e0, tmp, 32) == 0;
 }
 
@@ -157,6 +159,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
     secp256k1_sha256_finalize(&sha256_e0, e0);
+    secp256k1_sha256_clear(&sha256_e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
         VERIFY_CHECK(INT_MAX - count > rsizes[i]);
@@ -189,7 +192,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     secp256k1_scalar_clear(&ens);
     secp256k1_ge_clear(&rge);
     secp256k1_gej_clear(&rgej);
-    memset(tmp, 0, 33);
+    secp256k1_memclear(tmp, 33);
     return 1;
 }
 

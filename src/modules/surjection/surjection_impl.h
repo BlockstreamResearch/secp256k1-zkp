@@ -32,6 +32,7 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
     memcpy(&pk_ser[1], &ephemeral_output_tag->data[0], 32);
     secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
     secp256k1_sha256_finalize(&sha256_en, msg32);
+    secp256k1_sha256_clear(&sha256_en);
 }
 
 SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, size_t ns, const secp256k1_scalar *blinding_key) {
@@ -51,13 +52,14 @@ SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, si
         secp256k1_sha256_initialize(&sha256_en);
         secp256k1_sha256_write(&sha256_en, sec_input, 36);
         secp256k1_sha256_finalize(&sha256_en, sec_input);
+        secp256k1_sha256_clear(&sha256_en);
         secp256k1_scalar_set_b32(&s[i], sec_input, &overflow);
         if (overflow == 1) {
-            memset(sec_input, 0, 32);
+            secp256k1_memclear(sec_input, 32);
             return 0;
         }
     }
-    memset(sec_input, 0, 32);
+    secp256k1_memclear(sec_input, 32);
     return 1;
 }
 

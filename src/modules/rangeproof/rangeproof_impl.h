@@ -76,7 +76,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
     secp256k1_rangeproof_serialize_point(rngseed + 32 + 33, genp);
     memcpy(rngseed + 33 + 33 + 32, proof, len);
     secp256k1_rfc6979_hmac_sha256_initialize(&rng, rngseed, 32 + 33 + 33 + len);
-    secp256k1_scalar_clear(&acc);
+    secp256k1_scalar_set_int(&acc, 0);
     npub = 0;
     ret = 1;
     for (i = 0; i < rings; i++) {
@@ -105,8 +105,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
         }
     }
     secp256k1_rfc6979_hmac_sha256_finalize(&rng);
+    secp256k1_rfc6979_hmac_sha256_clear(&rng);
     secp256k1_scalar_clear(&acc);
-    memset(tmp, 0, 32);
+    secp256k1_memclear(tmp, 32);
     return ret;
 }
 
@@ -269,7 +270,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     if (!secp256k1_rangeproof_genrand(sec, s, prep, rsizes, rings, nonce, commit, proof, len, genp)) {
         return 0;
     }
-    memset(prep, 0, 4096);
+    secp256k1_memclear(prep, 4096);
     for (i = 0; i < rings; i++) {
         /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
         k[i] = s[i * 4 + secidx[i]];
@@ -320,6 +321,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, tmp);
+    secp256k1_sha256_clear(&sha256_m);
     if (!secp256k1_borromean_sign(ecmult_gen_ctx, &proof[len], s, pubs, k, sec, rsizes, secidx, rings, tmp, 32)) {
         return 0;
     }
@@ -330,7 +332,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     }
     VERIFY_CHECK(len <= *plen);
     *plen = len;
-    memset(prep, 0, 4096);
+    secp256k1_memclear(prep, 4096);
     return 1;
 }
 
@@ -471,7 +473,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
         }
     }
     *mlen = offset;
-    memset(prep, 0, 4096);
+    secp256k1_memclear(prep, 4096);
     for (i = 0; i < 128; i++) {
         secp256k1_scalar_clear(&s_orig[i]);
     }
@@ -646,6 +648,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
         secp256k1_sha256_write(&sha256_m, extra_commit, extra_commit_len);
     }
     secp256k1_sha256_finalize(&sha256_m, m);
+    secp256k1_sha256_clear(&sha256_m);
     ret = secp256k1_borromean_verify(nonce ? evalues : NULL, e0, s, pubs, rsizes, rings, m, 32);
     if (ret && nonce) {
         /* Given the nonce, try rewinding the witness to recover its initial state. */

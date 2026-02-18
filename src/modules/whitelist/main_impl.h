@@ -54,7 +54,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
                 break;
             }
             secp256k1_scalar_set_b32(&non, nonce32, &overflow);
-            memset(nonce32, 0, 32);
+            secp256k1_memclear(nonce32, 32);
             if (overflow || secp256k1_scalar_is_zero(&non)) {
                 count++;
                 continue;
@@ -80,7 +80,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
                 break;
             }
         }
-        memset(seckey32, 0, 32);
+        secp256k1_memclear(seckey32, 32);
     }
     /* Actually sign */
     if (ret) {

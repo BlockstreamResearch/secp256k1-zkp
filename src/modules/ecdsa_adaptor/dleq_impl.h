@@ -46,6 +46,7 @@ static int secp256k1_dleq_nonce(secp256k1_scalar *k, const unsigned char *sk32, 
     secp256k1_sha256_write(&sha, p1_33, size);
     secp256k1_sha256_write(&sha, p2_33, size);
     secp256k1_sha256_finalize(&sha, buf);
+    secp256k1_sha256_clear(&sha);
 
     if (!noncefp(nonce, buf, sk32, gen2_33, dleq_algo, sizeof(dleq_algo), ndata)) {
         return 0;
@@ -71,6 +72,7 @@ static void secp256k1_dleq_challenge(secp256k1_scalar *e, secp256k1_ge *gen2, se
     secp256k1_dleq_hash_point(&sha, r1);
     secp256k1_dleq_hash_point(&sha, r2);
     secp256k1_sha256_finalize(&sha, buf);
+    secp256k1_sha256_clear(&sha);
 
     secp256k1_scalar_set_b32(e, buf, NULL);
 }
