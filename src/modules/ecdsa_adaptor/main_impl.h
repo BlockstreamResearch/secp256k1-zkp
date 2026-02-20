@@ -341,7 +341,7 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
     /* We declassify non-secret enckey_expected_ge to allow using it as a
      * branch point. */
     secp256k1_declassify(ctx, &enckey_expected_ge, sizeof(enckey_expected_ge));
-    if (!secp256k1_eckey_pubkey_serialize(&enckey_expected_ge, enckey_expected33, &size, SECP256K1_EC_COMPRESSED)) {
+    if (!secp256k1_eckey_pubkey_serialize(&enckey_expected_ge, enckey_expected33, &size, 1)) {
         /* Unreachable from tests (and other VERIFY builds) and therefore this
          * branch should be ignored in test coverage analysis.
          *
