@@ -34,6 +34,7 @@ static void secp256k1_bppp_challenge_scalar(secp256k1_scalar* ch, const secp256k
     secp256k1_bppp_le64(buf, idx);
     secp256k1_sha256_write(&sha, buf, 8);
     secp256k1_sha256_finalize(&sha, buf);
+    secp256k1_sha256_clear(&sha);
     secp256k1_scalar_set_b32(ch, buf, NULL);
 }
 

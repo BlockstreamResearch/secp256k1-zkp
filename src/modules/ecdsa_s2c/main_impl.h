@@ -86,6 +86,7 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
     secp256k1_s2c_ecdsa_data_sha256_tagged(&s2c_sha);
     secp256k1_sha256_write(&s2c_sha, s2c_data32, 32);
     secp256k1_sha256_finalize(&s2c_sha, ndata);
+    secp256k1_sha256_clear(&s2c_sha);
 
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
     ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, NULL, &s2c_sha, s2c_opening, s2c_data32, msg32, seckey, NULL, ndata);
@@ -147,6 +148,7 @@ int secp256k1_ecdsa_anti_exfil_host_commit(const secp256k1_context* ctx, unsigne
     secp256k1_s2c_ecdsa_data_sha256_tagged(&sha);
     secp256k1_sha256_write(&sha, rand32, 32);
     secp256k1_sha256_finalize(&sha, rand_commitment32);
+    secp256k1_sha256_clear(&sha);
     return 1;
 }
 
@@ -180,7 +182,7 @@ int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp2
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
     secp256k1_ge_set_gej(&r, &rj);
     secp256k1_ecdsa_s2c_opening_save(opening, &r);
-    memset(nonce32, 0, 32);
+    secp256k1_memclear(nonce32, 32);
     secp256k1_scalar_clear(&k);
     return 1;
 }

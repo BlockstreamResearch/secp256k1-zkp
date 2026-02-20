@@ -23,6 +23,7 @@ static int secp256k1_whitelist_hash_pubkey(secp256k1_scalar* output, secp256k1_g
     }
     secp256k1_sha256_write(&sha, c, size);
     secp256k1_sha256_finalize(&sha, h);
+    secp256k1_sha256_clear(&sha);
 
     secp256k1_scalar_set_b32(output, h, &overflow);
     if (overflow || secp256k1_scalar_is_zero(output)) {
@@ -122,6 +123,7 @@ static int secp256k1_whitelist_compute_keys_and_message(const secp256k1_context*
         secp256k1_gej_add_ge_var(&keys[i], &tweaked_gej, &online_ge, NULL);
     }
     secp256k1_sha256_finalize(&sha, msg32);
+    secp256k1_sha256_clear(&sha);
     return 1;
 }
 
