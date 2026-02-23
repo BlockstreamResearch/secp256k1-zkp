@@ -8,7 +8,7 @@
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("HalfAgg/randomizer")||SHA256("HalfAgg/randomizer"). */
-void secp256k1_schnorrsig_sha256_tagged_aggregation(secp256k1_sha256 *sha) {
+static void secp256k1_schnorrsig_sha256_tagged_aggregation(secp256k1_sha256 *sha) {
    secp256k1_sha256_initialize(sha);
     sha->s[0] = 0xd11f5532ul;
     sha->s[1] = 0xfa57f70ful;
