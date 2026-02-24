@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
 #=============================
 # Project / Package metadata
@@ -14,17 +14,6 @@ project(libsecp256k1
 )
 enable_testing()
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-
-if(CMAKE_VERSION VERSION_LESS 3.21)
-  # Emulates CMake 3.21+ behavior.
-  if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(PROJECT_IS_TOP_LEVEL ON)
-    set(${PROJECT_NAME}_IS_TOP_LEVEL ON)
-  else()
-    set(PROJECT_IS_TOP_LEVEL OFF)
-    set(${PROJECT_NAME}_IS_TOP_LEVEL OFF)
-  endif()
-endif()
 
 # The library version is based on libtool versioning of the ABI. The set of
 # rules for updating the version can be found here:
@@ -70,85 +59,6 @@ option(SECP256K1_ENABLE_MODULE_WHITELIST "Enable key whitelist module." ON)
 option(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR "Enable ecdsa adaptor signatures module." ON)
 option(SECP256K1_ENABLE_MODULE_ECDSA_S2C "Enable ECDSA sign-to-contract module." ON)
 option(SECP256K1_ENABLE_MODULE_BPPP "Enable Bulletproofs++ module." ON)
-
-# Processing must be done in a topological sorting of the dependency graph
-# (dependent module first).
-if(SECP256K1_ENABLE_MODULE_BPPP)
-  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
-    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
-  add_compile_definitions(ENABLE_MODULE_BPPP=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_ECDSA_S2C)
-  add_compile_definitions(ENABLE_MODULE_ECDSA_S2C=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR)
-  add_compile_definitions(ENABLE_MODULE_ECDSA_ADAPTOR=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_WHITELIST)
-  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
-    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
-  add_compile_definitions(ENABLE_MODULE_WHITELIST=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF)
-  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
-    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
-  add_compile_definitions(ENABLE_MODULE_SURJECTIONPROOF=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_RANGEPROOF)
-  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
-    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
-  add_compile_definitions(ENABLE_MODULE_RANGEPROOF=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_GENERATOR)
-  add_compile_definitions(ENABLE_MODULE_GENERATOR=1)
-endif()
-
-
-if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
-  add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_MUSIG)
-  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
-    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
-  add_compile_definitions(ENABLE_MODULE_MUSIG=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_SCHNORRSIG)
-  if(DEFINED SECP256K1_ENABLE_MODULE_EXTRAKEYS AND NOT SECP256K1_ENABLE_MODULE_EXTRAKEYS)
-    message(FATAL_ERROR "Module dependency error: You have disabled the extrakeys module explicitly, but it is required by the schnorrsig module.")
-  endif()
-  set(SECP256K1_ENABLE_MODULE_EXTRAKEYS ON)
-  add_compile_definitions(ENABLE_MODULE_SCHNORRSIG=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_EXTRAKEYS)
-  add_compile_definitions(ENABLE_MODULE_EXTRAKEYS=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_RECOVERY)
-  add_compile_definitions(ENABLE_MODULE_RECOVERY=1)
-endif()
-
-if(SECP256K1_ENABLE_MODULE_ECDH)
-  add_compile_definitions(ENABLE_MODULE_ECDH=1)
-endif()
 
 option(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS "Enable external default callback functions." OFF)
 if(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS)
