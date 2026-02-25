@@ -325,13 +325,13 @@ else
 fi
 
 AC_MSG_CHECKING([for __builtin_popcount])
-AC_LINK_IFELSE([AC_LANG_SOURCE([[void myfunc() {__builtin_popcount(0);}]])],
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[int x = __builtin_popcount(0)]])],
     [ AC_MSG_RESULT([yes]); SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DHAVE_BUILTIN_POPCOUNT=1"],
     [ AC_MSG_RESULT([no])
     ])
 
-AC_MSG_CHECKING([for  __builtin_clzll])
-AC_LINK_IFELSE([AC_LANG_SOURCE([[void myfunc() { __builtin_clzll(1);}]])],
+AC_MSG_CHECKING([for __builtin_clzll])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[int x = __builtin_clzll(1)]])],
     [ AC_MSG_RESULT([yes]); SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DHAVE_BUILTIN_CLZLL=1"],
     [ AC_MSG_RESULT([no])
     ])
