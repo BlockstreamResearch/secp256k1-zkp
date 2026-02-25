@@ -30,6 +30,7 @@ static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_byt
 static void dleq_tests(void) {
     secp256k1_scalar s, e, sk, k;
     secp256k1_ge gen2, p1, p2;
+    secp256k1_ge p[2];
     unsigned char *args[5];
     unsigned char sk32[32];
     unsigned char gen2_33[33];
@@ -41,7 +42,9 @@ static void dleq_tests(void) {
 
     rand_point(&gen2);
     rand_scalar(&sk);
-    secp256k1_dleq_pair(&CTX->ecmult_gen_ctx, &p1, &p2, &sk, &gen2);
+    secp256k1_dleq_pair(&CTX->ecmult_gen_ctx, p, &sk, &gen2);
+    p1 = p[0];
+    p2 = p[1];
     CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &gen2, &p1, &p2, NULL, NULL) == 1);
     CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p2) == 1);
 
