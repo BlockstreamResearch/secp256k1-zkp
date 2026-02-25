@@ -718,24 +718,12 @@ static void nonce_function_ecdsa_adaptor_bitflip(unsigned char **args, size_t n_
     CHECK(secp256k1_memcmp_var(nonces[0], nonces[1], 32) != 0);
 }
 
-/* Tests for the equality of two sha256 structs. This function only produces a
- * correct result if an integer multiple of 64 many bytes have been written
- * into the hash functions. */
-static void ecdsa_adaptor_test_sha256_eq(const secp256k1_sha256 *sha1, const secp256k1_sha256 *sha2) {
-    /* Is buffer fully consumed? */
-    CHECK((sha1->bytes & 0x3F) == 0);
-
-    CHECK(sha1->bytes == sha2->bytes);
-    CHECK(secp256k1_memcmp_var(sha1->s, sha2->s, sizeof(sha1->s)) == 0);
-}
-
 static void run_nonce_function_ecdsa_adaptor_tests(void) {
-    unsigned char tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
-    unsigned char aux_tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'a', 'u', 'x'};
+    static const unsigned char tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
+    static const unsigned char aux_tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'a', 'u', 'x'};
     unsigned char algo[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
     size_t algolen = sizeof(algo);
-    unsigned char dleq_tag[] = {'D', 'L', 'E', 'Q'};
-    secp256k1_sha256 sha;
+    static const unsigned char dleq_tag[] = {'D', 'L', 'E', 'Q'};
     secp256k1_sha256 sha_optimized;
     unsigned char nonce[32];
     unsigned char msg[32];
@@ -748,23 +736,20 @@ static void run_nonce_function_ecdsa_adaptor_tests(void) {
     /* Check that hash initialized by
      * secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged has the expected
      * state. */
-    secp256k1_sha256_initialize_tagged(&sha, tag, sizeof(tag));
     secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged(&sha_optimized);
-    ecdsa_adaptor_test_sha256_eq(&sha, &sha_optimized);
+    test_sha256_tag_midstate(&sha_optimized, tag, sizeof(tag));
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux has the expected
     * state. */
-    secp256k1_sha256_initialize_tagged(&sha, aux_tag, sizeof(aux_tag));
     secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux(&sha_optimized);
-    ecdsa_adaptor_test_sha256_eq(&sha, &sha_optimized);
+    test_sha256_tag_midstate(&sha_optimized, aux_tag, sizeof(aux_tag));
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_dleq_sha256_tagged_aux has the expected
     * state. */
-    secp256k1_sha256_initialize_tagged(&sha, dleq_tag, sizeof(dleq_tag));
     secp256k1_nonce_function_dleq_sha256_tagged(&sha_optimized);
-    ecdsa_adaptor_test_sha256_eq(&sha, &sha_optimized);
+    test_sha256_tag_midstate(&sha_optimized, dleq_tag, sizeof(dleq_tag));
 
     testrand_bytes_test(msg, sizeof(msg));
     testrand_bytes_test(key, sizeof(key));
