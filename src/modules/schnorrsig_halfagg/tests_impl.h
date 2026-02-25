@@ -8,13 +8,11 @@
 /* We test that the hash initialized by secp256k1_schnorrsig_sha256_tagged_aggregate
  * has the expected state. */
 void test_schnorrsig_sha256_tagged_aggregate(void) {
-    unsigned char tag[] = {'H', 'a', 'l', 'f', 'A', 'g', 'g', '/', 'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'r'};
-    secp256k1_sha256 sha;
+    static const unsigned char tag[] = {'H', 'a', 'l', 'f', 'A', 'g', 'g', '/', 'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'r'};
     secp256k1_sha256 sha_optimized;
 
-    secp256k1_sha256_initialize_tagged(&sha, (unsigned char *) tag, sizeof(tag));
     secp256k1_schnorrsig_sha256_tagged_aggregation(&sha_optimized);
-    test_sha256_eq(&sha, &sha_optimized);
+    test_sha256_tag_midstate(&sha_optimized, tag, sizeof(tag));
 }
 
 /* Create n many x-only pubkeys and sigs for random messages */
