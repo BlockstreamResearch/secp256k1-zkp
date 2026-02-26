@@ -107,7 +107,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
     secp256k1_rfc6979_hmac_sha256_finalize(&rng);
     secp256k1_rfc6979_hmac_sha256_clear(&rng);
     secp256k1_scalar_clear(&acc);
-    secp256k1_memclear(tmp, 32);
+    secp256k1_memclear_explicit(tmp, 32);
     return ret;
 }
 
@@ -270,7 +270,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     if (!secp256k1_rangeproof_genrand(sec, s, prep, rsizes, rings, nonce, commit, proof, len, genp)) {
         return 0;
     }
-    secp256k1_memclear(prep, 4096);
+    secp256k1_memclear_explicit(prep, 4096);
     for (i = 0; i < rings; i++) {
         /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
         k[i] = s[i * 4 + secidx[i]];
@@ -332,7 +332,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     }
     VERIFY_CHECK(len <= *plen);
     *plen = len;
-    secp256k1_memclear(prep, 4096);
+    secp256k1_memclear_explicit(prep, 4096);
     return 1;
 }
 
@@ -473,7 +473,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(secp256k1_scalar *
         }
     }
     *mlen = offset;
-    secp256k1_memclear(prep, 4096);
+    secp256k1_memclear_explicit(prep, 4096);
     for (i = 0; i < 128; i++) {
         secp256k1_scalar_clear(&s_orig[i]);
     }
