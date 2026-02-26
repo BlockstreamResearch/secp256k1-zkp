@@ -7983,6 +7983,31 @@ static const struct tf_test_module registry_modules[] = {
 #ifdef ENABLE_MODULE_ELLSWIFT
     MAKE_TEST_MODULE(ellswift),
 #endif
+    /* --- ZKP-SPECIFIC MODULES --- */
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+    MAKE_TEST_MODULE(schnorrsig_halfagg),
+#endif
+#ifdef ENABLE_MODULE_BPPP
+    MAKE_TEST_MODULE(bppp),
+#endif
+#ifdef ENABLE_MODULE_GENERATOR
+    MAKE_TEST_MODULE(generator),
+#endif
+#ifdef ENABLE_MODULE_RANGEPROOF
+    MAKE_TEST_MODULE(rangeproof),
+#endif
+#ifdef ENABLE_MODULE_WHITELIST
+    MAKE_TEST_MODULE(whitelist),
+#endif
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+    MAKE_TEST_MODULE(surjection),
+#endif
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+    MAKE_TEST_MODULE(ecdsa_adaptor),
+#endif
+#ifdef ENABLE_MODULE_ECDSA_S2C
+    MAKE_TEST_MODULE(ecdsa_s2c),
+#endif
     MAKE_TEST_MODULE(utils),
 };
 
