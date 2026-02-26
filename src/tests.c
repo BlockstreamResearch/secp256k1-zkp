@@ -7640,6 +7640,10 @@ static void run_ecdsa_wycheproof(void) {
 # include "modules/musig/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_MUSIG_ADAPTOR
+# include "modules/musig_adaptor/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ELLSWIFT
 # include "modules/ellswift/tests_impl.h"
 #endif
@@ -8043,6 +8047,10 @@ int main(int argc, char **argv) {
 
 #ifdef ENABLE_MODULE_MUSIG
     run_musig_tests();
+#endif
+
+#ifdef ENABLE_MODULE_MUSIG_ADAPTOR
+    run_musig_adaptor_tests();
 #endif
 
 #ifdef ENABLE_MODULE_ELLSWIFT

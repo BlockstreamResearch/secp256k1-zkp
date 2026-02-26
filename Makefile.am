@@ -334,6 +334,10 @@ if ENABLE_MODULE_MUSIG
 include src/modules/musig/Makefile.am.include
 endif
 
+if ENABLE_MODULE_MUSIG_ADAPTOR
+include src/modules/musig_adaptor/Makefile.am.include
+endif
+
 if ENABLE_MODULE_ELLSWIFT
 include src/modules/ellswift/Makefile.am.include
 endif

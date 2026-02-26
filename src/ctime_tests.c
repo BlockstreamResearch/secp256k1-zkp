@@ -36,6 +36,10 @@
 #include "../include/secp256k1_musig.h"
 #endif
 
+#ifdef ENABLE_MODULE_MUSIG_ADAPTOR
+#include "../include/secp256k1_musig_adaptor.h"
+#endif
+
 #ifdef ENABLE_MODULE_ELLSWIFT
 #include "../include/secp256k1_ellswift.h"
 #endif
@@ -210,6 +214,63 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         secp256k1_musig_partial_sig partial_sig;
         const secp256k1_musig_partial_sig *partial_sig_ptr[1];
         unsigned char extra_input[32];
+
+        pk_ptr[0] = &pk;
+        pubnonce_ptr[0] = &pubnonce;
+        SECP256K1_CHECKMEM_DEFINE(key, 32);
+        memcpy(session_secrand, key, sizeof(session_secrand));
+        session_secrand[0] = session_secrand[0] + 1;
+        memcpy(extra_input, key, sizeof(extra_input));
+        extra_input[0] = extra_input[0] + 2;
+        partial_sig_ptr[0] = &partial_sig;
+
+        CHECK(secp256k1_keypair_create(ctx, &keypair, key));
+        CHECK(secp256k1_keypair_pub(ctx, &pk, &keypair));
+        CHECK(secp256k1_musig_pubkey_agg(ctx, &agg_pk, &cache, pk_ptr, 1));
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(session_secrand, sizeof(session_secrand));
+        SECP256K1_CHECKMEM_UNDEFINE(extra_input, sizeof(extra_input));
+        ret = secp256k1_musig_nonce_gen(ctx, &secnonce, &pubnonce, session_secrand, key, &pk, msg, &cache, extra_input);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        ret = secp256k1_musig_nonce_gen_counter(ctx, &secnonce, &pubnonce, nonrepeating_cnt, &keypair, msg, &cache, extra_input);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        CHECK(secp256k1_musig_nonce_agg(ctx, &aggnonce, pubnonce_ptr, 1));
+        /* Make sure that previous tests don't undefine msg. It's not used as a secret here. */
+        SECP256K1_CHECKMEM_DEFINE(msg, sizeof(msg));
+        CHECK(secp256k1_musig_nonce_process(ctx, &session, &aggnonce, msg, &cache) == 1);
+
+        ret = secp256k1_keypair_create(ctx, &keypair, key);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+        ret = secp256k1_musig_partial_sign(ctx, &partial_sig, &secnonce, &keypair, &cache, &session);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        SECP256K1_CHECKMEM_DEFINE(&partial_sig, sizeof(partial_sig));
+        CHECK(secp256k1_musig_partial_sig_agg(ctx, sig, &session, partial_sig_ptr, 1));
+    }
+#endif
+
+#ifdef ENABLE_MODULE_MUSIG_ADAPTOR
+    {
+        secp256k1_pubkey pk;
+        const secp256k1_pubkey *pk_ptr[1];
+        secp256k1_xonly_pubkey agg_pk;
+        unsigned char session_secrand[32];
+        uint64_t nonrepeating_cnt = 0;
+        secp256k1_musig_secnonce secnonce;
+        secp256k1_musig_pubnonce pubnonce;
+        const secp256k1_musig_pubnonce *pubnonce_ptr[1];
+        secp256k1_musig_aggnonce aggnonce;
+        secp256k1_musig_keyagg_cache cache;
+        secp256k1_musig_session session;
+        secp256k1_musig_partial_sig partial_sig;
+        const secp256k1_musig_partial_sig *partial_sig_ptr[1];
+        unsigned char extra_input[32];
         unsigned char sec_adaptor[32];
         secp256k1_pubkey adaptor;
         unsigned char pre_sig[64];
@@ -245,7 +306,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         CHECK(secp256k1_musig_nonce_agg(ctx, &aggnonce, pubnonce_ptr, 1));
         /* Make sure that previous tests don't undefine msg. It's not used as a secret here. */
         SECP256K1_CHECKMEM_DEFINE(msg, sizeof(msg));
-        CHECK(secp256k1_musig_nonce_process(ctx, &session, &aggnonce, msg, &cache, &adaptor) == 1);
+        CHECK(secp256k1_musig_nonce_process_adaptor(ctx, &session, &aggnonce, msg, &cache, &adaptor) == 1);
 
         ret = secp256k1_keypair_create(ctx, &keypair, key);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));

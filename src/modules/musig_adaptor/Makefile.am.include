@@ -1,0 +1,5 @@
+include_HEADERS += include/secp256k1_musig_adaptor.h
+noinst_HEADERS += src/modules/musig_adaptor/main_impl.h
+noinst_HEADERS += src/modules/musig_adaptor/session_adaptor_impl.h
+noinst_HEADERS += src/modules/musig_adaptor/adaptor_impl.h
+noinst_HEADERS += src/modules/musig_adaptor/tests_impl.h
