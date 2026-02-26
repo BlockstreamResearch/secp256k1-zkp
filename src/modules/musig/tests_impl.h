@@ -123,7 +123,6 @@ static void musig_api_tests(void) {
     const secp256k1_musig_partial_sig *partial_sig_ptr[2];
     secp256k1_musig_partial_sig invalid_partial_sig;
     const secp256k1_musig_partial_sig *invalid_partial_sig_ptr[2];
-    unsigned char final_sig[64];
     unsigned char pre_sig[64];
     unsigned char buf[32];
     unsigned char sk[2][32];
