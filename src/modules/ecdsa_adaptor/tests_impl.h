@@ -2,6 +2,7 @@
 #define SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H
 
 #include "../../../include/secp256k1_ecdsa_adaptor.h"
+#include "../../unit_test.h"
 
 static void rand_scalar(secp256k1_scalar *scalar) {
     unsigned char buf32[32];
@@ -27,7 +28,7 @@ static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_byt
     CHECK(secp256k1_scalar_eq(&k1, &k2) == 0);
 }
 
-static void dleq_tests(void) {
+static void dleq_tests_internal(void) {
     secp256k1_scalar s, e, sk, k;
     secp256k1_ge gen2, p1, p2;
     unsigned char *args[5];
@@ -850,7 +851,7 @@ static void test_ecdsa_adaptor_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, &zero_pk));
 }
 
-static void adaptor_tests(void) {
+static void adaptor_tests_internal(void) {
     unsigned char seckey[32];
     secp256k1_pubkey pubkey;
     unsigned char msg[32];
@@ -1050,7 +1051,7 @@ static void adaptor_tests(void) {
     }
 }
 
-static void multi_hop_lock_tests(void) {
+static void multi_hop_lock_tests_internal(void) {
     unsigned char seckey_a[32];
     unsigned char seckey_b[32];
     unsigned char pop[32];
@@ -1124,21 +1125,18 @@ static void multi_hop_lock_tests(void) {
     CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
 }
 
-static void run_ecdsa_adaptor_tests(void) {
-    int i;
-    run_nonce_function_ecdsa_adaptor_tests();
+/* --- Test registry --- */
+REPEAT_TEST(dleq_tests)
+REPEAT_TEST(adaptor_tests)
+REPEAT_TEST(multi_hop_lock_tests)
 
-    test_ecdsa_adaptor_api();
-    test_ecdsa_adaptor_spec_vectors();
-    for (i = 0; i < COUNT; i++) {
-        dleq_tests();
-    }
-    for (i = 0; i < COUNT; i++) {
-        adaptor_tests();
-    }
-    for (i = 0; i < COUNT; i++) {
-        multi_hop_lock_tests();
-    }
-}
+static const struct tf_test_entry tests_ecdsa_adaptor[] = {
+    CASE1(run_nonce_function_ecdsa_adaptor_tests),
+    CASE1(test_ecdsa_adaptor_api),
+    CASE1(test_ecdsa_adaptor_spec_vectors),
+    CASE1(dleq_tests),
+    CASE1(adaptor_tests),
+    CASE1(multi_hop_lock_tests),
+};
 
 #endif /* SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H */

@@ -55,11 +55,11 @@ SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, si
         secp256k1_sha256_clear(&sha256_en);
         secp256k1_scalar_set_b32(&s[i], sec_input, &overflow);
         if (overflow == 1) {
-            secp256k1_memclear(sec_input, 32);
+            secp256k1_memclear_explicit(sec_input, 32);
             return 0;
         }
     }
-    secp256k1_memclear(sec_input, 32);
+    secp256k1_memclear_explicit(sec_input, 32);
     return 1;
 }
 
