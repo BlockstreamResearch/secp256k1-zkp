@@ -187,6 +187,10 @@ AC_ARG_ENABLE(module_musig,
     AS_HELP_STRING([--enable-module-musig],[enable MuSig2 module [default=yes]]), [],
     [SECP_SET_DEFAULT([enable_module_musig], [yes], [yes])])
 
+AC_ARG_ENABLE(module_musig_adaptor,
+    AS_HELP_STRING([--enable-module-musig-adaptor],[enable MuSig2 adaptor signatures module (experimental) [default=no]]), [],
+    [SECP_SET_DEFAULT([enable_module_musig_adaptor], [no], [yes])])
+
 AC_ARG_ENABLE(module_schnorrsig_halfagg,
     AS_HELP_STRING([--enable-module-schnorrsig-halfagg],[enable schnorrsig half-aggregation module (experimental) [default=no]]), [],
     [SECP_SET_DEFAULT([enable_module_schnorrsig_halfagg], [no], [yes])])
@@ -505,6 +509,14 @@ if test x"$enable_module_ellswift" = x"yes"; then
   SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_ELLSWIFT=1"
 fi
 
+if test x"$enable_module_musig_adaptor" = x"yes"; then
+  if test x"$enable_module_musig" = x"no"; then
+    AC_MSG_ERROR([Module dependency error: You have disabled the musig module explicitly, but it is required by the musig_adaptor module.])
+  fi
+  enable_module_musig=yes
+  SECP_CONFIG_DEFINES="$SECP_CONFIG_DEFINES -DENABLE_MODULE_MUSIG_ADAPTOR=1"
+fi
+
 if test x"$enable_module_musig" = x"yes"; then
   if test x"$enable_module_schnorrsig" = x"no"; then
     AC_MSG_ERROR([Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the musig module.])
@@ -559,6 +571,9 @@ if test x"$enable_experimental" = x"no"; then
   if test x"$enable_module_ecdsa_adaptor" = x"yes"; then
     AC_MSG_ERROR([ecdsa adaptor signatures module is experimental. Use --enable-experimental to allow.])
   fi
+  if test x"$enable_module_musig_adaptor" = x"yes"; then
+    AC_MSG_ERROR([MuSig2 adaptor signatures module is experimental. Use --enable-experimental to allow.])
+  fi
   if test x"$enable_module_ecdsa_s2c" = x"yes"; then
     AC_MSG_ERROR([ECDSA sign-to-contract module module is experimental. Use --enable-experimental to allow.])
   fi
@@ -597,6 +612,7 @@ AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"ye
 AM_CONDITIONAL([ENABLE_MODULE_EXTRAKEYS], [test x"$enable_module_extrakeys" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORRSIG], [test x"$enable_module_schnorrsig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_MUSIG_ADAPTOR], [test x"$enable_module_musig_adaptor" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ELLSWIFT], [test x"$enable_module_ellswift" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])
@@ -634,6 +650,7 @@ echo "  module recovery         = $enable_module_recovery"
 echo "  module extrakeys        = $enable_module_extrakeys"
 echo "  module schnorrsig       = $enable_module_schnorrsig"
 echo "  module musig            = $enable_module_musig"
+echo "  module musig-adaptor    = $enable_module_musig_adaptor"
 echo "  module ellswift         = $enable_module_ellswift"
 # libsecp256k1-zkp modules, in the order they were added to the libsecp256k1-zkp
 echo "  module generator        = $enable_module_generator"
