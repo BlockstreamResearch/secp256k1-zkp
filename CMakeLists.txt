@@ -51,7 +51,7 @@ option(SECP256K1_ENABLE_MODULE_RECOVERY "Enable ECDSA pubkey recovery module." O
 option(SECP256K1_ENABLE_MODULE_EXTRAKEYS "Enable extrakeys module." ON)
 option(SECP256K1_ENABLE_MODULE_SCHNORRSIG "Enable schnorrsig module." ON)
 option(SECP256K1_ENABLE_MODULE_MUSIG "Enable musig module." ON)
-option(SECP256K1_ENABLE_MODULE_MUSIG_ADAPTOR "Enable musig adaptor module." ON)
+option(SECP256K1_ENABLE_MODULE_MUSIG_ADAPTOR "Enable musig adaptor module." OFF)
 option(SECP256K1_ENABLE_MODULE_ELLSWIFT "Enable ElligatorSwift module." ON)
 
 option(SECP256K1_ENABLE_MODULE_GENERATOR "Enable NUMS generator module." ON)
