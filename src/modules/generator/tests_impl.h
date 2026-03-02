@@ -14,6 +14,7 @@
 #include "../../scalar.h"
 #include "../../testrand.h"
 #include "../../util.h"
+#include "../../unit_test.h"
 
 #include "../../../include/secp256k1_generator.h"
 
@@ -228,7 +229,7 @@ static void test_pedersen_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, NULL, 1, 0));
 }
 
-static void test_pedersen(void) {
+static void test_pedersen_internal(void) {
     secp256k1_pedersen_commitment commits[19];
     const secp256k1_pedersen_commitment *cptr[19];
     unsigned char blinds[32*19];
@@ -310,19 +311,17 @@ static void test_pedersen_commitment_fixed_vector(void) {
     CHECK(!secp256k1_pedersen_commitment_parse(CTX, &parse, result));
 }
 
+/* --- Test registry --- */
+REPEAT_TEST(test_pedersen)
 
-static void run_generator_tests(void) {
-    int i;
-
-    test_shallue_van_de_woestijne();
-    test_generator_fixed_vector();
-    test_generator_api();
-    test_generator_generate();
-    test_pedersen_api();
-    test_pedersen_commitment_fixed_vector();
-    for (i = 0; i < COUNT / 2 + 1; i++) {
-        test_pedersen();
-    }
-}
+static const struct tf_test_entry tests_generator[] = {
+    CASE1(test_shallue_van_de_woestijne),
+    CASE1(test_generator_fixed_vector),
+    CASE1(test_generator_api),
+    CASE1(test_generator_generate),
+    CASE1(test_pedersen),
+    CASE1(test_pedersen_api),
+    CASE1(test_pedersen_commitment_fixed_vector),
+};
 
 #endif

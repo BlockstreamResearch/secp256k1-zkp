@@ -15,6 +15,7 @@
 #include "bppp_transcript_impl.h"
 #include "test_vectors/verify.h"
 #include "test_vectors/prove.h"
+#include "../../unit_test.h"
 
 static void test_bppp_generators_api(void) {
     secp256k1_bppp_generators *gens;
@@ -649,15 +650,7 @@ static void norm_arg_prove_vectors(void) {
 
 #undef IDX_TO_TEST
 
-static void run_bppp_tests(void) {
-    test_log_exp();
-    test_norm_util_helpers();
-    test_serialize_two_points();
-    test_bppp_generators_api();
-    test_bppp_generators_fixed();
-    test_bppp_tagged_hash();
-
-    norm_arg_verify_zero_len();
+static void norm_arg_test_all(void) {
     norm_arg_test(1, 1);
     norm_arg_test(1, 64);
     norm_arg_test(64, 1);
@@ -665,9 +658,20 @@ static void run_bppp_tests(void) {
     norm_arg_test(32, 64);
     norm_arg_test(64, 32);
     norm_arg_test(64, 64);
-
-    norm_arg_verify_vectors();
-    norm_arg_prove_vectors();
 }
+
+/* --- Test registry --- */
+static const struct tf_test_entry tests_bppp[] = {
+    CASE1(test_log_exp),
+    CASE1(test_norm_util_helpers),
+    CASE1(test_serialize_two_points),
+    CASE1(test_bppp_generators_api),
+    CASE1(test_bppp_generators_fixed),
+    CASE1(test_bppp_tagged_hash),
+    CASE1(norm_arg_verify_zero_len),
+    CASE1(norm_arg_test_all),
+    CASE1(norm_arg_verify_vectors),
+    CASE1(norm_arg_prove_vectors),
+};
 
 #endif

@@ -9,6 +9,7 @@
 
 #include "../../testrand.h"
 #include "../../group.h"
+#include "../../unit_test.h"
 #include "../../../include/secp256k1_generator.h"
 #include "../../../include/secp256k1_rangeproof.h"
 #include "../../../include/secp256k1_surjectionproof.h"
@@ -627,22 +628,29 @@ static void test_fixed_vectors(void) {
     CHECK(!secp256k1_surjectionproof_parse(CTX, &proof, bad, total5_used3_len));
 }
 
-static void run_surjection_tests(void) {
-    test_surjectionproof_api();
-    test_input_eq_output();
-    test_fixed_vectors();
-
+static void test_input_selection_all(void) {
     test_input_selection(0);
     test_input_selection(1);
     test_input_selection(5);
     test_input_selection(SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
+}
 
-    test_input_selection_distribution();
+static void test_gen_verify_all(void) {
     test_gen_verify(10, 3);
     test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
-    test_no_used_inputs_verify();
-    test_bad_serialize();
-    test_bad_parse();
 }
+
+/* --- Test registry --- */
+static const struct tf_test_entry tests_surjection[] = {
+    CASE1(test_surjectionproof_api),
+    CASE1(test_input_eq_output),
+    CASE1(test_fixed_vectors),
+    CASE1(test_input_selection_all),
+    CASE1(test_input_selection_distribution),
+    CASE1(test_gen_verify_all),
+    CASE1(test_no_used_inputs_verify),
+    CASE1(test_bad_serialize),
+    CASE1(test_bad_parse),
+};
 
 #endif

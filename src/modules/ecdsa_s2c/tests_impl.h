@@ -8,6 +8,7 @@
 #define SECP256K1_MODULE_ECDSA_S2C_TESTS_H
 
 #include "../../../include/secp256k1_ecdsa_s2c.h"
+#include "../../unit_test.h"
 
 static void test_ecdsa_s2c_tagged_hash(void) {
     unsigned char tag_data[] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'd', 'a', 't', 'a'};
@@ -323,15 +324,15 @@ static void test_ecdsa_anti_exfil(void) {
     }
 }
 
-static void run_ecdsa_s2c_tests(void) {
-    run_s2c_opening_test();
-    test_ecdsa_s2c_tagged_hash();
-    test_ecdsa_s2c_api();
-    test_ecdsa_s2c_fixed_vectors();
-    test_ecdsa_s2c_sign_verify();
-
-    test_ecdsa_anti_exfil_signer_commit();
-    test_ecdsa_anti_exfil();
-}
+/* --- Test registry --- */
+static const struct tf_test_entry tests_ecdsa_s2c[] = {
+    CASE1(run_s2c_opening_test),
+    CASE1(test_ecdsa_s2c_tagged_hash),
+    CASE1(test_ecdsa_s2c_api),
+    CASE1(test_ecdsa_s2c_fixed_vectors),
+    CASE1(test_ecdsa_s2c_sign_verify),
+    CASE1(test_ecdsa_anti_exfil_signer_commit),
+    CASE1(test_ecdsa_anti_exfil)
+};
 
 #endif /* SECP256K1_MODULE_ECDSA_S2C_TESTS_H */

@@ -13,10 +13,11 @@
 #include "../../scalar.h"
 #include "../../testrand.h"
 #include "../../util.h"
+#include "../../unit_test.h"
 
 #include "../../../include/secp256k1_rangeproof.h"
 
-static void test_rangeproof_api(void) {
+static void test_rangeproof_api_internal(void) {
     unsigned char proof[5134];
     unsigned char blind[32];
     secp256k1_pedersen_commitment commit;
@@ -121,7 +122,7 @@ static void test_rangeproof_api(void) {
     CHECK(secp256k1_rangeproof_max_size(CTX, UINT64_MAX, 0) == 5134);
 }
 
-static void test_borromean(void) {
+static void test_borromean_internal(void) {
     unsigned char e0[32];
     secp256k1_scalar s[64];
     secp256k1_gej pubs[64];
@@ -1346,24 +1347,25 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
     }
 }
 
-static void run_rangeproof_tests(void) {
-    int i;
-    for (i = 0; i < COUNT; i++) {
-        test_rangeproof_api();
-    }
-
+static void test_single_value_proof_all(void) {
     test_single_value_proof(0);
     test_single_value_proof(12345678);
     test_single_value_proof(UINT64_MAX);
-
-    test_rangeproof_fixed_vectors();
-    test_rangeproof_fixed_vectors_reproducible();
-    for (i = 0; i < COUNT / 2 + 1; i++) {
-        test_borromean();
-    }
-    test_rangeproof();
-    test_rangeproof_null_blinder();
-    test_multiple_generators();
 }
+
+/* --- Test registry --- */
+REPEAT_TEST(test_rangeproof_api)
+REPEAT_TEST(test_borromean)
+
+static const struct tf_test_entry tests_rangeproof[] = {
+    CASE1(test_rangeproof_api),
+    CASE1(test_single_value_proof_all),
+    CASE1(test_rangeproof_fixed_vectors),
+    CASE1(test_rangeproof_fixed_vectors_reproducible),
+    CASE1(test_borromean),
+    CASE1(test_rangeproof),
+    CASE1(test_rangeproof_null_blinder),
+    CASE1(test_multiple_generators),
+};
 
 #endif

@@ -182,7 +182,7 @@ int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp2
     secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &k);
     secp256k1_ge_set_gej(&r, &rj);
     secp256k1_ecdsa_s2c_opening_save(opening, &r);
-    secp256k1_memclear(nonce32, 32);
+    secp256k1_memclear_explicit(nonce32, 32);
     secp256k1_scalar_clear(&k);
     return 1;
 }
