@@ -50,6 +50,9 @@ static void bench_generator_generate_blinded(void* arg, int iters) {
 int main(void) {
     bench_generator_t data;
     int iters = get_iters(20000);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 

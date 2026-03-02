@@ -58,6 +58,9 @@ int main(void) {
 
     data.min_bits = 32;
     iters = data.min_bits*get_iters(32);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, iters);
 
