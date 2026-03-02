@@ -343,6 +343,9 @@ int secp256k1_pedersen_blind_sum(const secp256k1_context* ctx, unsigned char *bl
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(blind_out != NULL);
     ARG_CHECK(blinds != NULL);
+    for (i = 0; i < n; i++) {
+        ARG_CHECK(blinds[i] != NULL);
+    }
     ARG_CHECK(npositive <= n);
     (void) ctx;
     secp256k1_scalar_set_int(&acc, 0);
@@ -370,6 +373,12 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const secp256k
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(!pcnt || (commits != NULL));
     ARG_CHECK(!ncnt || (ncommits != NULL));
+    for (i = 0; i < pcnt; i++) {
+        ARG_CHECK(commits[i] != NULL);
+    }
+    for (i = 0; i < ncnt; i++) {
+        ARG_CHECK(ncommits[i] != NULL);
+    }
     (void) ctx;
     secp256k1_gej_set_infinity(&accj);
     for (i = 0; i < ncnt; i++) {
@@ -394,6 +403,10 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
     ARG_CHECK(n_total == 0 || generator_blind != NULL);
     ARG_CHECK(n_total == 0 || blinding_factor != NULL);
     ARG_CHECK(n_total > n_inputs);
+    for (i = 0; i < n_total; i++) {
+        ARG_CHECK(generator_blind[i] != NULL);
+        ARG_CHECK(blinding_factor[i] != NULL);
+    }
     (void) ctx;
 
     if (n_total == 0) {
