@@ -11,20 +11,12 @@
 #include "dleq_impl.h"
 
 /* (R, R', s', dleq_proof) */
-static int secp256k1_ecdsa_adaptor_sig_serialize(unsigned char *adaptor_sig162, secp256k1_ge *r, secp256k1_ge *rp, const secp256k1_scalar *sp, const secp256k1_scalar *dleq_proof_e, const secp256k1_scalar *dleq_proof_s) {
-    size_t size = 33;
-
-    if (!secp256k1_eckey_pubkey_serialize(r, adaptor_sig162, &size, 1)) {
-        return 0;
-    }
-    if (!secp256k1_eckey_pubkey_serialize(rp, &adaptor_sig162[33], &size, 1)) {
-        return 0;
-    }
+static void secp256k1_ecdsa_adaptor_sig_serialize(unsigned char *adaptor_sig162, secp256k1_ge *r, secp256k1_ge *rp, const secp256k1_scalar *sp, const secp256k1_scalar *dleq_proof_e, const secp256k1_scalar *dleq_proof_s) {
+    secp256k1_eckey_pubkey_serialize33(r, adaptor_sig162);
+    secp256k1_eckey_pubkey_serialize33(rp, &adaptor_sig162[33]);
     secp256k1_scalar_get_b32(&adaptor_sig162[66], sp);
     secp256k1_scalar_get_b32(&adaptor_sig162[98], dleq_proof_e);
     secp256k1_scalar_get_b32(&adaptor_sig162[130], dleq_proof_s);
-
-    return 1;
 }
 
 static int secp256k1_ecdsa_adaptor_sig_deserialize(secp256k1_ge *r, secp256k1_scalar *sigr, secp256k1_ge *rp, secp256k1_scalar *sp, secp256k1_scalar *dleq_proof_e, secp256k1_scalar *dleq_proof_s, const unsigned char *adaptor_sig162) {
@@ -162,7 +154,6 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar n;
     unsigned char nonce32[32] = { 0 };
     unsigned char buf33[33];
-    size_t size = 33;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -183,7 +174,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
         return 0;
     }
 
-    secp256k1_eckey_pubkey_serialize(&enckey_ge, buf33, &size, 1);
+    secp256k1_eckey_pubkey_serialize33(&enckey_ge, buf33);
     ret &= !!noncefp(nonce32, msg32, seckey32, buf33, ecdsa_adaptor_algo, sizeof(ecdsa_adaptor_algo), ndata);
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);
@@ -222,7 +213,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     ret &= !secp256k1_scalar_is_zero(&sp);
 
     /* return (R, R', s', dleq_proof) */
-    ret &= secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig162, &nonce_pts[1], &nonce_pts[0], &sp, &dleq_proof_e, &dleq_proof_s);
+    secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig162, &nonce_pts[1], &nonce_pts[0], &sp, &dleq_proof_e, &dleq_proof_s);
 
     secp256k1_memczero(adaptor_sig162, 162, !ret);
     secp256k1_memclear_explicit(nonce32, sizeof(nonce32));
@@ -319,10 +310,10 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar s, r;
     secp256k1_scalar deckey;
     secp256k1_ge enckey_expected_ge;
+    secp256k1_ge enckey_ge;
     secp256k1_gej enckey_expected_gej;
     unsigned char enckey33[33];
     unsigned char enckey_expected33[33];
-    size_t size = 33;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -349,23 +340,21 @@ int secp256k1_ecdsa_adaptor_recover(const secp256k1_context* ctx, unsigned char 
     /* We declassify non-secret enckey_expected_ge to allow using it as a
      * branch point. */
     secp256k1_declassify(ctx, &enckey_expected_ge, sizeof(enckey_expected_ge));
-    if (!secp256k1_eckey_pubkey_serialize(&enckey_expected_ge, enckey_expected33, &size, 1)) {
-        /* Unreachable from tests (and other VERIFY builds) and therefore this
-         * branch should be ignored in test coverage analysis.
-         *
-         * Proof:
-         *     eckey_pubkey_serialize fails <=> deckey = 0
-         *     deckey = 0 <=> s^-1 = 0 or sp = 0
-         *     case 1: s^-1 = 0 impossible by the definition of multiplicative
-         *             inverse and because the scalar_inverse implementation
-         *             VERIFY_CHECKs that the inputs are valid scalars.
-         *     case 2: sp = 0 impossible because ecdsa_adaptor_sig_deserialize would have already failed
-         */
+    /* enckey_expected_ge cannot be infinity:
+     *
+     * Proof:
+     *     enckey_expected_ge is infinity <=> deckey = 0
+     *     deckey = 0 <=> s^-1 = 0 or sp = 0
+     *     case 1: s^-1 = 0 impossible by the definition of multiplicative
+     *             inverse and because the scalar_inverse implementation
+     *             VERIFY_CHECKs that the inputs are valid scalars.
+     *     case 2: sp = 0 impossible because ecdsa_adaptor_sig_deserialize would have already failed
+     */
+    secp256k1_eckey_pubkey_serialize33(&enckey_expected_ge, enckey_expected33);
+    if (!secp256k1_pubkey_load(ctx, &enckey_ge, enckey)) {
         return 0;
     }
-    if (!secp256k1_ec_pubkey_serialize(ctx, enckey33, &size, enckey, SECP256K1_EC_COMPRESSED)) {
-        return 0;
-    }
+    secp256k1_eckey_pubkey_serialize33(&enckey_ge, enckey33);
     if (secp256k1_memcmp_var(&enckey_expected33[1], &enckey33[1], 32) != 0) {
         return 0;
     }

@@ -18,9 +18,10 @@ static int secp256k1_whitelist_hash_pubkey(secp256k1_scalar* output, secp256k1_g
     secp256k1_ge_set_gej(&ge, pubkey);
 
     secp256k1_sha256_initialize(&sha);
-    if (!secp256k1_eckey_pubkey_serialize(&ge, c, &size, 1)) {
+    if (secp256k1_ge_is_infinity(&ge)) {
         return 0;
     }
+    secp256k1_eckey_pubkey_serialize33(&ge, c);
     secp256k1_sha256_write(&sha, c, size);
     secp256k1_sha256_finalize(&sha, h);
     secp256k1_sha256_clear(&sha);
@@ -95,9 +96,7 @@ static int secp256k1_whitelist_compute_keys_and_message(const secp256k1_context*
     secp256k1_pubkey_load(ctx, &subkey_ge, sub_pubkey);
 
     /* commit to sub-key */
-    if (!secp256k1_eckey_pubkey_serialize(&subkey_ge, c, &size, 1)) {
-        return 0;
-    }
+    secp256k1_eckey_pubkey_serialize33(&subkey_ge, c);
     secp256k1_sha256_write(&sha, c, size);
     for (i = 0; i < n_keys; i++) {
         secp256k1_ge offline_ge;
@@ -106,14 +105,10 @@ static int secp256k1_whitelist_compute_keys_and_message(const secp256k1_context*
 
         /* commit to fixed keys */
         secp256k1_pubkey_load(ctx, &offline_ge, &offline_pubkeys[i]);
-        if (!secp256k1_eckey_pubkey_serialize(&offline_ge, c, &size, 1)) {
-            return 0;
-        }
+        secp256k1_eckey_pubkey_serialize33(&offline_ge, c);
         secp256k1_sha256_write(&sha, c, size);
         secp256k1_pubkey_load(ctx, &online_ge, &online_pubkeys[i]);
-        if (!secp256k1_eckey_pubkey_serialize(&online_ge, c, &size, 1)) {
-            return 0;
-        }
+        secp256k1_eckey_pubkey_serialize33(&online_ge, c);
         secp256k1_sha256_write(&sha, c, size);
 
         /* compute tweaked keys */

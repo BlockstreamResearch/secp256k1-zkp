@@ -858,15 +858,7 @@ static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
     if (secp256k1_ge_is_infinity(ge)) {
         memset(out33, 0, 33);
     } else {
-        int ret;
-        size_t size = 33;
-        ret = secp256k1_eckey_pubkey_serialize(ge, out33, &size, 1);
-#ifdef VERIFY
-        /* Serialize must succeed because the point is not at infinity */
-        VERIFY_CHECK(ret && size == 33);
-#else
-        (void) ret;
-#endif
+        secp256k1_eckey_pubkey_serialize33(ge, out33);
     }
 }
 

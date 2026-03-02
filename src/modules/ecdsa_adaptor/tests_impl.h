@@ -39,7 +39,6 @@ static void dleq_tests_internal(void) {
     unsigned char p2_33[33];
     unsigned char aux_rand[32];
     int i;
-    size_t pubkey_size = 33;
 
     rand_point(&gen2);
     rand_scalar(&sk);
@@ -62,19 +61,12 @@ static void dleq_tests_internal(void) {
         CHECK(secp256k1_dleq_verify(&s, &e, &p1, &p_tmp, &p2) == 0);
         CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p_tmp) == 0);
     }
-    {
-        secp256k1_ge p_inf;
-        secp256k1_ge_set_infinity(&p_inf);
-        CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &p_inf, &p1, &p2, NULL, NULL) == 0);
-        CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &gen2, &p_inf, &p2, NULL, NULL) == 0);
-        CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &gen2, &p1, &p_inf, NULL, NULL) == 0);
-    }
 
     /* Nonce tests */
     secp256k1_scalar_get_b32(sk32, &sk);
-    CHECK(secp256k1_eckey_pubkey_serialize(&gen2, gen2_33, &pubkey_size, 1));
-    CHECK(secp256k1_eckey_pubkey_serialize(&p1, p1_33, &pubkey_size, 1));
-    CHECK(secp256k1_eckey_pubkey_serialize(&p2, p2_33, &pubkey_size, 1));
+    secp256k1_eckey_pubkey_serialize33(&gen2, gen2_33);
+    secp256k1_eckey_pubkey_serialize33(&p1, p1_33);
+    secp256k1_eckey_pubkey_serialize33(&p2, p2_33);
     CHECK(secp256k1_dleq_nonce(&k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 
     testrand_bytes_test(sk32, sizeof(sk32));
@@ -165,7 +157,7 @@ static void test_ecdsa_adaptor_spec_vectors_check_serialization(const unsigned c
 
     CHECK(expected == secp256k1_ecdsa_adaptor_sig_deserialize(&r, &sigr, &rp, &sp, &dleq_proof_e, &dleq_proof_s, adaptor_sig162));
     if (expected == 1) {
-        CHECK(secp256k1_ecdsa_adaptor_sig_serialize(buf, &r, &rp, &sp, &dleq_proof_e, &dleq_proof_s) == 1);
+        secp256k1_ecdsa_adaptor_sig_serialize(buf, &r, &rp, &sp, &dleq_proof_e, &dleq_proof_s);
         CHECK(secp256k1_memcmp_var(buf, adaptor_sig162, 162) == 0);
     }
 }
@@ -896,18 +888,12 @@ static void adaptor_tests_internal(void) {
         secp256k1_scalar sigr;
         secp256k1_scalar sp;
         secp256k1_scalar dleq_proof_s, dleq_proof_e;
-        secp256k1_ge p_inf;
         unsigned char adaptor_sig_tmp[162];
 
         CHECK(secp256k1_ecdsa_adaptor_sig_deserialize(&r, &sigr, &rp, &sp, &dleq_proof_e, &dleq_proof_s, adaptor_sig) == 1);
 
-        CHECK(secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig_tmp, &r, &rp, &sp, &dleq_proof_e, &dleq_proof_s) == 1);
+        secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig_tmp, &r, &rp, &sp, &dleq_proof_e, &dleq_proof_s);
         CHECK(secp256k1_memcmp_var(adaptor_sig_tmp, adaptor_sig, sizeof(adaptor_sig_tmp)) == 0);
-
-        /* Test adaptor_sig_serialize points at infinity */
-        secp256k1_ge_set_infinity(&p_inf);
-        CHECK(secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig_tmp, &p_inf, &rp, &sp, &dleq_proof_e, &dleq_proof_s) == 0);
-        CHECK(secp256k1_ecdsa_adaptor_sig_serialize(adaptor_sig_tmp, &r, &p_inf, &sp, &dleq_proof_e, &dleq_proof_s) == 0);
     }
     {
         /* Test adaptor_sig_deserialize */
