@@ -13,7 +13,7 @@
 /* Maximum number of command-line arguments.
  * Must be at least as large as the total number of tests
  * to allow specifying all tests individually. */
-#define MAX_ARGS 150
+#define MAX_ARGS 200
 /* Maximum number of parallel jobs */
 #define MAX_SUBPROCESSES 16
 
