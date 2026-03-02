@@ -38,12 +38,13 @@ const secp256k1_generator *secp256k1_generator_h = &secp256k1_generator_h_intern
 
 
 static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator* gen) {
+    secp256k1_fe x, y;
     int succeed;
-    succeed = secp256k1_fe_set_b32_limit(&ge->x, &gen->data[0]);
+    succeed = secp256k1_fe_set_b32_limit(&x, &gen->data[0]);
     VERIFY_CHECK(succeed != 0);
-    succeed = secp256k1_fe_set_b32_limit(&ge->y, &gen->data[32]);
+    succeed = secp256k1_fe_set_b32_limit(&y, &gen->data[32]);
     VERIFY_CHECK(succeed != 0);
-    ge->infinity = 0;
+    secp256k1_ge_set_xy(ge, &x, &y);
     (void) succeed;
 }
 
