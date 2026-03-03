@@ -14,7 +14,7 @@ print_environment() {
     for var in WERROR_CFLAGS MAKEFLAGS BUILD \
             ECMULTWINDOW ECMULTGENKB ASM WIDEMUL WITH_VALGRIND EXTRAFLAGS \
             EXPERIMENTAL ECDH RECOVERY EXTRAKEYS SCHNORRSIG MUSIG SCHNORRSIG_HALFAGG ELLSWIFT \
-            ECDSA_S2C GENERATOR RANGEPROOF WHITELIST ECDSAADAPTOR BPPP \
+            ECDSA_S2C GENERATOR RANGEPROOF SURJECTIONPROOF WHITELIST ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS SYMBOL_CHECK \
             EXAMPLES \
             HOST WRAPPER_CMD \
@@ -65,7 +65,7 @@ fi
     --enable-module-extrakeys="$EXTRAKEYS" \
     --enable-module-ecdsa-s2c="$ECDSA_S2C" \
     --enable-module-bppp="$BPPP" \
-    --enable-module-rangeproof="$RANGEPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
+    --enable-module-rangeproof="$RANGEPROOF" --enable-module-surjectionproof="$SURJECTIONPROOF" --enable-module-whitelist="$WHITELIST" --enable-module-generator="$GENERATOR" \
     --enable-module-schnorrsig="$SCHNORRSIG" --enable-module-ecdsa-adaptor="$ECDSAADAPTOR" \
     --enable-module-musig="$MUSIG" \
     --enable-module-schnorrsig-halfagg="$SCHNORRSIG_HALFAGG" \
