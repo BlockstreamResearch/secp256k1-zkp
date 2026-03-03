@@ -4,17 +4,11 @@
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("DLEQ")||SHA256("DLEQ"). */
 static void secp256k1_nonce_function_dleq_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0x8cc4beacul;
-    sha->s[1] = 0x2e011f3ful;
-    sha->s[2] = 0x355c75fbul;
-    sha->s[3] = 0x3ba6a2c5ul;
-    sha->s[4] = 0xe96f3aeful;
-    sha->s[5] = 0x180530fdul;
-    sha->s[6] = 0x94582499ul;
-    sha->s[7] = 0x577fd564ul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0x8cc4beacul, 0x2e011f3ful, 0x355c75fbul, 0x3ba6a2c5ul,
+        0xe96f3aeful, 0x180530fdul, 0x94582499ul, 0x577fd564ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* algo argument for nonce_function_ecdsa_adaptor to derive the nonce using a tagged hash function. */

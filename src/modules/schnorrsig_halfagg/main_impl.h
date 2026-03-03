@@ -9,17 +9,11 @@
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("HalfAgg/randomizer")||SHA256("HalfAgg/randomizer"). */
 static void secp256k1_schnorrsig_sha256_tagged_aggregation(secp256k1_sha256 *sha) {
-   secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xd11f5532ul;
-    sha->s[1] = 0xfa57f70ful;
-    sha->s[2] = 0x5db0d728ul;
-    sha->s[3] = 0xf806ffe1ul;
-    sha->s[4] = 0x1d4db069ul;
-    sha->s[5] = 0xb4d587e1ul;
-    sha->s[6] = 0x50451c2aul;
-    sha->s[7] = 0x10fb63e9ul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xd11f5532ul, 0xfa57f70ful, 0x5db0d728ul, 0xf806ffe1ul,
+        0x1d4db069ul, 0xb4d587e1ul, 0x50451c2aul, 0x10fb63e9ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 int secp256k1_schnorrsig_inc_aggregate(const secp256k1_context *ctx, unsigned char *aggsig, size_t *aggsig_len, const secp256k1_xonly_pubkey *all_pubkeys, const unsigned char *all_msgs32, const unsigned char *new_sigs64, size_t n_before, size_t n_new) {

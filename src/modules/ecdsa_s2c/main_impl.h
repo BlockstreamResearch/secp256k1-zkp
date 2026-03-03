@@ -36,33 +36,21 @@ int secp256k1_ecdsa_s2c_opening_serialize(const secp256k1_context* ctx, unsigned
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("s2c/ecdsa/point")||SHA256("s2c/ecdsa/point"). */
 static void secp256k1_s2c_ecdsa_point_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xa9b21c7bul;
-    sha->s[1] = 0x358c3e3eul;
-    sha->s[2] = 0x0b6863d1ul;
-    sha->s[3] = 0xc62b2035ul;
-    sha->s[4] = 0xb44b40ceul;
-    sha->s[5] = 0x254a8912ul;
-    sha->s[6] = 0x0f85d0d4ul;
-    sha->s[7] = 0x8a5bf91cul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xa9b21c7bul, 0x358c3e3eul, 0x0b6863d1ul, 0xc62b2035ul,
+        0xb44b40ceul, 0x254a8912ul, 0x0f85d0d4ul, 0x8a5bf91cul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("s2c/ecdsa/data")||SHA256("s2c/ecdsa/data"). */
 static void secp256k1_s2c_ecdsa_data_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xfeefd675ul;
-    sha->s[1] = 0x73166c99ul;
-    sha->s[2] = 0xe2309cb8ul;
-    sha->s[3] = 0x6d458113ul;
-    sha->s[4] = 0x01d3a512ul;
-    sha->s[5] = 0x00e18112ul;
-    sha->s[6] = 0x37ee0874ul;
-    sha->s[7] = 0x421fc55ful;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xfeefd675ul, 0x73166c99ul, 0xe2309cb8ul, 0x6d458113ul,
+        0x01d3a512ul, 0x00e18112ul, 0x37ee0874ul, 0x421fc55ful
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* signature, secp256k1_ecdsa_s2c_opening* s2c_opening, const unsigned char
