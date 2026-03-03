@@ -69,6 +69,9 @@ int main(void) {
     size_t n_keys = 30;
     secp256k1_scalar ssub;
     int iters = get_iters(5);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 

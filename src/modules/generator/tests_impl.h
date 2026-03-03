@@ -227,6 +227,13 @@ static void test_pedersen_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, NULL, &blind_ptr, &blind_out_ptr, 1, 0));
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, NULL, &blind_out_ptr, 1, 0));
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, NULL, 1, 0));
+    /* check that NULL in array of generator_blind pointers is not allowed */
+    blind_ptr = NULL;
+    CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0));
+    blind_ptr = blind;
+    /* check that NULL in array of blinding_factor pointers is not allowed */
+    blind_out_ptr = NULL;
+    CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0));
 }
 
 static void test_pedersen_internal(void) {
@@ -264,6 +271,14 @@ static void test_pedersen_internal(void) {
         secp256k1_scalar_get_b32(&blinds[i * 32], &s);
     }
     CHECK(secp256k1_pedersen_blind_sum(CTX, &blinds[(total - 1) * 32], bptr, total - 1, inputs));
+    /* check that NULL in array of blind pointers is not allowed */
+    for (i = 0; i < total - 1; i++) {
+        unsigned char blind_out[32];
+        const unsigned char *original_ptr = bptr[i];
+        bptr[i] = NULL;
+        CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_sum(CTX, blind_out, bptr, total - 1, inputs));
+        bptr[i] = original_ptr;
+    }
     for (i = 0; i < total; i++) {
         unsigned char result[33];
         secp256k1_pedersen_commitment parse;
@@ -275,6 +290,20 @@ static void test_pedersen_internal(void) {
     }
     CHECK(secp256k1_pedersen_verify_tally(CTX, cptr, inputs, &cptr[inputs], outputs));
     CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[inputs], outputs, cptr, inputs));
+    /* check that NULL in array of commits pointers is not allowed */
+    for (i = 0; i < inputs; i++) {
+        const secp256k1_pedersen_commitment *original_ptr = cptr[i];
+        cptr[i] = NULL;
+        CHECK_ILLEGAL(CTX, secp256k1_pedersen_verify_tally(CTX, cptr, inputs, &cptr[inputs], outputs));
+        cptr[i] = original_ptr;
+    }
+    /* check that NULL in array of ncommits pointers is not allowed */
+    for (i = 0; i < outputs; i++) {
+        const secp256k1_pedersen_commitment *original_ptr = cptr[inputs + i];
+        cptr[inputs + i] = NULL;
+        CHECK_ILLEGAL(CTX, secp256k1_pedersen_verify_tally(CTX, cptr, inputs, &cptr[inputs], outputs));
+        cptr[inputs + i] = original_ptr;
+    }
     if (inputs > 0 && values[0] > 0) {
         CHECK(!secp256k1_pedersen_verify_tally(CTX, cptr, inputs - 1, &cptr[inputs], outputs));
     }

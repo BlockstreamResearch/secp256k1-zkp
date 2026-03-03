@@ -60,7 +60,6 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
     size_t i;
     size_t j;
     size_t count;
-    size_t size;
     int overflow;
     VERIFY_CHECK(e0 != NULL);
     VERIFY_CHECK(s != NULL);
@@ -88,12 +87,12 @@ int secp256k1_borromean_verify(secp256k1_scalar *evalues, const unsigned char *e
             }
             /* OPT: loop can be hoisted and split to use batch inversion across all the rings; this would make it much faster. */
             secp256k1_ge_set_gej_var(&rge, &rgej);
-            secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
+            secp256k1_eckey_pubkey_serialize33(&rge, tmp);
             if (j != rsizes[i] - 1) {
                 secp256k1_borromean_hash(tmp, m, mlen, tmp, 33, i, j + 1);
                 secp256k1_scalar_set_b32(&ens, tmp, &overflow);
             } else {
-                secp256k1_sha256_write(&sha256_e0, tmp, size);
+                secp256k1_sha256_write(&sha256_e0, tmp, 33);
             }
             count++;
         }
@@ -115,7 +114,6 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
     size_t i;
     size_t j;
     size_t count;
-    size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_gen_ctx != NULL);
     VERIFY_CHECK(e0 != NULL);
@@ -136,7 +134,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
         if (secp256k1_gej_is_infinity(&rgej)) {
             return 0;
         }
-        secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
+        secp256k1_eckey_pubkey_serialize33(&rge, tmp);
         for (j = secidx[i] + 1; j < rsizes[i]; j++) {
             secp256k1_borromean_hash(tmp, m, mlen, tmp, 33, i, j);
             secp256k1_scalar_set_b32(&ens, tmp, &overflow);
@@ -152,9 +150,9 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
                 return 0;
             }
             secp256k1_ge_set_gej_var(&rge, &rgej);
-            secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
+            secp256k1_eckey_pubkey_serialize33(&rge, tmp);
         }
-        secp256k1_sha256_write(&sha256_e0, tmp, size);
+        secp256k1_sha256_write(&sha256_e0, tmp, 33);
         count += rsizes[i];
     }
     secp256k1_sha256_write(&sha256_e0, m, mlen);
@@ -174,7 +172,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
                 return 0;
             }
             secp256k1_ge_set_gej_var(&rge, &rgej);
-            secp256k1_eckey_pubkey_serialize(&rge, tmp, &size, 1);
+            secp256k1_eckey_pubkey_serialize33(&rge, tmp);
             secp256k1_borromean_hash(tmp, m, mlen, tmp, 33, i, j + 1);
             secp256k1_scalar_set_b32(&ens, tmp, &overflow);
             if (overflow || secp256k1_scalar_is_zero(&ens)) {

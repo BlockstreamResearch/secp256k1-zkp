@@ -289,7 +289,6 @@ int secp256k1_ec_pubkey_parse(const secp256k1_context* ctx, secp256k1_pubkey* pu
 int secp256k1_ec_pubkey_serialize(const secp256k1_context* ctx, unsigned char *output, size_t *outputlen, const secp256k1_pubkey* pubkey, unsigned int flags) {
     secp256k1_ge Q;
     size_t len;
-    int ret = 0;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(outputlen != NULL);
@@ -301,12 +300,16 @@ int secp256k1_ec_pubkey_serialize(const secp256k1_context* ctx, unsigned char *o
     ARG_CHECK(pubkey != NULL);
     ARG_CHECK((flags & SECP256K1_FLAGS_TYPE_MASK) == SECP256K1_FLAGS_TYPE_COMPRESSION);
     if (secp256k1_pubkey_load(ctx, &Q, pubkey)) {
-        ret = secp256k1_eckey_pubkey_serialize(&Q, output, &len, !!(flags & SECP256K1_FLAGS_BIT_COMPRESSION));
-        if (ret) {
-            *outputlen = len;
+        if (flags & SECP256K1_FLAGS_BIT_COMPRESSION) {
+            secp256k1_eckey_pubkey_serialize33(&Q, output);
+            *outputlen = 33;
+        } else {
+            secp256k1_eckey_pubkey_serialize65(&Q, output);
+            *outputlen = 65;
         }
+        return 1;
     }
-    return ret;
+    return 0;
 }
 
 int secp256k1_ec_pubkey_cmp(const secp256k1_context* ctx, const secp256k1_pubkey* pubkey0, const secp256k1_pubkey* pubkey1) {
@@ -342,8 +345,13 @@ static int secp256k1_ec_pubkey_sort_cmp(const void* pk1, const void* pk2, void *
 }
 
 int secp256k1_ec_pubkey_sort(const secp256k1_context* ctx, const secp256k1_pubkey **pubkeys, size_t n_pubkeys) {
+    size_t i;
+
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(pubkeys != NULL);
+    for (i = 0; i < n_pubkeys; i++) {
+        ARG_CHECK(pubkeys[i] != NULL);
+    }
 
     /* Suppress wrong warning (fixed in MSVC 19.33) */
     #if defined(_MSC_VER) && (_MSC_VER < 1933)
@@ -850,15 +858,7 @@ static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
     if (secp256k1_ge_is_infinity(ge)) {
         memset(out33, 0, 33);
     } else {
-        int ret;
-        size_t size = 33;
-        ret = secp256k1_eckey_pubkey_serialize(ge, out33, &size, 1);
-#ifdef VERIFY
-        /* Serialize must succeed because the point is not at infinity */
-        VERIFY_CHECK(ret && size == 33);
-#else
-        (void) ret;
-#endif
+        secp256k1_eckey_pubkey_serialize33(ge, out33);
     }
 }
 

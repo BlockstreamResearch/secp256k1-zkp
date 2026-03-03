@@ -29,6 +29,9 @@ static void bench_bppp(void* arg, int iters) {
 int main(void) {
     bench_bppp_data data;
     int iters = get_iters(32);
+    if (iters == 0) {
+        return EXIT_FAILURE;
+    }
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 
