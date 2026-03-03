@@ -147,6 +147,10 @@ static int secp256k1_dleq_verify(const secp256k1_scalar *s, const secp256k1_scal
 
     secp256k1_ge_set_all_gej_var(r, rj, 2);
 
+    if (secp256k1_ge_is_infinity(&r[0]) || secp256k1_ge_is_infinity(&r[1])) {
+        return 0;
+    }
+
     secp256k1_dleq_challenge(&e_expected, gen2, &r[0], &r[1], p1, p2);
 
     secp256k1_scalar_add(&e_expected, &e_expected, &e_neg);
