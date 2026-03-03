@@ -785,6 +785,19 @@ static void run_tagged_sha256_tests(void) {
     CHECK(secp256k1_memcmp_var(hash32, hash_expected, sizeof(hash32)) == 0);
 }
 
+static void run_sha256_initialize_midstate_tests(void) {
+    /* Midstate for the tagged hash with tag "sha256_midstate_test_tag". */
+    static const unsigned char tag[] = "sha256_midstate_test_tag";
+    static const uint32_t midstate[8] = {
+        0xa9ec59eaul, 0x9b4c2ffful, 0x400821e2ul, 0x0dcf3847ul,
+        0xbe7ea179ul, 0xa5772bdcul, 0x7d29bfe3ul, 0xa486b855ul
+    };
+    secp256k1_sha256 sha;
+
+    secp256k1_sha256_initialize_midstate(&sha, 64, midstate);
+    test_sha256_tag_midstate(&sha, tag, sizeof(tag) - 1);
+}
+
 /***** MODINV TESTS *****/
 
 /* Compute the modular inverse of (odd) x mod 2^64. */
@@ -2247,8 +2260,58 @@ static void run_scalar_set_b32_seckey_tests(void) {
     CHECK(secp256k1_scalar_set_b32_seckey(&s2, b32) == 0);
 }
 
+static void test_scalar_check_overflow(void) {
+    secp256k1_scalar s;
+    const secp256k1_scalar n_minus_1 = SECP256K1_SCALAR_CONST(
+        0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFEUL,
+        0xBAAEDCE6UL, 0xAF48A03BUL, 0xBFD25E8CUL, 0xD0364140UL
+    );
+    const secp256k1_scalar n = SECP256K1_SCALAR_CONST(
+        0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFEUL,
+        0xBAAEDCE6UL, 0xAF48A03BUL, 0xBFD25E8CUL, 0xD0364141UL
+    );
+    const secp256k1_scalar n_plus_1 = SECP256K1_SCALAR_CONST(
+        0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFEUL,
+        0xBAAEDCE6UL, 0xAF48A03BUL, 0xBFD25E8CUL, 0xD0364142UL
+    );
+    const secp256k1_scalar max = SECP256K1_SCALAR_CONST(
+        0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL,
+        0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL
+    );
+
+    int i;
+
+    secp256k1_scalar_set_int(&s, 0);
+    CHECK(secp256k1_scalar_check_overflow(&s) == 0);
+    CHECK(secp256k1_scalar_check_overflow(&n_minus_1) == 0);
+    CHECK(secp256k1_scalar_check_overflow(&n) == 1);
+    CHECK(secp256k1_scalar_check_overflow(&n_plus_1) == 1);
+    CHECK(secp256k1_scalar_check_overflow(&max) == 1);
+
+    for (i = 0; i < 2 * COUNT; i++) {
+        int expected_overflow;
+        int overflow = 0;
+        unsigned char b32[32];
+
+        testrand256(b32);
+
+        /* Force top bits to be 0xFF sometimes to ensure we hit overflows */
+        if (i % 2 == 0) {
+            memset(b32, 0xFF, 16);
+        }
+
+        expected_overflow = (secp256k1_memcmp_var(b32, secp256k1_group_order_bytes, 32) >= 0);
+
+        secp256k1_scalar_set_b32(&s, b32, &overflow);
+        CHECK(overflow == expected_overflow);
+    }
+}
+
 static void run_scalar_tests(void) {
     int i;
+
+    test_scalar_check_overflow();
+
     for (i = 0; i < 128 * COUNT; i++) {
         scalar_test();
     }
@@ -2310,15 +2373,6 @@ static void run_scalar_tests(void) {
             secp256k1_scalar_half(&s, &s);
             CHECK(secp256k1_scalar_eq(&s, &HALF_TESTS[n]));
         }
-    }
-
-    {
-        /* Does check_overflow check catch all ones? */
-        static const secp256k1_scalar overflowed = SECP256K1_SCALAR_CONST(
-            0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL,
-            0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL
-        );
-        CHECK(secp256k1_scalar_check_overflow(&overflowed));
     }
 
     {
@@ -3732,8 +3786,8 @@ static void test_ge(void) {
      *   negation, and then those two again but with randomized Z coordinate.
      * - The same is then done for lambda*p1 and lambda^2*p1.
      */
-    secp256k1_ge *ge = (secp256k1_ge *)checked_malloc(&CTX->error_callback, sizeof(secp256k1_ge) * (1 + 4 * runs));
-    secp256k1_gej *gej = (secp256k1_gej *)checked_malloc(&CTX->error_callback, sizeof(secp256k1_gej) * (1 + 4 * runs));
+    secp256k1_ge *ge = checked_malloc(&CTX->error_callback, sizeof(secp256k1_ge) * (1 + 4 * runs));
+    secp256k1_gej *gej = checked_malloc(&CTX->error_callback, sizeof(secp256k1_gej) * (1 + 4 * runs));
     secp256k1_fe zf, r;
     secp256k1_fe zfi2, zfi3;
 
@@ -3867,7 +3921,7 @@ static void test_ge(void) {
     /* Test adding all points together in random order equals infinity. */
     {
         secp256k1_gej sum = SECP256K1_GEJ_CONST_INFINITY;
-        secp256k1_gej *gej_shuffled = (secp256k1_gej *)checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_gej));
+        secp256k1_gej *gej_shuffled = checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_gej));
         for (i = 0; i < 4 * runs + 1; i++) {
             gej_shuffled[i] = gej[i];
         }
@@ -3888,8 +3942,8 @@ static void test_ge(void) {
 
     /* Test batch gej -> ge conversion without known z ratios. */
     {
-        secp256k1_ge *ge_set_all_var = (secp256k1_ge *)checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
-        secp256k1_ge *ge_set_all = (secp256k1_ge *)checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
+        secp256k1_ge *ge_set_all_var = checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
+        secp256k1_ge *ge_set_all = checked_malloc(&CTX->error_callback, (4 * runs + 1) * sizeof(secp256k1_ge));
         secp256k1_ge_set_all_gej_var(&ge_set_all_var[0], &gej[0], 4 * runs + 1);
         for (i = 0; i < 4 * runs + 1; i++) {
             secp256k1_fe s;
@@ -5337,8 +5391,8 @@ static void test_ecmult_multi_batch_size_helper(void) {
 static void test_ecmult_multi_batching(void) {
     static const int n_points = 2*ECMULT_PIPPENGER_THRESHOLD;
     secp256k1_scalar scG;
-    secp256k1_scalar *sc = (secp256k1_scalar *)checked_malloc(&CTX->error_callback, sizeof(secp256k1_scalar) * n_points);
-    secp256k1_ge *pt = (secp256k1_ge *)checked_malloc(&CTX->error_callback, sizeof(secp256k1_ge) * n_points);
+    secp256k1_scalar *sc = checked_malloc(&CTX->error_callback, sizeof(secp256k1_scalar) * n_points);
+    secp256k1_ge *pt = checked_malloc(&CTX->error_callback, sizeof(secp256k1_ge) * n_points);
     secp256k1_gej r;
     secp256k1_gej r2;
     ecmult_multi_data data;
@@ -7903,6 +7957,7 @@ static const struct tf_test_entry tests_hash[] = {
     CASE(hmac_sha256_tests),
     CASE(rfc6979_hmac_sha256_tests),
     CASE(tagged_sha256_tests),
+    CASE(sha256_initialize_midstate_tests),
 };
 
 static const struct tf_test_entry tests_scalar[] = {
@@ -8067,4 +8122,3 @@ int main(int argc, char **argv) {
     if (tf_init(&tf, argc, argv) != 0) return EXIT_FAILURE;
     return tf_run(&tf);
 }
-
