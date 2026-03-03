@@ -43,10 +43,10 @@ static void test_whitelist_end_to_end_internal(const unsigned char *summed_secke
 }
 
 static void test_whitelist_end_to_end(const size_t n_keys, int test_all_keys) {
-    unsigned char **online_seckey = (unsigned char **) malloc(n_keys * sizeof(*online_seckey));
-    unsigned char **summed_seckey = (unsigned char **) malloc(n_keys * sizeof(*summed_seckey));
-    secp256k1_pubkey *online_pubkeys = (secp256k1_pubkey *) malloc(n_keys * sizeof(*online_pubkeys));
-    secp256k1_pubkey *offline_pubkeys = (secp256k1_pubkey *) malloc(n_keys * sizeof(*offline_pubkeys));
+    unsigned char **online_seckey = malloc(n_keys * sizeof(*online_seckey));
+    unsigned char **summed_seckey = malloc(n_keys * sizeof(*summed_seckey));
+    secp256k1_pubkey *online_pubkeys = malloc(n_keys * sizeof(*online_pubkeys));
+    secp256k1_pubkey *offline_pubkeys = malloc(n_keys * sizeof(*offline_pubkeys));
 
     secp256k1_scalar ssub;
     unsigned char csub[32];
@@ -63,8 +63,8 @@ static void test_whitelist_end_to_end(const size_t n_keys, int test_all_keys) {
     for (i = 0; i < n_keys; i++) {
         secp256k1_scalar son, soff;
 
-        online_seckey[i] = (unsigned char *) malloc(32);
-        summed_seckey[i] = (unsigned char *) malloc(32);
+        online_seckey[i] = malloc(32);
+        summed_seckey[i] = malloc(32);
 
         /* Create two keys */
         testutil_random_scalar_order_test(&son);

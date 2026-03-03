@@ -514,12 +514,12 @@ secp256k1_bppp_generators* bppp_generators_parse_regular(const unsigned char* da
         return NULL;
     }
 
-    ret = (secp256k1_bppp_generators *)checked_malloc(&CTX->error_callback, sizeof(*ret));
+    ret = checked_malloc(&CTX->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
     ret->n = n;
-    ret->gens = (secp256k1_ge*)checked_malloc(&CTX->error_callback, n * sizeof(*ret->gens));
+    ret->gens = checked_malloc(&CTX->error_callback, n * sizeof(*ret->gens));
     if (ret->gens == NULL) {
         free(ret);
         return NULL;

@@ -544,8 +544,8 @@ static void test_multiple_generators(void) {
     secp256k1_scalar_get_b32(generator_seed, &s);
     /* Create all the needed generators */
     for (i = 0; i < n_generators; i++) {
-        generator_blind[i] = (unsigned char*) malloc(32);
-        pedersen_blind[i] = (unsigned char*) malloc(32);
+        generator_blind[i] = malloc(32);
+        pedersen_blind[i] = malloc(32);
 
         testutil_random_scalar_order(&s);
         secp256k1_scalar_get_b32(generator_blind[i], &s);
