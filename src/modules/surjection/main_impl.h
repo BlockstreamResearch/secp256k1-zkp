@@ -182,7 +182,7 @@ int secp256k1_surjectionproof_allocate_initialized(const secp256k1_context* ctx,
     ARG_CHECK(proof_out_p != NULL);
     *proof_out_p = 0;
 
-    proof = (secp256k1_surjectionproof*)checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
+    proof = checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
     if (proof != NULL) {
         ret = secp256k1_surjectionproof_initialize(ctx, proof, input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, fixed_output_tag, n_max_iterations, random_seed32);
         if (ret) {

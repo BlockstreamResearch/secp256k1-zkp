@@ -23,11 +23,11 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
 
     VERIFY_CHECK(ctx != NULL);
 
-    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    ret = checked_malloc(&ctx->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
-    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
+    ret->gens = checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
     if (ret->gens == NULL) {
         free(ret);
         return NULL;
@@ -60,12 +60,12 @@ secp256k1_bppp_generators* secp256k1_bppp_generators_parse(const secp256k1_conte
         return NULL;
     }
 
-    ret = (secp256k1_bppp_generators *)checked_malloc(&ctx->error_callback, sizeof(*ret));
+    ret = checked_malloc(&ctx->error_callback, sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
     ret->n = n;
-    ret->gens = (secp256k1_ge*)checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
+    ret->gens = checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
     if (ret->gens == NULL) {
         free(ret);
         return NULL;

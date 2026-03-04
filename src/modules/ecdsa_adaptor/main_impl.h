@@ -60,33 +60,21 @@ static int secp256k1_ecdsa_adaptor_sig_deserialize(secp256k1_ge *r, secp256k1_sc
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("ECDSAadaptor/non")||SHA256("ECDSAadaptor/non"). */
 static void secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0x791dae43ul;
-    sha->s[1] = 0xe52d3b44ul;
-    sha->s[2] = 0x37f9edeaul;
-    sha->s[3] = 0x9bfd2ab1ul;
-    sha->s[4] = 0xcfb0f44dul;
-    sha->s[5] = 0xccf1d880ul;
-    sha->s[6] = 0xd18f2c13ul;
-    sha->s[7] = 0xa37b9024ul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0x791dae43ul, 0xe52d3b44ul, 0x37f9edeaul, 0x9bfd2ab1ul,
+        0xcfb0f44dul, 0xccf1d880ul, 0xd18f2c13ul, 0xa37b9024ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("ECDSAadaptor/aux")||SHA256("ECDSAadaptor/aux"). */
 static void secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xd14c7bd9ul;
-    sha->s[1] = 0x095d35e6ul;
-    sha->s[2] = 0xb8490a88ul;
-    sha->s[3] = 0xfb00ef74ul;
-    sha->s[4] = 0x0baa488ful;
-    sha->s[5] = 0x69366693ul;
-    sha->s[6] = 0x1c81c5baul;
-    sha->s[7] = 0xc33b296aul;
-
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xd14c7bd9ul, 0x095d35e6ul, 0xb8490a88ul, 0xfb00ef74ul,
+        0x0baa488ful, 0x69366693ul, 0x1c81c5baul, 0xc33b296aul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* algo argument for nonce_function_ecdsa_adaptor to derive the nonce using a tagged hash function. */
