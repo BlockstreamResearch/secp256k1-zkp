@@ -6,13 +6,10 @@ help() {
     echo "Sync merge commits from bitcoin-core/secp256k1 into secp256k1-zkp."
     echo
     echo "Usage:"
-    echo "  $0 [-b <branch>] range [end]"
+    echo "  $0 [-b <branch>] [end]"
     echo "      Merges every merge commit present in upstream/master and missing in <branch>"
     echo "      (default: master). If the optional [end] commit is provided, only merges"
     echo "      up to and including [end]."
-    echo
-    echo "  $0 [-b <branch>] select <commit> ... <commit>"
-    echo "      Merges every selected merge commit into <branch> (default: master)."
     echo
     echo "This tool creates a temporary branch and attempts to merge the upstream commits."
     echo "If there are merge conflicts, resolve them and run tests, then use the generated"
@@ -26,7 +23,7 @@ help() {
     echo "Listing upstream merge commits:"
     echo "  To list merge commits in upstream/master that are missing from <branch> (oldest first):"
     echo "    git log --oneline --merges \$(git merge-base upstream/master <branch>)..upstream/master | tac"
-    echo "  Use these for [end] in 'range' or as arguments to 'select'."
+    echo "  These are candidates for [end]."
     exit 1
 }
 
@@ -67,14 +64,18 @@ range() {
     esac
 }
 
-# Process -b <branch> argument
-while getopts "b:" opt; do
+# Process -b <branch> and -h arguments
+while getopts "b:h" opt; do
   case $opt in
     b)
       LOCAL_BRANCH=$OPTARG
       ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
+    h)
+      help
+      ;;
+    *)
+      echo
+      help
       ;;
   esac
 done
@@ -82,31 +83,11 @@ done
 # Shift off the processed options
 shift $((OPTIND -1))
 
-if [ "$#" -lt 1 ]; then
-    help
-fi
-
-case $1 in
-    range)
-        shift
-        setup
-        range "$@"
-        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH range $RANGEEND_COMMIT"
-        ;;
-    select)
-        shift
-        setup
-        COMMITS=$*
-        REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH select $@"
-        ;;
-    help)
-        help
-        ;;
-    *)
-        help
-esac
+setup
+range "$@"
 
 TITLE="Upstream PRs"
+REPRODUCE_COMMAND="$0 -b $LOCAL_BRANCH $RANGEEND_COMMIT"
 BODY=""
 for COMMIT in $COMMITS
 do
