@@ -45,7 +45,7 @@ static void dleq_tests_internal(void) {
     secp256k1_dleq_pair(&CTX->ecmult_gen_ctx, p, &sk, &gen2);
     p1 = p[0];
     p2 = p[1];
-    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &gen2, &p1, &p2, NULL, NULL) == 1);
+    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &p1, &gen2, &p2, NULL, NULL) == 1);
     CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p2) == 1);
 
     {

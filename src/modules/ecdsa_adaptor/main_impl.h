@@ -189,7 +189,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_declassify(ctx, &r[1], sizeof(r[1]));
 
     /* dleq_proof = DLEQ_prove(k, (R', Y, R)) */
-    if (!secp256k1_dleq_prove(ctx, &dleq_proof_s, &dleq_proof_e, &k, &enckey_ge, &r[1], &r[0], noncefp, ndata)) {
+    if (!secp256k1_dleq_prove(ctx, &dleq_proof_s, &dleq_proof_e, &k, &r[1], &enckey_ge, &r[0], noncefp, ndata)) {
         memset(adaptor_sig162, 0, 162);
         secp256k1_memclear_explicit(nonce32, sizeof(nonce32));
         secp256k1_scalar_clear(&k);
