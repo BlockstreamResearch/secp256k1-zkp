@@ -139,6 +139,10 @@ static int secp256k1_dleq_verify(const secp256k1_scalar *s, const secp256k1_scal
     secp256k1_ecmult(&rj[1], &gen2j, s, &secp256k1_scalar_zero);
     secp256k1_gej_add_var(&rj[1], &rj[1], &tmpj, NULL);
 
+    if (secp256k1_gej_is_infinity(&rj[0]) || secp256k1_gej_is_infinity(&rj[1])) {
+        return 0;
+    }
+
     secp256k1_ge_set_all_gej_var(r, rj, 2);
 
     secp256k1_dleq_challenge(&e_expected, gen2, &r[0], &r[1], p1, p2);
