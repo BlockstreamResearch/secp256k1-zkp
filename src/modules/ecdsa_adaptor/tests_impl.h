@@ -45,7 +45,7 @@ static void dleq_tests_internal(void) {
     secp256k1_dleq_pair(&CTX->ecmult_gen_ctx, p, &sk, &gen2);
     p1 = p[0];
     p2 = p[1];
-    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &gen2, &p1, &p2, NULL, NULL) == 1);
+    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &p1, &gen2, &p2, NULL, NULL) == 1);
     CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p2) == 1);
 
     {
@@ -803,6 +803,7 @@ static void test_ecdsa_adaptor_api(void) {
     unsigned char msg[32];
     unsigned char asig[162];
     unsigned char deckey[32];
+    unsigned char zeros162[162] = { 0 };
 
     /** setup **/
     testrand256(sk);
@@ -820,6 +821,14 @@ static void test_ecdsa_adaptor_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, NULL, &enckey, msg, NULL, NULL));
     CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, NULL, msg, NULL, NULL));
     CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &zero_pk, msg, NULL, NULL));
+
+    /* Test bad nonce functions */
+    memset(asig, 1, sizeof(asig));
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, msg, ecdsa_adaptor_nonce_function_failing, NULL) == 0);
+    CHECK(secp256k1_memcmp_var(asig, zeros162, sizeof(asig)) == 0);
+    memset(asig, 1, sizeof(asig));
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, msg, ecdsa_adaptor_nonce_function_0, NULL) == 0);
+    CHECK(secp256k1_memcmp_var(asig, zeros162, sizeof(asig)) == 0);
 
     CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, asig, sk, &enckey, msg, NULL, NULL) == 1);
     CHECK(secp256k1_ecdsa_adaptor_verify(CTX, asig, &pubkey, msg, &enckey) == 1);
@@ -846,7 +855,7 @@ static void test_ecdsa_adaptor_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_ecdsa_adaptor_recover(CTX, deckey, &sig, asig, &zero_pk));
 }
 
-static void adaptor_tests_internal(void) {
+static void adaptor_tests_internal_impl(secp256k1_nonce_function_hardened_ecdsa_adaptor noncefp, void* ndata) {
     unsigned char seckey[32];
     secp256k1_pubkey pubkey;
     unsigned char msg[32];
@@ -864,23 +873,15 @@ static void adaptor_tests_internal(void) {
 
     CHECK(secp256k1_ec_pubkey_create(CTX, &pubkey, seckey) == 1);
     CHECK(secp256k1_ec_pubkey_create(CTX, &enckey, deckey) == 1);
-    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, seckey, &enckey, msg, NULL, NULL) == 1);
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, seckey, &enckey, msg, noncefp, ndata) == 1);
 
     {
+        unsigned char adaptor_sig_tmp[162] = { 0 };
+
         /* Test overflowing seckey */
         memset(big, 0xFF, 32);
-        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, big, &enckey, msg, NULL, NULL) == 0);
-        CHECK(secp256k1_memcmp_var(adaptor_sig, zeros162, sizeof(adaptor_sig)) == 0);
-
-        /* Test different nonce functions */
-        memset(adaptor_sig, 1, sizeof(adaptor_sig));
-        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, seckey, &enckey, msg, ecdsa_adaptor_nonce_function_failing, NULL) == 0);
-        CHECK(secp256k1_memcmp_var(adaptor_sig, zeros162, sizeof(adaptor_sig)) == 0);
-        memset(&adaptor_sig, 1, sizeof(adaptor_sig));
-        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, seckey, &enckey, msg, ecdsa_adaptor_nonce_function_0, NULL) == 0);
-        CHECK(secp256k1_memcmp_var(adaptor_sig, zeros162, sizeof(adaptor_sig)) == 0);
-        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig, seckey, &enckey, msg, ecdsa_adaptor_nonce_function_overflowing, NULL) == 1);
-        CHECK(secp256k1_memcmp_var(adaptor_sig, zeros162, sizeof(adaptor_sig)) != 0);
+        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig_tmp, big, &enckey, msg, NULL, NULL) == 0);
+        CHECK(secp256k1_memcmp_var(adaptor_sig_tmp, zeros162, sizeof(adaptor_sig)) == 0);
     }
     {
         /* Test adaptor_sig_serialize roundtrip */
@@ -1040,6 +1041,16 @@ static void adaptor_tests_internal(void) {
     }
 }
 
+static void adaptor_tests_internal(void) {
+    adaptor_tests_internal_impl(NULL, NULL);
+    /* Since the same nonce function with different algo arguments is used
+     * both for the adaptor sig secret nonce and the dleq secret nonce,
+     * but ecdsa_adaptor_nonce_function_overflowing ignores the algo arg
+     * (in violation of the documented API contract), the resulting secret
+     * nonces will be the same. */
+    adaptor_tests_internal_impl(ecdsa_adaptor_nonce_function_overflowing, NULL);
+}
+
 static void multi_hop_lock_tests_internal(void) {
     unsigned char seckey_a[32];
     unsigned char seckey_b[32];
@@ -1114,6 +1125,62 @@ static void multi_hop_lock_tests_internal(void) {
     CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
 }
 
+static void adaptor_test_issue335(void) {
+    /* Inputs that will trigger R1==infinity in secp256k1_dleq_verify. */
+    unsigned char adaptor_sig[162] = {
+        0x03, 0x63, 0x3D, 0x56, 0xAB, 0xEE, 0x6F, 0x36, 0xE6, 0x07, 0xC6, 0x04,
+        0x2C, 0x68, 0xB4, 0x09, 0xBE, 0x4F, 0x3D, 0x56, 0x3A, 0x51, 0x7B, 0xCA,
+        0x95, 0xE6, 0xD9, 0x48, 0x1E, 0x95, 0xD0, 0xD6, 0xC6, 0x03, 0x91, 0x66,
+        0xC2, 0x89, 0xB9, 0xF9, 0x05, 0xE5, 0x5F, 0x9E, 0x3D, 0xF9, 0xF6, 0x9D,
+        0x7F, 0x35, 0x6B, 0x4A, 0x22, 0x09, 0x5F, 0x89, 0x4F, 0x47, 0x15, 0x71,
+        0x4A, 0xA4, 0xB5, 0x66, 0x06, 0xAF, 0x84, 0x40, 0xB2, 0x83, 0x34, 0xF6,
+        0x74, 0x18, 0xD8, 0x3D, 0x5C, 0xDC, 0x14, 0x0A, 0xAB, 0x22, 0x2B, 0x19,
+        0x15, 0x13, 0xC3, 0x5D, 0x9C, 0xBC, 0x6D, 0x89, 0x1C, 0xB5, 0x38, 0x74,
+        0xB0, 0xCE, 0x5F, 0x34, 0xD7, 0xA0, 0xA9, 0x89, 0x7A, 0x19, 0x45, 0x77,
+        0xBD, 0x5F, 0x0F, 0x31, 0xD8, 0x3B, 0x50, 0xC6, 0x2A, 0x4D, 0xCF, 0x4D,
+        0xCB, 0x91, 0x71, 0x8C, 0x66, 0xAE, 0xB8, 0xE2, 0x1A, 0x01, 0x65, 0x05,
+        0x2D, 0x93, 0x73, 0x97, 0xB7, 0x66, 0xC4, 0xEB, 0x23, 0x8D, 0x3B, 0x55,
+        0xA2, 0x3D, 0xF8, 0x8E, 0x56, 0x84, 0x87, 0x10, 0x76, 0x18, 0xC2, 0xE8,
+        0x35, 0xF9, 0x4E, 0x2A, 0x29, 0xB2
+    };
+    unsigned char msg[32] = {
+        0x38, 0x9C, 0x43, 0x7B, 0x37, 0xBB, 0x6F, 0x74, 0x09, 0x3D, 0x69,
+        0x3E, 0x3D, 0x9B, 0x4F, 0xC7, 0x9D, 0xDF, 0xA9, 0x33, 0x39, 0x8C,
+        0x90, 0x03, 0x95, 0x2D, 0x67, 0xCD, 0xD9, 0x99, 0xDC, 0x55
+    };
+    unsigned char deckey[32] = {
+        0x4A, 0x0B, 0x45, 0xA7, 0x4F, 0xBF, 0x49, 0xC3, 0x4B, 0x7C, 0xE0,
+        0x8E, 0x34, 0x89, 0xFB, 0xEA, 0xD5, 0x41, 0xA1, 0x2E, 0xBE, 0x13,
+        0x3F, 0xD6, 0x8E, 0x24, 0x86, 0x60, 0x1B, 0x19, 0xC1, 0xB5
+    };
+    unsigned char seckey[32] = {
+        0x12, 0xDB, 0x27, 0x33, 0x51, 0x3D, 0xD9, 0xDF, 0x6A, 0x3C, 0x5A,
+        0xEC, 0x3C, 0xA9, 0xF5, 0xDA, 0xA7, 0x3E, 0xB4, 0x61, 0xC8, 0xBB,
+        0x12, 0xB7, 0xD4, 0xAA, 0xF5, 0x9A, 0xE9, 0xE5, 0x8B, 0xB7
+    };
+    secp256k1_pubkey pubkey;
+    secp256k1_pubkey enckey;
+
+    CHECK(secp256k1_ec_pubkey_create(CTX, &pubkey, seckey) == 1);
+    CHECK(secp256k1_ec_pubkey_create(CTX, &enckey, deckey) == 1);
+    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, adaptor_sig, &pubkey, msg, &enckey) == 0);
+
+    /* This explains how the inputs were obtained. */
+    {
+        unsigned char adaptor_sig_tmp[sizeof(adaptor_sig)];
+        /* Since the same nonce function with different algo arguments is used
+         * both for the adaptor sig secret nonce and the dleq secret nonce,
+         * but ecdsa_adaptor_nonce_function_overflowing ignores the algo arg
+         * (in violation of the documented API contract), the resulting secret
+         * nonces will be the same. */
+        CHECK(secp256k1_ecdsa_adaptor_encrypt(CTX, adaptor_sig_tmp, seckey, &enckey, msg, ecdsa_adaptor_nonce_function_overflowing, NULL) == 1);
+        CHECK(secp256k1_ecdsa_adaptor_verify(CTX, adaptor_sig_tmp, &pubkey, msg, &enckey) == 1);
+        /* Increment the last least significant bit of e. */
+        adaptor_sig_tmp[129] = 0x01;
+        CHECK(secp256k1_memcmp_var(adaptor_sig_tmp, adaptor_sig, sizeof(adaptor_sig)) == 0);
+    }
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(dleq_tests)
 REPEAT_TEST(adaptor_tests)
@@ -1126,6 +1193,7 @@ static const struct tf_test_entry tests_ecdsa_adaptor[] = {
     CASE1(dleq_tests),
     CASE1(adaptor_tests),
     CASE1(multi_hop_lock_tests),
+    CASE1(adaptor_test_issue335),
 };
 
 #endif /* SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H */
