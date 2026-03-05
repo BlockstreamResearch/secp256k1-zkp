@@ -22,7 +22,7 @@ help() {
     echo
     echo "Listing upstream merge commits:"
     echo "  To list merge commits in upstream/master that are missing from <branch> (oldest first):"
-    echo "    git log --oneline --merges \$(git merge-base upstream/master <branch>)..upstream/master | tac"
+    echo "    git log --oneline --topo-order --reverse --merges \$(git merge-base upstream/master <branch>)..upstream/master"
     echo "  These are candidates for [end]."
     exit 1
 }
@@ -53,15 +53,7 @@ range() {
     if [ "$#" = 1 ]; then
         RANGEEND_COMMIT=$1
     fi
-
-    COMMITS=$(git --no-pager log --oneline --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
-    COMMITS=$(echo "$COMMITS" | tac | awk '{ print $1 }' ORS=' ')
-    echo "Merging $COMMITS. Continue with y"
-    read -r yn
-    case $yn in
-        [Yy]* ) ;;
-        * ) exit 1;;
-    esac
+    COMMITS=$(git --no-pager log --pretty=format:%H --topo-order --reverse --merges "$RANGESTART_COMMIT".."$RANGEEND_COMMIT")
 }
 
 # Process -b <branch> and -h arguments
@@ -94,6 +86,7 @@ do
     PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\).*'/'\2'/)
     TITLE="$TITLE $PRNUM,"
     BODY=$(printf "%s\n%s" "$BODY" "$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\)'/'[bitcoin-core\/secp256k1#\2]'/)")
+    LAST_COMMIT="$COMMIT"
 done
 # Remove trailing ","
 TITLE=${TITLE%?}
@@ -108,6 +101,13 @@ Tips:
    Be aware that this may discard your index as well as the uncommitted changes and untracked files in your worktree.
 EOF
 )
+
+echo "Merging $TITLE. Continue with y"
+read -r yn
+case $yn in
+    [Yy]* ) ;;
+    * ) exit 1;;
+esac
 
 echo "-----------------------------------"
 echo "$TITLE"
@@ -140,4 +140,4 @@ EOT
 chmod +x "$FNAME"
 echo Run "$FNAME" after solving the merge conflicts
 
-git merge --no-edit -m "Merge commits '$COMMITS' into temp-merge-$PRNUM" $COMMITS
+git merge --no-edit -m "Merge upstream '${LAST_COMMIT:0:7}' into temp-merge-$PRNUM" "$LAST_COMMIT"
