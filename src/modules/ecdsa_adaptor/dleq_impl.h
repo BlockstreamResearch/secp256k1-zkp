@@ -1,6 +1,16 @@
 #ifndef SECP256K1_DLEQ_IMPL_H
 #define SECP256K1_DLEQ_IMPL_H
 
+#include <stdint.h>
+
+#include "../../../include/secp256k1_ecdsa_adaptor.h"
+
+#include "../../../src/eckey.h"
+#include "../../../src/ecmult_const.h"
+#include "../../../src/group.h"
+#include "../../../src/hash.h"
+#include "../../../src/scalar.h"
+
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("DLEQ")||SHA256("DLEQ"). */
 static void secp256k1_nonce_function_dleq_sha256_tagged(secp256k1_sha256 *sha) {

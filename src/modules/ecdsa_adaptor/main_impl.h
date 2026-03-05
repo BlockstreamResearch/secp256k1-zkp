@@ -7,8 +7,17 @@
 #ifndef SECP256K1_MODULE_ECDSA_ADAPTOR_MAIN_H
 #define SECP256K1_MODULE_ECDSA_ADAPTOR_MAIN_H
 
+#include <stdint.h>
+
 #include "../../../include/secp256k1_ecdsa_adaptor.h"
 #include "dleq_impl.h"
+
+#include "../../../src/eckey.h"
+#include "../../../src/ecmult.h"
+#include "../../../src/ecmult_const.h"
+#include "../../../src/group.h"
+#include "../../../src/hash.h"
+#include "../../../src/scalar.h"
 
 /* (R, R', s', dleq_proof) */
 static void secp256k1_ecdsa_adaptor_sig_serialize(unsigned char *adaptor_sig162, secp256k1_ge *r, secp256k1_ge *rp, const secp256k1_scalar *sp, const secp256k1_scalar *dleq_proof_e, const secp256k1_scalar *dleq_proof_s) {
