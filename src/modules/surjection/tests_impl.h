@@ -438,6 +438,9 @@ static void test_bad_serialize(void) {
     size_t serialized_len;
 
     proof.n_inputs = 0;
+    memset(proof.used_inputs, 0, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8);
+    memset(proof.data, 0, 32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS));
+
     serialized_len = 2 + 31;
     /* e0 is one byte too short */
     CHECK(secp256k1_surjectionproof_serialize(CTX, serialized_proof, &serialized_len, &proof) == 0);
