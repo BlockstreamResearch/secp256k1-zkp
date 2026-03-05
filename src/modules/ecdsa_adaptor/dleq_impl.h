@@ -90,6 +90,8 @@ static void secp256k1_dleq_pair(const secp256k1_ecmult_gen_context *ecmult_gen_c
 /* Generates a proof that the discrete logarithm of P1 to the secp256k1 base G is the
  * same as the discrete logarithm of P2 to the base Y */
 static int secp256k1_dleq_prove(const secp256k1_context* ctx, secp256k1_scalar *s, secp256k1_scalar *e, const secp256k1_scalar *sk, secp256k1_ge *gen2, secp256k1_ge *p1, secp256k1_ge *p2, secp256k1_nonce_function_hardened_ecdsa_adaptor noncefp, void *ndata) {
+    /* Note: r[2] and k are local to the DLEQ proof, and they differ from the
+     * values with the same identifiers in main_impl.h. */
     secp256k1_ge r[2];
     secp256k1_scalar k = { 0 };
     unsigned char sk32[32];
