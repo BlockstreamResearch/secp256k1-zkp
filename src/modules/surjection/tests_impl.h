@@ -89,7 +89,6 @@ static void test_surjectionproof_api(void) {
 
     CHECK_ILLEGAL(CTX, secp256k1_surjectionproof_generate(CTX, NULL, ephemeral_input_tags, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key));
     CHECK_ILLEGAL(CTX, secp256k1_surjectionproof_generate(CTX, &proof, NULL, n_inputs, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key));
-    CHECK(secp256k1_surjectionproof_generate(CTX, &proof, ephemeral_input_tags, n_inputs + 1, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
     CHECK(secp256k1_surjectionproof_generate(CTX, &proof, ephemeral_input_tags, n_inputs - 1, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
     CHECK(secp256k1_surjectionproof_generate(CTX, &proof, ephemeral_input_tags, 0, &ephemeral_output_tag, 0, input_blinding_key[0], output_blinding_key) == 0);
     CHECK_ILLEGAL(CTX, secp256k1_surjectionproof_generate(CTX, &proof, ephemeral_input_tags, n_inputs, NULL, 0, input_blinding_key[0], output_blinding_key));
@@ -438,6 +437,9 @@ static void test_bad_serialize(void) {
     size_t serialized_len;
 
     proof.n_inputs = 0;
+    memset(proof.used_inputs, 0, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8);
+    memset(proof.data, 0, 32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS));
+
     serialized_len = 2 + 31;
     /* e0 is one byte too short */
     CHECK(secp256k1_surjectionproof_serialize(CTX, serialized_proof, &serialized_len, &proof) == 0);

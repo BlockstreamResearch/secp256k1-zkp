@@ -25,7 +25,7 @@ static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) 
     size_t i;
     for (i = 0; i < count; i++) {
 #ifdef HAVE_BUILTIN_POPCOUNT
-	ret += __builtin_popcount(data[i]);
+        ret += __builtin_popcount(data[i]);
 #else
         ret += !!(data[i] & 0x1);
         ret += !!(data[i] & 0x2);
