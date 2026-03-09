@@ -1,0 +1,98 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM: "https://github.com/bitcoin-core/secp256k1.git" 
+      UPSTREAM_BRANCH: "master"
+      ORIGIN_BRANCH: "master"
+      MIN_UPSTREAM_MERGES: 1
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream & generate branch name & check for new commits
+        id: check_commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo set-default ${{ github.repository }}  # Set the default repo to the origin repository
+          git remote add upstream ${{ env.UPSTREAM }}
+          git fetch upstream
+          
+          MERGES=$(git rev-list --count --merges HEAD..upstream/${{ env.UPSTREAM_BRANCH }})
+          echo "Found $MERGES new merge commits in upstream."
+          
+          if [ "$MERGES" -lt ${{ env.MIN_UPSTREAM_MERGES }} ]; then
+            echo "Exiting."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Generate a sync branch name "sync-UPSTREAM_HEAD", where UPSTREAM_HEAD is a commit ID.
+          UPSTREAM_HEAD=$(git rev-parse --short upstream/${{ env.UPSTREAM_BRANCH }})
+          SYNC_BRANCH="sync-$UPSTREAM_HEAD"
+          echo "Sync branch name: $SYNC_BRANCH"
+          echo "SYNC_BRANCH=$SYNC_BRANCH" >> "$GITHUB_ENV"
+
+          # Check if the sync branch already exists in the origin repository
+          if git ls-remote --heads origin "$SYNC_BRANCH" | grep -q "$SYNC_BRANCH"; then
+            echo "Branch $SYNC_BRANCH already exists. Skipping the sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate PR metadata
+        id: branch_pr_metadata
+        if: steps.check_commits.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Call the sync script to generate PR title and body
+          ./contrib/sync-upstream.sh -b ${{ env.ORIGIN_BRANCH }} "$SYNC_BRANCH"
+
+      - name: Push a sync branch
+        id: push_branch
+        if: steps.check_commits.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Creating sync branch: $SYNC_BRANCH"
+          git checkout upstream/${{ env.UPSTREAM_BRANCH }}
+          git checkout -b "$SYNC_BRANCH"
+          git push -u origin "$SYNC_BRANCH"
+
+      - name: Create pull request
+        id: create_pr
+        if: steps.check_commits.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Execute the generated PR creation script
+          ./contrib/gh-pr-create.sh 
+
+      - name: Cleanup sync branch on failure
+        if: steps.push_branch.outcome == 'success' && steps.create_pr.outcome == 'failure'
+        run: |
+          echo "PR creation failed but branch was pushed. Deleting: $SYNC_BRANCH"
+          git push origin --delete "$SYNC_BRANCH"
