@@ -8,9 +8,9 @@ A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support
 Added features:
 * Experimental module for ECDSA adaptor signatures.
 * Experimental module for ECDSA sign-to-contract.
-* Experimental module for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
-* Experimental module for Bulletproofs++ range proofs.
+* Experimental modules for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
 * Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
+* Experimental module for Schnorr signature half-aggregation.
 
 Experimental features are made available for testing and review by the community. The APIs of these features should not be considered stable.
 
