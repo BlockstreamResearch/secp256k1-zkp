@@ -32,7 +32,7 @@ jobs:
       - name: Fetch upstream & generate branch name & check for new commits
         id: check_commits
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           gh repo set-default ${{ github.repository }}  # Set the default repo to the origin repository
           git remote add upstream ${{ env.UPSTREAM }}
@@ -66,7 +66,7 @@ jobs:
         id: branch_pr_metadata
         if: steps.check_commits.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           # Call the sync script to generate PR title and body
           ./contrib/sync-upstream.sh -b ${{ env.ORIGIN_BRANCH }} "$SYNC_BRANCH"
@@ -75,7 +75,7 @@ jobs:
         id: push_branch
         if: steps.check_commits.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           echo "Creating sync branch: $SYNC_BRANCH"
           git checkout upstream/${{ env.UPSTREAM_BRANCH }}
@@ -86,7 +86,7 @@ jobs:
         id: create_pr
         if: steps.check_commits.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           # Execute the generated PR creation script
           ./contrib/gh-pr-create.sh 
