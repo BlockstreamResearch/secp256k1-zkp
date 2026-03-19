@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT }}
 
       - name: Configure Git
         run: |
@@ -65,8 +66,6 @@ jobs:
       - name: Generate PR metadata
         id: branch_pr_metadata
         if: steps.check_commits.outputs.skip == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           # Call the sync script to generate PR title and body
           ./contrib/sync-upstream.sh -b ${{ env.ORIGIN_BRANCH }} "$SYNC_BRANCH"
@@ -74,8 +73,6 @@ jobs:
       - name: Push a sync branch
         id: push_branch
         if: steps.check_commits.outputs.skip == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           echo "Creating sync branch: $SYNC_BRANCH"
           git checkout upstream/${{ env.UPSTREAM_BRANCH }}
