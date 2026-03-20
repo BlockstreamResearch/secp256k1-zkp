@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
   pull-requests: write
 
 jobs:
@@ -33,7 +32,7 @@ jobs:
       - name: Fetch upstream & generate branch name & check for new commits
         id: check_commits
         env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh repo set-default ${{ github.repository }}  # Set the default repo to the origin repository
           git remote add upstream ${{ env.UPSTREAM }}
@@ -83,7 +82,7 @@ jobs:
         id: create_pr
         if: steps.check_commits.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Execute the generated PR creation script
           ./contrib/gh-pr-create.sh 
