@@ -124,11 +124,6 @@ static int secp256k1_bppp_commit(
     (void)c_vec_len;
 #endif
 
-    /* It is possible to extend to support n_vec and c_vec to not be power of
-    two. For the initial iterations of the code, we stick to powers of two for simplicity.*/
-    VERIFY_CHECK(secp256k1_is_power_of_two(n_vec_len));
-    VERIFY_CHECK(secp256k1_is_power_of_two(c_vec_len));
-
     /* Compute v = n_vec*n_vec*mu + l_vec*c_vec */
     secp256k1_weighted_scalar_inner_product(&v, n_vec, 0 /*a offset */, n_vec, 0 /*b offset*/, 1 /*step*/, n_vec_len, mu);
     secp256k1_scalar_inner_product(&l_c, l_vec, 0 /*a offset */, c_vec, 0 /*b offset*/, 1 /*step*/, l_vec_len);
@@ -204,6 +199,126 @@ static int ecmult_r_cb(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void 
     return 1;
 }
 
+/* Describes how many folding rounds to execute and how many scalars remain in
+ * the explicit tail at the end of the proof.
+ */
+typedef struct secp256k1_bppp_norm_layout {
+    size_t rounds;
+    size_t g_final_len;
+    size_t h_final_len;
+    size_t proof_len;
+} secp256k1_bppp_norm_layout;
+
+/* Choose between the original singleton-tail proof layout and the shorter
+ * variable-tail layout.
+ */
+typedef enum secp256k1_bppp_norm_layout_policy {
+    SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL = 0,
+    SECP256K1_BPPP_NORM_LAYOUT_LEGACY = 1
+} secp256k1_bppp_norm_layout_policy;
+
+/* The original BP++ implementation in this module always recursed down to a
+ * single n scalar and a single l scalar, which fixes the trailer at 64 bytes.
+ * This is kept as a separate layout for callers that want the old encoding.
+ */
+static secp256k1_bppp_norm_layout secp256k1_bppp_norm_layout_compute_legacy(size_t g_len, size_t h_len) {
+    secp256k1_bppp_norm_layout ret;
+    size_t g_rounds, h_rounds;
+
+    VERIFY_CHECK(g_len > 0 && h_len > 0);
+    VERIFY_CHECK(secp256k1_is_power_of_two(g_len));
+    VERIFY_CHECK(secp256k1_is_power_of_two(h_len));
+
+    g_rounds = secp256k1_bppp_log2_ceil(g_len);
+    h_rounds = secp256k1_bppp_log2_ceil(h_len);
+    ret.rounds = g_rounds > h_rounds ? g_rounds : h_rounds;
+    ret.g_final_len = 1;
+    ret.h_final_len = 1;
+    ret.proof_len = 65 * ret.rounds + 64;
+    return ret;
+}
+
+/* Compute the smallest proof layout under the "stop early and reveal the tail"
+ * strategy. After k rounds, the proof has k serialized (X,R) pairs plus the
+ * remaining n and l vectors.
+ */
+static secp256k1_bppp_norm_layout secp256k1_bppp_norm_layout_compute_optimal(size_t g_len, size_t h_len) {
+    secp256k1_bppp_norm_layout ret;
+
+    VERIFY_CHECK(g_len > 0 && h_len > 0);
+
+    {
+        size_t max_len = g_len > h_len ? g_len : h_len;
+        size_t min_len = g_len > h_len ? h_len : g_len;
+        size_t rounds_both_fit_3 = secp256k1_bppp_rounds_to_fit(max_len, 3);
+        size_t rounds_max_fit_5 = secp256k1_bppp_rounds_to_fit(max_len, 5);
+        size_t rounds_min_fit_3 = secp256k1_bppp_rounds_to_fit(min_len, 3);
+        size_t rounds_min_fit_1 = secp256k1_bppp_log2_ceil(min_len);
+
+        /* For short-tail proofs, after k rounds the proof size is
+         * L(k) = 65*k + 32*(ceil(g/2^k) + ceil(h/2^k)).
+         *
+         * Another round is beneficial iff it removes at least 3 tail scalars,
+         * i.e. floor(G/2) + floor(H/2) >= 3 for G = ceil(g/2^k), H = ceil(h/2^k).
+         * Sorting so G >= H, the stopping region is exactly:
+         *   1. G <= 3 and H <= 3, or
+         *   2. H == 1 and G <= 5.
+         *
+         * The first stop region is reached once both lengths fit in 3, so
+         * rounds_both_fit_3 is max(rounds_to_fit(max_len, 3),
+         * rounds_to_fit(min_len, 3)).
+         *
+         * The second stop region is reached once the smaller side has shrunk to
+         * 1 and the larger side fits in 5, so
+         * max(rounds_to_fit(max_len, 5), log2_ceil(min_len)).
+         *
+         * The minimizing round count is the earlier of those two threshold
+         * crossings. Once the fold enters either stop region, every further
+         * round costs 65 bytes but can save at most 64 bytes of tail.
+         */
+        if (rounds_min_fit_3 > rounds_both_fit_3) {
+            rounds_both_fit_3 = rounds_min_fit_3;
+        }
+        if (rounds_min_fit_1 > rounds_max_fit_5) {
+            rounds_max_fit_5 = rounds_min_fit_1;
+        }
+        ret.rounds = rounds_both_fit_3 < rounds_max_fit_5 ? rounds_both_fit_3 : rounds_max_fit_5;
+    }
+
+    ret.g_final_len = secp256k1_bppp_ceil_div_pow2(g_len, ret.rounds);
+    ret.h_final_len = secp256k1_bppp_ceil_div_pow2(h_len, ret.rounds);
+    ret.proof_len = 65 * ret.rounds + 32 * (ret.g_final_len + ret.h_final_len);
+    return ret;
+}
+
+/* Resolve the proof layout selected by the caller. Legacy layout is only
+ * defined for power-of-two lengths while the optimal layout works for any
+ * positive lengths.
+ */
+static int secp256k1_bppp_norm_layout_resolve(
+    secp256k1_bppp_norm_layout *layout,
+    size_t g_len,
+    size_t h_len,
+    secp256k1_bppp_norm_layout_policy layout_policy
+) {
+    VERIFY_CHECK(layout != NULL);
+    VERIFY_CHECK(g_len > 0 && h_len > 0);
+
+    if (layout_policy == SECP256K1_BPPP_NORM_LAYOUT_LEGACY) {
+        if (!secp256k1_is_power_of_two(g_len) || !secp256k1_is_power_of_two(h_len)) {
+            return 0;
+        }
+        *layout = secp256k1_bppp_norm_layout_compute_legacy(g_len, h_len);
+        return 1;
+    }
+
+    if (layout_policy != SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL) {
+        return 0;
+    }
+    *layout = secp256k1_bppp_norm_layout_compute_optimal(g_len, h_len);
+    return 1;
+}
+
 /* Recursively compute the norm argument proof satisfying the relation
  * <n_vec, n_vec>_mu + <c_vec, l_vec> = v for some commitment
  * C = v*G + <n_vec, G_vec> + <l_vec, H_vec>. <x, x>_mu is the weighted inner
@@ -226,6 +341,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     unsigned char* proof,
     size_t *proof_len,
     secp256k1_sha256* transcript, /* Transcript hash of the parent protocol */
+    secp256k1_bppp_norm_layout_policy layout_policy,
     const secp256k1_scalar* rho,
     secp256k1_ge* g_vec,
     size_t g_vec_len,
@@ -236,24 +352,27 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     secp256k1_scalar* c_vec,
     size_t c_vec_len
 ) {
+    secp256k1_bppp_norm_layout layout;
     secp256k1_scalar mu_f, rho_f = *rho;
     size_t proof_idx = 0;
+    size_t round = 0;
     ecmult_x_cb_data x_cb_data;
     ecmult_r_cb_data r_cb_data;
     size_t g_len = n_vec_len, h_len = l_vec_len;
     const size_t G_GENS_LEN = g_len;
 
+    /* Layout selection is part of the proof format, so the caller chooses it
+     * explicitly and the verifier must use the same policy.
+     */
+    if (!secp256k1_bppp_norm_layout_resolve(&layout, n_vec_len, c_vec_len, layout_policy)) {
+        return 0;
+    }
+
 #ifdef VERIFY
     {
-        size_t log_g_len_ver, log_h_len_ver, num_rounds_ver;
-        VERIFY_CHECK(g_len > 0 && h_len > 0); /* Precondition for secp256k1_bppp_log2() */
-        log_g_len_ver = secp256k1_bppp_log2(g_len);
-        log_h_len_ver = secp256k1_bppp_log2(h_len);
-        num_rounds_ver = log_g_len_ver > log_h_len_ver ? log_g_len_ver : log_h_len_ver;
-        /* Check proof sizes.*/
-        VERIFY_CHECK(*proof_len >= 65 * num_rounds_ver + 64);
+        VERIFY_CHECK(g_len > 0 && h_len > 0);
+        VERIFY_CHECK(*proof_len >= layout.proof_len);
         VERIFY_CHECK(g_vec_len == (n_vec_len + l_vec_len) && l_vec_len == c_vec_len);
-        VERIFY_CHECK(secp256k1_is_power_of_two(n_vec_len) && secp256k1_is_power_of_two(c_vec_len));
     }
 #else
     (void)g_vec_len;
@@ -272,8 +391,11 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
     secp256k1_scalar_sqr(&mu_f, &rho_f);
 
 
-    while (g_len > 1 || h_len > 1) {
+    for (round = 0; round < layout.rounds; round++) {
+        int fold_g = g_len > 1;
         size_t i, num_points;
+        size_t g_pairs = g_len / 2;
+        size_t h_pairs = h_len / 2;
         secp256k1_scalar mu_sq, rho_inv, c0_l1, c1_l0, x_v, c1_l1, r_v;
         secp256k1_gej rj, xj;
         secp256k1_ge r_ge, x_ge;
@@ -282,10 +404,13 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         secp256k1_scalar_inverse_var(&rho_inv, &rho_f);
         secp256k1_scalar_sqr(&mu_sq, &mu_f);
 
-        /* Compute the X commitment X = WIP(rho_inv*n0,n1)_mu2 * g + r<n1,G> + <rho_inv*x0, G1> */
-        secp256k1_scalar_inner_product(&c0_l1, c_vec, 0, l_vec, 1, 2, h_len/2);
-        secp256k1_scalar_inner_product(&c1_l0, c_vec, 1, l_vec, 0, 2, h_len/2);
-        secp256k1_weighted_scalar_inner_product(&x_v, n_vec, 0, n_vec, 1, 2, g_len/2, &mu_sq);
+        /* Cross-terms only come from actual pairs. An unmatched last element is
+         * carried to the next round as if paired with a zero scalar and the
+         * point at infinity.
+         */
+        secp256k1_scalar_inner_product(&c0_l1, c_vec, 0, l_vec, 1, 2, h_pairs);
+        secp256k1_scalar_inner_product(&c1_l0, c_vec, 1, l_vec, 0, 2, h_pairs);
+        secp256k1_weighted_scalar_inner_product(&x_v, n_vec, 0, n_vec, 1, 2, g_pairs, &mu_sq);
         secp256k1_scalar_mul(&x_v, &x_v, &rho_inv);
         secp256k1_scalar_add(&x_v, &x_v, &x_v);
         secp256k1_scalar_add(&x_v, &x_v, &c0_l1);
@@ -293,19 +418,19 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
 
         x_cb_data.rho = &rho_f;
         x_cb_data.rho_inv = &rho_inv;
-        x_cb_data.n_len = g_len >= 2 ? g_len : 0;
-        num_points = x_cb_data.n_len + (h_len >= 2 ? h_len : 0);
+        x_cb_data.n_len = 2 * g_pairs;
+        num_points = x_cb_data.n_len + 2 * h_pairs;
 
         if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &xj, &x_v, ecmult_x_cb, (void*)&x_cb_data, num_points)) {
             return 0;
         }
 
-        secp256k1_weighted_scalar_inner_product(&r_v, n_vec, 1, n_vec, 1, 2, g_len/2, &mu_sq);
-        secp256k1_scalar_inner_product(&c1_l1, c_vec, 1, l_vec, 1, 2, h_len/2);
+        secp256k1_weighted_scalar_inner_product(&r_v, n_vec, 1, n_vec, 1, 2, g_pairs, &mu_sq);
+        secp256k1_scalar_inner_product(&c1_l1, c_vec, 1, l_vec, 1, 2, h_pairs);
         secp256k1_scalar_add(&r_v, &r_v, &c1_l1);
 
-        r_cb_data.n_len = g_len/2;
-        num_points = r_cb_data.n_len + h_len/2;
+        r_cb_data.n_len = g_pairs;
+        num_points = r_cb_data.n_len + h_pairs;
         if (!secp256k1_ecmult_multi_var(&ctx->error_callback, scratch, &rj, &r_v, ecmult_r_cb, (void*)&r_cb_data, num_points)) {
             return 0;
         }
@@ -320,7 +445,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
         secp256k1_bppp_challenge_scalar(&gamma, transcript, 0);
 
         if (g_len > 1) {
-            for (i = 0; i < g_len; i = i + 2) {
+            for (i = 0; i + 1 < g_len; i = i + 2) {
                 secp256k1_scalar nl, nr;
                 secp256k1_gej gl, gr;
                 secp256k1_scalar_mul(&nl, &n_vec[i], &rho_inv);
@@ -334,10 +459,20 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
                 secp256k1_gej_add_var(&gl, &gl, &gr, NULL);
                 secp256k1_ge_set_gej_var(&g_vec[i/2], &gl);
             }
+            if ((g_len & 1) != 0) {
+                secp256k1_gej gl;
+                /* The unmatched G-side term survives unchanged except for the
+                 * rho-weighting that every left half receives in this round.
+                 */
+                secp256k1_scalar_mul(&n_vec[g_pairs], &n_vec[g_len - 1], &rho_inv);
+                secp256k1_gej_set_ge(&gl, &g_vec[g_len - 1]);
+                secp256k1_ecmult(&gl, &gl, &rho_f, NULL);
+                secp256k1_ge_set_gej_var(&g_vec[g_pairs], &gl);
+            }
         }
 
         if (h_len > 1) {
-            for (i = 0; i < h_len; i = i + 2) {
+            for (i = 0; i + 1 < h_len; i = i + 2) {
                 secp256k1_scalar temp1;
                 secp256k1_gej grj;
                 secp256k1_scalar_mul(&temp1, &c_vec[i + 1], &gamma);
@@ -351,16 +486,45 @@ static int secp256k1_bppp_rangeproof_norm_product_prove(
                 secp256k1_gej_add_ge_var(&grj, &grj, &g_vec[G_GENS_LEN + i], NULL);
                 secp256k1_ge_set_gej_var(&g_vec[G_GENS_LEN + i/2], &grj);
             }
+            if ((h_len & 1) != 0) {
+                /* The unmatched H-side term has no partner, so it is copied
+                 * through to the next round unchanged.
+                 */
+                c_vec[h_pairs] = c_vec[h_len - 1];
+                l_vec[h_pairs] = l_vec[h_len - 1];
+                g_vec[G_GENS_LEN + h_pairs] = g_vec[G_GENS_LEN + h_len - 1];
+            }
         }
-        g_len = g_len / 2;
-        h_len = h_len / 2;
-        rho_f = mu_f;
-        mu_f = mu_sq;
+        g_len = (g_len + 1) / 2;
+        h_len = (h_len + 1) / 2;
+        if (fold_g) {
+            /* mu_f only changes in rounds that actually fold the weighted norm
+             * relation. Once the G-side has length 1, later H-only folds leave
+             * the norm parameter unchanged.
+             */
+            rho_f = mu_f;
+            mu_f = mu_sq;
+        }
     }
 
-    secp256k1_scalar_get_b32(&proof[proof_idx], &n_vec[0]);
-    secp256k1_scalar_get_b32(&proof[proof_idx + 32], &l_vec[0]);
-    proof_idx += 64;
+    VERIFY_CHECK(g_len == layout.g_final_len);
+    VERIFY_CHECK(h_len == layout.h_final_len);
+
+    {
+        size_t i;
+        /* The proof ends with the remaining n tail followed by the remaining l
+         * tail. In the legacy layout these lengths are both 1.
+         */
+        for (i = 0; i < g_len; i++) {
+            secp256k1_scalar_get_b32(&proof[proof_idx], &n_vec[i]);
+            proof_idx += 32;
+        }
+        for (i = 0; i < h_len; i++) {
+            secp256k1_scalar_get_b32(&proof[proof_idx], &l_vec[i]);
+            proof_idx += 32;
+        }
+    }
+    VERIFY_CHECK(proof_idx == layout.proof_len);
     *proof_len = proof_idx;
     return 1;
 }
@@ -418,10 +582,11 @@ static int ec_mult_verify_cb2(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx
     return 1;
 }
 
-/* Verify the proof. This function modifies the generators, c_vec and the challenge r. The
-   caller should make sure to back them up if they need to be reused.
-*/
-static int secp256k1_bppp_rangeproof_norm_product_verify(
+/* Verify a legacy singleton-tail proof. This follows the original verifier
+ * strategy, which derives the final multiexponent coefficients directly from
+ * the proof challenges.
+ */
+static int secp256k1_bppp_rangeproof_norm_product_verify_legacy(
     const secp256k1_context* ctx,
     secp256k1_scratch_space* scratch,
     const unsigned char* proof,
@@ -434,27 +599,29 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     size_t c_vec_len,
     const secp256k1_ge* commit
 ) {
+    secp256k1_bppp_norm_layout layout;
     secp256k1_scalar rho_f, mu_f, v, n, l, rho_inv, h_c;
     secp256k1_scalar *gammas, *s_g, *s_h, *rho_inv_pows;
     secp256k1_gej res1, res2;
     size_t i = 0, scratch_checkpoint;
     int overflow;
-    size_t log_g_len, log_h_len;
-    size_t n_rounds;
+    size_t log_g_len, n_rounds;
     size_t h_len = c_vec_len;
 
     if (g_len == 0 || c_vec_len == 0) {
         return 0;
     }
-    log_g_len = secp256k1_bppp_log2(g_len);
-    log_h_len = secp256k1_bppp_log2(c_vec_len);
-    n_rounds = log_g_len > log_h_len ? log_g_len : log_h_len;
-
-    if (g_vec->n != (h_len + g_len) || (proof_len != 65 * n_rounds + 64)) {
+    if (secp256k1_scalar_is_zero(rho)) {
+        return 0;
+    }
+    if (!secp256k1_bppp_norm_layout_resolve(&layout, g_len, c_vec_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY)) {
         return 0;
     }
 
-    if (!secp256k1_is_power_of_two(g_len) ||  !secp256k1_is_power_of_two(h_len)) {
+    log_g_len = secp256k1_bppp_log2(g_len);
+    n_rounds = layout.rounds;
+
+    if (g_vec->n != (h_len + g_len) || proof_len != layout.proof_len) {
         return 0;
     }
 
@@ -462,9 +629,7 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     if (overflow) return 0;
     secp256k1_scalar_set_b32(&l, &proof[n_rounds*65 + 32], &overflow); /* l */
     if (overflow) return 0;
-    if (secp256k1_scalar_is_zero(rho)) return 0;
 
-    /* Collect the gammas in a new vector */
     scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
     gammas = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, n_rounds * sizeof(secp256k1_scalar));
     s_g = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, g_len * sizeof(secp256k1_scalar));
@@ -475,11 +640,11 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
         return 0;
     }
 
-    /* Compute powers of rho_inv. Later used in g_factor computations*/
+    /* Compute powers of rho_inv. Later used in g_factor computations. */
     secp256k1_scalar_inverse_var(&rho_inv, rho);
     secp256k1_bppp_powers_of_rho(rho_inv_pows, &rho_inv, log_g_len);
 
-    /* Compute rho_f = rho^(2^log_g_len) */
+    /* Compute rho_f = rho^(2^log_g_len). */
     rho_f = *rho;
     for (i = 0; i < log_g_len; i++) {
         secp256k1_scalar_sqr(&rho_f, &rho_f);
@@ -493,7 +658,8 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     }
     /* s_g[0] = n * \prod_{j=0}^{log_g_len - 1} rho^(2^j)
      *        = n * rho^(2^log_g_len - 1)
-     *        = n * rho_f * rho_inv */
+     *        = n * rho_f * rho_inv
+     */
     secp256k1_scalar_mul(&s_g[0], &n, &rho_f);
     secp256k1_scalar_mul(&s_g[0], &s_g[0], &rho_inv);
     for (i = 1; i < g_len; i++) {
@@ -502,7 +668,8 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
         /* This combines the two multiplications of gammas and rho_invs in a
          * single loop.
          * s_g[i] = s_g[i - nearest_pow_of_two]
-         *            * e[log_i] * rho_inv^(2^log_i) */
+         *            * e[log_i] * rho_inv^(2^log_i)
+         */
         secp256k1_scalar_mul(&s_g[i], &s_g[i - nearest_pow_of_two], &gammas[log_i]);
         secp256k1_scalar_mul(&s_g[i], &s_g[i], &rho_inv_pows[log_i]);
     }
@@ -513,8 +680,8 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
         size_t nearest_pow_of_two = (size_t)1 << log_i;
         secp256k1_scalar_mul(&s_h[i], &s_h[i - nearest_pow_of_two], &gammas[log_i]);
     }
-    secp256k1_scalar_inner_product(&h_c, c_vec, 0 /* a_offset */ , s_h, 0 /* b_offset */, 1 /* step */, h_len);
-    /* Compute v = n*n*mu_f + l*h_c where mu_f = rho_f^2 */
+    secp256k1_scalar_inner_product(&h_c, c_vec, 0 /* a_offset */, s_h, 0 /* b_offset */, 1 /* step */, h_len);
+    /* Compute v = n*n*mu_f + l*h_c where mu_f = rho_f^2. */
     secp256k1_scalar_sqr(&mu_f, &rho_f);
     secp256k1_scalar_mul(&v, &n, &n);
     secp256k1_scalar_mul(&v, &v, &mu_f);
@@ -547,5 +714,212 @@ static int secp256k1_bppp_rangeproof_norm_product_verify(
     secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
 
     return secp256k1_gej_eq_var(&res1, &res2);
+}
+
+/* Verify an optimal variable-tail proof by replaying the public folds and then
+ * checking the final explicit tail commitment.
+ */
+static int secp256k1_bppp_rangeproof_norm_product_verify_optimal(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const unsigned char* proof,
+    size_t proof_len,
+    secp256k1_sha256* transcript,
+    const secp256k1_scalar* rho,
+    secp256k1_bppp_generators* g_vec,
+    size_t g_len,
+    secp256k1_scalar* c_vec,
+    size_t c_vec_len,
+    const secp256k1_ge* commit
+) {
+    secp256k1_bppp_norm_layout layout;
+    secp256k1_scalar rho_f, mu_f;
+    secp256k1_scalar *n_vec, *l_vec;
+    secp256k1_ge expected_commit, x_ge, r_ge;
+    secp256k1_gej commitj, tmpj, expected_commitj;
+    size_t i, round, proof_idx = 0, scratch_checkpoint;
+    int overflow;
+    size_t h_len = c_vec_len;
+    size_t g_work_len = g_len, h_work_len = c_vec_len;
+    const size_t G_GENS_LEN = g_len;
+    secp256k1_bppp_generators final_gens;
+
+    if (g_len == 0 || c_vec_len == 0) {
+        return 0;
+    }
+    if (secp256k1_scalar_is_zero(rho)) {
+        return 0;
+    }
+    layout = secp256k1_bppp_norm_layout_compute_optimal(g_len, c_vec_len);
+
+    if (g_vec->n != (h_len + g_len) || proof_len != layout.proof_len) {
+        return 0;
+    }
+
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&ctx->error_callback, scratch);
+    n_vec = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, layout.g_final_len * sizeof(secp256k1_scalar));
+    l_vec = (secp256k1_scalar*)secp256k1_scratch_alloc(&ctx->error_callback, scratch, layout.h_final_len * sizeof(secp256k1_scalar));
+    if (n_vec == NULL || l_vec == NULL) {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+
+    /* Accumulate the verifier-side commitment updates round by round and then
+     * compare against a direct commitment to the final folded tail.
+     */
+    secp256k1_gej_set_ge(&commitj, commit);
+    rho_f = *rho;
+    secp256k1_scalar_sqr(&mu_f, &rho_f);
+
+    for (round = 0; round < layout.rounds; round++) {
+        int fold_g = g_work_len > 1;
+        size_t g_pairs = g_work_len / 2;
+        size_t h_pairs = h_work_len / 2;
+        secp256k1_scalar gamma, gamma_sq_minus_one, mu_sq;
+
+        if (!secp256k1_bppp_parse_one_of_points(&x_ge, &proof[proof_idx], 0) ||
+            !secp256k1_bppp_parse_one_of_points(&r_ge, &proof[proof_idx], 1)) {
+            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+            return 0;
+        }
+        secp256k1_sha256_write(transcript, &proof[proof_idx], 65);
+        secp256k1_bppp_challenge_scalar(&gamma, transcript, 0);
+        proof_idx += 65;
+
+        secp256k1_gej_set_ge(&tmpj, &x_ge);
+        secp256k1_ecmult(&tmpj, &tmpj, &gamma, NULL);
+        secp256k1_gej_add_var(&commitj, &commitj, &tmpj, NULL);
+
+        secp256k1_scalar_sqr(&gamma_sq_minus_one, &gamma);
+        {
+            secp256k1_scalar minus_one;
+            secp256k1_scalar_set_int(&minus_one, 1);
+            secp256k1_scalar_negate(&minus_one, &minus_one);
+            secp256k1_scalar_add(&gamma_sq_minus_one, &gamma_sq_minus_one, &minus_one);
+        }
+        secp256k1_gej_set_ge(&tmpj, &r_ge);
+        secp256k1_ecmult(&tmpj, &tmpj, &gamma_sq_minus_one, NULL);
+        secp256k1_gej_add_var(&commitj, &commitj, &tmpj, NULL);
+
+        if (g_work_len > 1) {
+            for (i = 0; i + 1 < g_work_len; i = i + 2) {
+                secp256k1_gej gl, gr;
+                secp256k1_gej_set_ge(&gl, &g_vec->gens[i]);
+                secp256k1_ecmult(&gl, &gl, &rho_f, NULL);
+                secp256k1_gej_set_ge(&gr, &g_vec->gens[i + 1]);
+                secp256k1_ecmult(&gr, &gr, &gamma, NULL);
+                secp256k1_gej_add_var(&gl, &gl, &gr, NULL);
+                secp256k1_ge_set_gej_var(&g_vec->gens[i/2], &gl);
+            }
+            if ((g_work_len & 1) != 0) {
+                secp256k1_gej gl;
+                /* Unmatched G-side generators survive as the left term of the
+                 * fold, exactly mirroring the prover.
+                 */
+                secp256k1_gej_set_ge(&gl, &g_vec->gens[g_work_len - 1]);
+                secp256k1_ecmult(&gl, &gl, &rho_f, NULL);
+                secp256k1_ge_set_gej_var(&g_vec->gens[g_pairs], &gl);
+            }
+        }
+        if (h_work_len > 1) {
+            for (i = 0; i + 1 < h_work_len; i = i + 2) {
+                secp256k1_scalar temp1;
+                secp256k1_gej grj;
+                secp256k1_scalar_mul(&temp1, &c_vec[i + 1], &gamma);
+                secp256k1_scalar_add(&c_vec[i/2], &c_vec[i], &temp1);
+
+                secp256k1_gej_set_ge(&grj, &g_vec->gens[G_GENS_LEN + i + 1]);
+                secp256k1_ecmult(&grj, &grj, &gamma, NULL);
+                secp256k1_gej_add_ge_var(&grj, &grj, &g_vec->gens[G_GENS_LEN + i], NULL);
+                secp256k1_ge_set_gej_var(&g_vec->gens[G_GENS_LEN + i/2], &grj);
+            }
+            if ((h_work_len & 1) != 0) {
+                /* Unmatched H-side terms are copied through unchanged. */
+                c_vec[h_pairs] = c_vec[h_work_len - 1];
+                g_vec->gens[G_GENS_LEN + h_pairs] = g_vec->gens[G_GENS_LEN + h_work_len - 1];
+            }
+        }
+
+        g_work_len = (g_work_len + 1) / 2;
+        h_work_len = (h_work_len + 1) / 2;
+        if (fold_g) {
+            /* mu_f tracks the weighted norm parameter for the current G-side
+             * length. Once the G-side reaches length 1, H-only folds leave it
+             * unchanged.
+             */
+            rho_f = mu_f;
+            secp256k1_scalar_sqr(&mu_sq, &mu_f);
+            mu_f = mu_sq;
+        }
+    }
+
+    if (g_work_len != layout.g_final_len || h_work_len != layout.h_final_len) {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+
+    for (i = 0; i < layout.g_final_len; i++) {
+        secp256k1_scalar_set_b32(&n_vec[i], &proof[proof_idx], &overflow);
+        if (overflow) {
+            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+            return 0;
+        }
+        proof_idx += 32;
+    }
+    for (i = 0; i < layout.h_final_len; i++) {
+        secp256k1_scalar_set_b32(&l_vec[i], &proof[proof_idx], &overflow);
+        if (overflow) {
+            secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+            return 0;
+        }
+        proof_idx += 32;
+    }
+    if (proof_idx != proof_len) {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+
+    /* secp256k1_bppp_commit expects all remaining G generators followed by all
+     * remaining H generators in one contiguous array. Pack the final H tail down
+     * into the same caller-owned array.
+     */
+    memmove(&g_vec->gens[layout.g_final_len], &g_vec->gens[G_GENS_LEN], layout.h_final_len * sizeof(secp256k1_ge));
+    final_gens.n = layout.g_final_len + layout.h_final_len;
+    final_gens.gens = g_vec->gens;
+    if (!secp256k1_bppp_commit(ctx, scratch, &expected_commit, &final_gens, n_vec, layout.g_final_len, l_vec, layout.h_final_len, c_vec, layout.h_final_len, &mu_f)) {
+        secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+    secp256k1_gej_set_ge(&expected_commitj, &expected_commit);
+
+    secp256k1_scratch_apply_checkpoint(&ctx->error_callback, scratch, scratch_checkpoint);
+
+    return secp256k1_gej_eq_var(&commitj, &expected_commitj);
+}
+
+/* Verify the proof. The optimal path folds the supplied generators and c_vec in
+ * place while the legacy path only reads them.
+ */
+static int secp256k1_bppp_rangeproof_norm_product_verify(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const unsigned char* proof,
+    size_t proof_len,
+    secp256k1_sha256* transcript,
+    secp256k1_bppp_norm_layout_policy layout_policy,
+    const secp256k1_scalar* rho,
+    secp256k1_bppp_generators* g_vec,
+    size_t g_len,
+    secp256k1_scalar* c_vec,
+    size_t c_vec_len,
+    const secp256k1_ge* commit
+) {
+    if (layout_policy == SECP256K1_BPPP_NORM_LAYOUT_LEGACY) {
+        return secp256k1_bppp_rangeproof_norm_product_verify_legacy(ctx, scratch, proof, proof_len, transcript, rho, g_vec, g_len, c_vec, c_vec_len, commit);
+    }
+    if (layout_policy == SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL) {
+        return secp256k1_bppp_rangeproof_norm_product_verify_optimal(ctx, scratch, proof, proof_len, transcript, rho, g_vec, g_len, c_vec, c_vec_len, commit);
+    }
+    return 0;
 }
 #endif
