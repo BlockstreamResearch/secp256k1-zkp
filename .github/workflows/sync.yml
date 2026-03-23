@@ -5,9 +5,6 @@ on:
     - cron: '0 0 1 * *'
   workflow_dispatch:
 
-permissions:
-  pull-requests: write
-
 jobs:
   sync-upstream:
     runs-on: ubuntu-latest
@@ -32,7 +29,7 @@ jobs:
       - name: Fetch upstream & generate branch name & check for new commits
         id: check_commits
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           gh repo set-default ${{ github.repository }}  # Set the default repo to the origin repository
           git remote add upstream ${{ env.UPSTREAM }}
@@ -82,7 +79,7 @@ jobs:
         id: create_pr
         if: steps.check_commits.outputs.skip == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           # Execute the generated PR creation script
           ./contrib/gh-pr-create.sh 

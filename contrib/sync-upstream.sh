@@ -69,7 +69,7 @@ PR_BRANCH=$1
 range
 
 TITLE="Upstream PRs"
-BODY=""
+BODY="${GITHUB_ACTIONS+This PR has been created by a GitHub Actions workflow without human involvement.}"$'\n'
 for COMMIT in $COMMITS
 do
     PRNUM=$(git log -1 "$COMMIT" --pretty=format:%s | sed s/'Merge \(bitcoin-core\/secp256k1\)\?#\([0-9]*\).*'/'\2'/)
