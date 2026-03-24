@@ -23,7 +23,7 @@ extern "C" {
  * an unmodified way.
  *
  * Another difference is that the implementation omits the last ring's commitment
- * from the proof and recovered by the verifier by subtracting all other digit
+ * from the proof, which is recovered by the verifier by subtracting all other digit
  * commitments from the total, reducing proof size by one group element.
  *
  * Furthermore, in the implementation every hash calculation includes a message
