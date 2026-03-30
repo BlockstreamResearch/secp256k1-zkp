@@ -154,6 +154,28 @@ static void test_log_exp(void) {
     CHECK(secp256k1_bppp_log2(255) == 7);
     CHECK(secp256k1_bppp_log2(256) == 8);
     CHECK(secp256k1_bppp_log2(257) == 8);
+
+    CHECK(secp256k1_bppp_log2_ceil(1) == 0);
+    CHECK(secp256k1_bppp_log2_ceil(2) == 1);
+    CHECK(secp256k1_bppp_log2_ceil(3) == 2);
+    CHECK(secp256k1_bppp_log2_ceil(255) == 8);
+    CHECK(secp256k1_bppp_log2_ceil(256) == 8);
+    CHECK(secp256k1_bppp_log2_ceil(257) == 9);
+
+    CHECK(secp256k1_bppp_ceil_div(1, 1) == 1);
+    CHECK(secp256k1_bppp_ceil_div(5, 5) == 1);
+    CHECK(secp256k1_bppp_ceil_div(6, 5) == 2);
+
+    CHECK(secp256k1_bppp_ceil_div_pow2(9, 0) == 9);
+    CHECK(secp256k1_bppp_ceil_div_pow2(9, 1) == 5);
+    CHECK(secp256k1_bppp_ceil_div_pow2(9, 2) == 3);
+    CHECK(secp256k1_bppp_ceil_div_pow2(9, 3) == 2);
+    CHECK(secp256k1_bppp_ceil_div_pow2(9, 4) == 1);
+
+    CHECK(secp256k1_bppp_rounds_to_fit(9, 5) == 1);
+    CHECK(secp256k1_bppp_rounds_to_fit(9, 3) == 2);
+    CHECK(secp256k1_bppp_rounds_to_fit(64, 5) == 4);
+    CHECK(secp256k1_bppp_rounds_to_fit(64, 3) == 5);
 }
 
 static void test_norm_util_helpers(void) {
@@ -191,6 +213,109 @@ static void test_norm_util_helpers(void) {
     secp256k1_scalar_set_int(&res, 4); CHECK(secp256k1_scalar_eq(&res, &rho_pows[1]));
     secp256k1_scalar_set_int(&res, 16); CHECK(secp256k1_scalar_eq(&res, &rho_pows[2]));
     secp256k1_scalar_set_int(&res, 256); CHECK(secp256k1_scalar_eq(&res, &rho_pows[3]));
+}
+
+static secp256k1_bppp_norm_layout secp256k1_bppp_norm_layout_compute_bruteforce_optimal(size_t g_len, size_t h_len) {
+    secp256k1_bppp_norm_layout ret;
+    size_t rounds = 0;
+
+    VERIFY_CHECK(g_len > 0 && h_len > 0);
+
+    ret.rounds = 0;
+    ret.g_final_len = g_len;
+    ret.h_final_len = h_len;
+    ret.proof_len = 32 * (g_len + h_len);
+
+    while (g_len > 1 || h_len > 1) {
+        size_t proof_len;
+
+        g_len = (g_len + 1) / 2;
+        h_len = (h_len + 1) / 2;
+        rounds++;
+        proof_len = 65 * rounds + 32 * (g_len + h_len);
+        if (proof_len < ret.proof_len) {
+            ret.rounds = rounds;
+            ret.g_final_len = g_len;
+            ret.h_final_len = h_len;
+            ret.proof_len = proof_len;
+        }
+    }
+    return ret;
+}
+
+static void test_norm_layout_formula(void) {
+    size_t g_len, h_len;
+    for (g_len = 1; g_len <= 128; g_len++) {
+        for (h_len = 1; h_len <= 128; h_len++) {
+            secp256k1_bppp_norm_layout brute;
+            secp256k1_bppp_norm_layout optimal;
+
+            brute = secp256k1_bppp_norm_layout_compute_bruteforce_optimal(g_len, h_len);
+            optimal = secp256k1_bppp_norm_layout_compute_optimal(g_len, h_len);
+            CHECK(brute.rounds == optimal.rounds);
+            CHECK(brute.g_final_len == optimal.g_final_len);
+            CHECK(brute.h_final_len == optimal.h_final_len);
+            CHECK(brute.proof_len == optimal.proof_len);
+
+            if (secp256k1_is_power_of_two(g_len) && secp256k1_is_power_of_two(h_len)) {
+                secp256k1_bppp_norm_layout legacy = secp256k1_bppp_norm_layout_compute_legacy(g_len, h_len);
+                size_t legacy_rounds = secp256k1_bppp_log2_ceil(g_len);
+                if (legacy_rounds < secp256k1_bppp_log2_ceil(h_len)) {
+                    legacy_rounds = secp256k1_bppp_log2_ceil(h_len);
+                }
+                CHECK(legacy.rounds == legacy_rounds);
+                CHECK(legacy.g_final_len == 1);
+                CHECK(legacy.h_final_len == 1);
+                CHECK(legacy.proof_len == 65 * legacy_rounds + 64);
+            }
+        }
+    }
+
+    {
+        secp256k1_bppp_norm_layout optimal = secp256k1_bppp_norm_layout_compute_optimal(4, 4);
+        secp256k1_bppp_norm_layout legacy = secp256k1_bppp_norm_layout_compute_legacy(4, 4);
+        CHECK(optimal.proof_len == 193);
+        CHECK(legacy.proof_len == 194);
+    }
+}
+
+static size_t secp256k1_bppp_optimal_mu_updates_prover(size_t g_len, size_t h_len) {
+    secp256k1_bppp_norm_layout layout = secp256k1_bppp_norm_layout_compute_optimal(g_len, h_len);
+    size_t round;
+    size_t updates = 0;
+
+    for (round = 0; round < layout.rounds; round++) {
+        if (g_len > 1) {
+            updates++;
+        }
+        g_len = (g_len + 1) / 2;
+        h_len = (h_len + 1) / 2;
+    }
+    return updates;
+}
+
+static size_t secp256k1_bppp_optimal_mu_updates_verifier(size_t g_len, size_t h_len) {
+    secp256k1_bppp_norm_layout layout = secp256k1_bppp_norm_layout_compute_optimal(g_len, h_len);
+    size_t round;
+    size_t updates = 0;
+
+    for (round = 0; round < layout.rounds; round++) {
+        if (g_len > 1) {
+            updates++;
+        }
+        g_len = (g_len + 1) / 2;
+        h_len = (h_len + 1) / 2;
+    }
+    return updates;
+}
+
+static void test_optimal_mu_evolution_consistency(void) {
+    /* The optimal prover and verifier must evolve rho_f/mu_f in the same way.
+     * This case forces H-only rounds after the G-side has already shrunk to 1.
+     */
+    CHECK(secp256k1_bppp_optimal_mu_updates_prover(1, 64) == secp256k1_bppp_optimal_mu_updates_verifier(1, 64));
+    CHECK(secp256k1_bppp_optimal_mu_updates_prover(1, 64) == secp256k1_bppp_log2_ceil(1));
+    CHECK(secp256k1_bppp_optimal_mu_updates_prover(3, 17) == secp256k1_bppp_log2_ceil(3));
 }
 
 
@@ -336,6 +461,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove_const(
     unsigned char* proof,
     size_t *proof_len,
     secp256k1_sha256 *transcript,
+    secp256k1_bppp_norm_layout_policy layout_policy,
     const secp256k1_scalar* rho,
     const secp256k1_ge* g_vec,
     size_t g_vec_len,
@@ -360,6 +486,7 @@ static int secp256k1_bppp_rangeproof_norm_product_prove_const(
         proof,
         proof_len,
         transcript, /* Transcript hash of the parent protocol */
+        layout_policy,
         rho,
         gs,
         g_vec_len,
@@ -369,6 +496,57 @@ static int secp256k1_bppp_rangeproof_norm_product_prove_const(
         l_vec_len,
         cs,
         c_vec_len
+    );
+    secp256k1_scratch_apply_checkpoint(&CTX->error_callback, scratch, scratch_checkpoint);
+    return res;
+}
+
+/* Same as secp256k1_bppp_rangeproof_norm_product_verify but does not modify the
+ * supplied generators or c_vec.
+ */
+static int secp256k1_bppp_rangeproof_norm_product_verify_const(
+    secp256k1_scratch_space* scratch,
+    const unsigned char* proof,
+    size_t proof_len,
+    secp256k1_sha256 *transcript,
+    secp256k1_bppp_norm_layout_policy layout_policy,
+    const secp256k1_scalar* rho,
+    const secp256k1_bppp_generators* g_vec,
+    size_t g_len,
+    const secp256k1_scalar* c_vec,
+    size_t c_vec_len,
+    const secp256k1_ge* commit
+) {
+    secp256k1_scalar *cs;
+    secp256k1_ge *gs;
+    secp256k1_bppp_generators gens_tmp;
+    size_t scratch_checkpoint;
+    int res;
+
+    scratch_checkpoint = secp256k1_scratch_checkpoint(&CTX->error_callback, scratch);
+    cs = (secp256k1_scalar*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, c_vec_len * sizeof(secp256k1_scalar));
+    gs = (secp256k1_ge*)secp256k1_scratch_alloc(&CTX->error_callback, scratch, g_vec->n * sizeof(secp256k1_ge));
+    if (cs == NULL || gs == NULL) {
+        secp256k1_scratch_apply_checkpoint(&CTX->error_callback, scratch, scratch_checkpoint);
+        return 0;
+    }
+    memcpy(cs, c_vec, c_vec_len * sizeof(secp256k1_scalar));
+    memcpy(gs, g_vec->gens, g_vec->n * sizeof(secp256k1_ge));
+    gens_tmp.n = g_vec->n;
+    gens_tmp.gens = gs;
+    res = secp256k1_bppp_rangeproof_norm_product_verify(
+        CTX,
+        scratch,
+        proof,
+        proof_len,
+        transcript,
+        layout_policy,
+        rho,
+        &gens_tmp,
+        g_len,
+        cs,
+        c_vec_len,
+        commit
     );
     secp256k1_scratch_apply_checkpoint(&CTX->error_callback, scratch, scratch_checkpoint);
     return res;
@@ -384,6 +562,7 @@ static int secp256k1_norm_arg_prove(
     secp256k1_scratch_space* scratch,
     unsigned char* proof,
     size_t *proof_len,
+    secp256k1_bppp_norm_layout_policy layout_policy,
     const secp256k1_scalar* rho,
     const secp256k1_bppp_generators* gens_vec,
     const secp256k1_scalar* n_vec,
@@ -397,7 +576,7 @@ static int secp256k1_norm_arg_prove(
     secp256k1_sha256 transcript;
     secp256k1_norm_arg_commit_initial_data(&transcript, rho, gens_vec, n_vec_len, c_vec, c_vec_len, commit);
 
-    return secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, proof_len, &transcript, rho, gens_vec->gens, gens_vec->n, n_vec, n_vec_len, l_vec, l_vec_len, c_vec, c_vec_len);
+    return secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, proof_len, &transcript, layout_policy, rho, gens_vec->gens, gens_vec->n, n_vec, n_vec_len, l_vec, l_vec_len, c_vec, c_vec_len);
 }
 
 /* Verify the proof */
@@ -405,6 +584,7 @@ static int secp256k1_norm_arg_verify(
     secp256k1_scratch_space* scratch,
     const unsigned char* proof,
     size_t proof_len,
+    secp256k1_bppp_norm_layout_policy layout_policy,
     const secp256k1_scalar* rho,
     const secp256k1_bppp_generators* gens_vec,
     size_t g_len,
@@ -419,19 +599,7 @@ static int secp256k1_norm_arg_verify(
     /* Commit to the initial public values */
     secp256k1_norm_arg_commit_initial_data(&transcript, rho, gens_vec, g_len, c_vec, c_vec_len, &comm);
 
-    res = secp256k1_bppp_rangeproof_norm_product_verify(
-        CTX,
-        scratch,
-        proof,
-        proof_len,
-        &transcript,
-        rho,
-        gens_vec,
-        g_len,
-        c_vec,
-        c_vec_len,
-        commit
-    );
+    res = secp256k1_bppp_rangeproof_norm_product_verify_const(scratch, proof, proof_len, &transcript, layout_policy, rho, gens_vec, g_len, c_vec, c_vec_len, commit);
     return res;
 }
 
@@ -444,6 +612,7 @@ static void norm_arg_verify_zero_len(void) {
     unsigned char proof[1000];
     unsigned int n_vec_len = 1;
     unsigned int c_vec_len = 1;
+    secp256k1_bppp_norm_layout_policy layout_policy = SECP256K1_BPPP_NORM_LAYOUT_LEGACY;
     secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n_vec_len + c_vec_len);
     size_t plen = sizeof(proof);
 
@@ -454,20 +623,253 @@ static void norm_arg_verify_zero_len(void) {
     testutil_random_scalar_order(&c_vec[0]);
     testutil_random_scalar_order(&l_vec[0]);
     CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
-    CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
-    CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
-    CHECK(!secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n_vec_len, c_vec, 0, &commit));
+    CHECK(secp256k1_norm_arg_prove(scratch, proof, &plen, layout_policy, &rho, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &commit));
+    CHECK(secp256k1_norm_arg_verify(scratch, proof, plen, layout_policy, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
+    CHECK(!secp256k1_norm_arg_verify(scratch, proof, plen, layout_policy, &rho, gs, n_vec_len, c_vec, 0, &commit));
 
     secp256k1_bppp_generators_destroy(CTX, gs);
 
     secp256k1_scratch_space_destroy(CTX, scratch);
 }
 
-static void norm_arg_test(unsigned int n, unsigned int m) {
+static void test_norm_arg_layout_policy_mismatch(void) {
     secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
     secp256k1_scalar rho, mu;
     secp256k1_ge commit;
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 8);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000);
+    unsigned char legacy_proof[1000];
+    unsigned char optimal_proof[1000];
+    size_t legacy_len = sizeof(legacy_proof);
+    size_t optimal_len = sizeof(optimal_proof);
+    size_t i;
+
+    testutil_random_scalar_order(&rho);
+    secp256k1_scalar_sqr(&mu, &rho);
+    for (i = 0; i < 4; i++) {
+        testutil_random_scalar_order(&n_vec[i]);
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
+    }
+
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, 4, l_vec, 4, c_vec, 4, &mu));
+    CHECK(secp256k1_norm_arg_prove(scratch, legacy_proof, &legacy_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, n_vec, 4, l_vec, 4, c_vec, 4, &commit));
+    CHECK(secp256k1_norm_arg_prove(scratch, optimal_proof, &optimal_len, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, n_vec, 4, l_vec, 4, c_vec, 4, &commit));
+
+    CHECK(secp256k1_norm_arg_verify(scratch, legacy_proof, legacy_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, 4, c_vec, 4, &commit));
+    CHECK(secp256k1_norm_arg_verify(scratch, optimal_proof, optimal_len, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, 4, c_vec, 4, &commit));
+
+    CHECK(!secp256k1_norm_arg_verify(scratch, legacy_proof, legacy_len, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, 4, c_vec, 4, &commit));
+    CHECK(!secp256k1_norm_arg_verify(scratch, optimal_proof, optimal_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, 4, c_vec, 4, &commit));
+
+    CHECK(legacy_len == secp256k1_bppp_norm_layout_compute_legacy(4, 4).proof_len);
+    CHECK(optimal_len == secp256k1_bppp_norm_layout_compute_optimal(4, 4).proof_len);
+    CHECK(optimal_len < legacy_len);
+
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+}
+
+static void test_norm_arg_optimal_policy_constraints(void) {
+    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
+    secp256k1_scalar rho, mu;
+    secp256k1_ge commit;
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 8);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000);
+    unsigned char proof[1000];
+    size_t proof_len = sizeof(proof);
+    size_t bad_len = sizeof(proof);
+    size_t i;
+    secp256k1_bppp_norm_layout_policy bad_policy = (secp256k1_bppp_norm_layout_policy)2;
+
+    testutil_random_scalar_order(&rho);
+    secp256k1_scalar_sqr(&mu, &rho);
+    for (i = 0; i < 3; i++) {
+        testutil_random_scalar_order(&n_vec[i]);
+    }
+    for (i = 0; i < 5; i++) {
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
+    }
+
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, 3, l_vec, 5, c_vec, 5, &mu));
+    CHECK(secp256k1_norm_arg_prove(scratch, proof, &proof_len, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, n_vec, 3, l_vec, 5, c_vec, 5, &commit));
+    CHECK(secp256k1_norm_arg_verify(scratch, proof, proof_len, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, 3, c_vec, 5, &commit));
+
+    CHECK(!secp256k1_norm_arg_prove(scratch, proof, &bad_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, n_vec, 3, l_vec, 5, c_vec, 5, &commit));
+    CHECK(!secp256k1_norm_arg_verify(scratch, proof, proof_len, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, 3, c_vec, 5, &commit));
+
+    bad_len = sizeof(proof);
+    CHECK(!secp256k1_norm_arg_prove(scratch, proof, &bad_len, bad_policy, &rho, gs, n_vec, 3, l_vec, 5, c_vec, 5, &commit));
+    CHECK(!secp256k1_norm_arg_verify(scratch, proof, proof_len, bad_policy, &rho, gs, 3, c_vec, 5, &commit));
+
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+}
+
+static int optimal_norm_product_prove_with_initial_data(
+    secp256k1_scratch_space* scratch,
+    unsigned char* proof,
+    size_t *proof_len,
+    const secp256k1_scalar* rho,
+    const secp256k1_bppp_generators* gs,
+    const secp256k1_scalar* n_vec,
+    size_t n_vec_len,
+    const secp256k1_scalar* l_vec,
+    const secp256k1_scalar* c_vec,
+    size_t c_vec_len,
+    const secp256k1_ge* commit
+) {
+    secp256k1_sha256 transcript;
+    secp256k1_norm_arg_commit_initial_data(&transcript, rho, gs, n_vec_len, c_vec, c_vec_len, commit);
+    return secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, proof, proof_len, &transcript, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len);
+}
+
+static int optimal_norm_product_verify_with_initial_data(
+    secp256k1_scratch_space* scratch,
+    const unsigned char* proof,
+    size_t proof_len,
+    const secp256k1_scalar* rho,
+    const secp256k1_bppp_generators* gs,
+    size_t g_len,
+    const secp256k1_scalar* c_vec,
+    size_t c_vec_len,
+    const secp256k1_ge* commit
+) {
+    secp256k1_sha256 transcript;
+    secp256k1_norm_arg_commit_initial_data(&transcript, rho, gs, g_len, c_vec, c_vec_len, commit);
+    return secp256k1_bppp_rangeproof_norm_product_verify_const(scratch, proof, proof_len, &transcript, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, rho, gs, g_len, c_vec, c_vec_len, commit);
+}
+
+static void test_optimal_roundtrip_raw_api(void) {
+    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
+    secp256k1_scalar rho, mu;
+    secp256k1_ge commit;
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 12);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000);
+    unsigned char proof[1000];
+    unsigned char bad_proof[1000];
+    size_t proof_len = sizeof(proof);
+    size_t i;
+
+    testutil_random_scalar_order(&rho);
+    secp256k1_scalar_sqr(&mu, &rho);
+    for (i = 0; i < 5; i++) {
+        testutil_random_scalar_order(&n_vec[i]);
+    }
+    for (i = 0; i < 7; i++) {
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
+    }
+
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, 5, l_vec, 7, c_vec, 7, &mu));
+    CHECK(optimal_norm_product_prove_with_initial_data(scratch, proof, &proof_len, &rho, gs, n_vec, 5, l_vec, c_vec, 7, &commit));
+    CHECK(optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    memcpy(bad_proof, proof, proof_len);
+    bad_proof[0] = 4;
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, bad_proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+}
+
+static void test_optimal_verify_rejects_malformed_tail(void) {
+    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
+    secp256k1_scalar rho, mu;
+    secp256k1_ge commit;
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 12);
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000);
+    unsigned char proof[1000];
+    unsigned char bad_proof[1000];
+    secp256k1_bppp_norm_layout layout = secp256k1_bppp_norm_layout_compute_optimal(5, 7);
+    size_t proof_len = sizeof(proof);
+    size_t tail_offset = 65 * layout.rounds;
+    size_t i;
+
+    testutil_random_scalar_order(&rho);
+    secp256k1_scalar_sqr(&mu, &rho);
+    for (i = 0; i < 5; i++) {
+        testutil_random_scalar_order(&n_vec[i]);
+    }
+    for (i = 0; i < 7; i++) {
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
+    }
+
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, 5, l_vec, 7, c_vec, 7, &mu));
+    CHECK(optimal_norm_product_prove_with_initial_data(scratch, proof, &proof_len, &rho, gs, n_vec, 5, l_vec, c_vec, 7, &commit));
+    CHECK(optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len - 1, &rho, gs, 5, c_vec, 7, &commit));
+
+    memcpy(bad_proof, proof, proof_len);
+    memset(&bad_proof[tail_offset], 0xFF, 32);
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, bad_proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    memcpy(bad_proof, proof, proof_len);
+    memset(&bad_proof[tail_offset + 32 * layout.g_final_len], 0xFF, 32);
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, bad_proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+}
+
+static void test_optimal_verify_rejects_wrong_public_inputs(void) {
+    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64], c_vec_bad[64];
+    secp256k1_scalar rho, rho_zero, mu, one;
+    secp256k1_ge commit, commit_bad;
+    secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, 12);
+    secp256k1_bppp_generators bad_gens;
+    secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000);
+    unsigned char proof[1000];
+    size_t proof_len = sizeof(proof);
+    size_t i;
+    secp256k1_sha256 transcript;
+
+    testutil_random_scalar_order(&rho);
+    secp256k1_scalar_sqr(&mu, &rho);
+    for (i = 0; i < 5; i++) {
+        testutil_random_scalar_order(&n_vec[i]);
+    }
+    for (i = 0; i < 7; i++) {
+        testutil_random_scalar_order(&l_vec[i]);
+        testutil_random_scalar_order(&c_vec[i]);
+    }
+
+    CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, 5, l_vec, 7, c_vec, 7, &mu));
+    CHECK(optimal_norm_product_prove_with_initial_data(scratch, proof, &proof_len, &rho, gs, n_vec, 5, l_vec, c_vec, 7, &commit));
+    CHECK(optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, gs, 5, c_vec, 7, &commit));
+
+    secp256k1_scalar_set_int(&rho_zero, 0);
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho_zero, gs, 5, c_vec, 7, &commit));
+
+    commit_bad = gs->gens[0];
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, gs, 5, c_vec, 7, &commit_bad));
+
+    memcpy(c_vec_bad, c_vec, 7 * sizeof(secp256k1_scalar));
+    secp256k1_scalar_set_int(&one, 1);
+    secp256k1_scalar_add(&c_vec_bad[0], &c_vec_bad[0], &one);
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, gs, 5, c_vec_bad, 7, &commit));
+
+    bad_gens = *gs;
+    bad_gens.n = gs->n - 1;
+    CHECK(!optimal_norm_product_verify_with_initial_data(scratch, proof, proof_len, &rho, &bad_gens, 5, c_vec, 7, &commit));
+
+    secp256k1_sha256_initialize(&transcript);
+    CHECK(!secp256k1_bppp_rangeproof_norm_product_verify_const(scratch, proof, proof_len, &transcript, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL, &rho, gs, 5, c_vec, 7, &commit));
+
+    secp256k1_scratch_space_destroy(CTX, scratch);
+    secp256k1_bppp_generators_destroy(CTX, gs);
+}
+
+static void norm_arg_test(unsigned int n, unsigned int m, secp256k1_bppp_norm_layout_policy layout_policy) {
+    secp256k1_scalar n_vec[64], l_vec[64], c_vec[64];
+    secp256k1_scalar rho, mu;
+    secp256k1_ge commit;
+    secp256k1_bppp_norm_layout layout;
     size_t i, plen;
+    size_t singleton_rounds, singleton_proof_len;
     int res;
     secp256k1_bppp_generators *gs = secp256k1_bppp_generators_create(CTX, n + m);
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
@@ -487,18 +889,37 @@ static void norm_arg_test(unsigned int n, unsigned int m) {
 
     res = secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n, l_vec, m, c_vec, m, &mu);
     CHECK(res == 1);
-    res = secp256k1_norm_arg_prove(scratch, proof, &plen, &rho, gs, n_vec, n, l_vec, m, c_vec, m, &commit);
+    res = secp256k1_norm_arg_prove(scratch, proof, &plen, layout_policy, &rho, gs, n_vec, n, l_vec, m, c_vec, m, &commit);
     CHECK(res == 1);
 
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n, c_vec, m, &commit);
+    if (layout_policy == SECP256K1_BPPP_NORM_LAYOUT_LEGACY) {
+        layout = secp256k1_bppp_norm_layout_compute_legacy(n, m);
+    } else {
+        layout = secp256k1_bppp_norm_layout_compute_optimal(n, m);
+    }
+    singleton_rounds = secp256k1_bppp_log2_ceil(n);
+    if (singleton_rounds < secp256k1_bppp_log2_ceil(m)) {
+        singleton_rounds = secp256k1_bppp_log2_ceil(m);
+    }
+    singleton_proof_len = 65 * singleton_rounds + 64;
+    CHECK(plen == layout.proof_len);
+    if (layout_policy == SECP256K1_BPPP_NORM_LAYOUT_LEGACY) {
+        CHECK(plen == singleton_proof_len);
+    } else if (!secp256k1_is_power_of_two(n) || !secp256k1_is_power_of_two(m)) {
+        CHECK(plen < singleton_proof_len);
+    } else {
+        CHECK(plen <= singleton_proof_len);
+    }
+
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, layout_policy, &rho, gs, n, c_vec, m, &commit);
     CHECK(res == 1);
 
     /* Changing any of last two scalars should break the proof */
     proof[plen - 1] ^= 1;
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n, c_vec, m, &commit);
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, layout_policy, &rho, gs, n, c_vec, m, &commit);
     CHECK(res == 0);
     proof[plen - 1 - 32] ^= 1;
-    res = secp256k1_norm_arg_verify(scratch, proof, plen, &rho, gs, n, c_vec, m, &commit);
+    res = secp256k1_norm_arg_verify(scratch, proof, plen, layout_policy, &rho, gs, n, c_vec, m, &commit);
     CHECK(res == 0);
 
     secp256k1_scratch_space_destroy(CTX, scratch);
@@ -555,7 +976,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         CHECK(!overflow);
     }
     CHECK(secp256k1_ge_parse_ext(&commit, commit33));
-    ret = secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
+    ret = secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
 
     secp256k1_bppp_generators_destroy(CTX, gs);
     return ret;
@@ -613,7 +1034,7 @@ static void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsi
         CHECK(!overflow);
     }
 
-    CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, myproof, &myplen, &transcript, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
+    CHECK(secp256k1_bppp_rangeproof_norm_product_prove_const(scratch, myproof, &myplen, &transcript, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs->gens, gs->n, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len) == result);
     if (!result) {
         secp256k1_bppp_generators_destroy(CTX, gs);
         return;
@@ -623,7 +1044,7 @@ static void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsi
 
     CHECK(secp256k1_bppp_commit(CTX, scratch, &commit, gs, n_vec, n_vec_len, l_vec, c_vec_len, c_vec, c_vec_len, &mu));
     secp256k1_sha256_initialize(&transcript);
-    CHECK(secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
+    CHECK(secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, SECP256K1_BPPP_NORM_LAYOUT_LEGACY, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit));
     secp256k1_bppp_generators_destroy(CTX, gs);
 }
 
@@ -651,24 +1072,46 @@ static void norm_arg_prove_vectors(void) {
 #undef IDX_TO_TEST
 
 static void norm_arg_test_all(void) {
-    norm_arg_test(1, 1);
-    norm_arg_test(1, 64);
-    norm_arg_test(64, 1);
-    norm_arg_test(32, 32);
-    norm_arg_test(32, 64);
-    norm_arg_test(64, 32);
-    norm_arg_test(64, 64);
+    norm_arg_test(1, 1, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+    norm_arg_test(1, 64, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+    norm_arg_test(32, 32, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+    norm_arg_test(32, 64, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+    norm_arg_test(64, 32, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+    norm_arg_test(64, 64, SECP256K1_BPPP_NORM_LAYOUT_LEGACY);
+
+    norm_arg_test(1, 4, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(4, 4, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(1, 64, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+
+    norm_arg_test(1, 3, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(3, 1, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(3, 3, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(3, 5, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(5, 3, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(5, 7, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(7, 5, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(17, 31, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(31, 17, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(33, 63, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
+    norm_arg_test(63, 33, SECP256K1_BPPP_NORM_LAYOUT_OPTIMAL);
 }
 
 /* --- Test registry --- */
 static const struct tf_test_entry tests_bppp[] = {
     CASE1(test_log_exp),
     CASE1(test_norm_util_helpers),
+    CASE1(test_norm_layout_formula),
+    CASE1(test_optimal_mu_evolution_consistency),
     CASE1(test_serialize_two_points),
     CASE1(test_bppp_generators_api),
     CASE1(test_bppp_generators_fixed),
     CASE1(test_bppp_tagged_hash),
     CASE1(norm_arg_verify_zero_len),
+    CASE1(test_norm_arg_layout_policy_mismatch),
+    CASE1(test_norm_arg_optimal_policy_constraints),
+    CASE1(test_optimal_roundtrip_raw_api),
+    CASE1(test_optimal_verify_rejects_malformed_tail),
+    CASE1(test_optimal_verify_rejects_wrong_public_inputs),
     CASE1(norm_arg_test_all),
     CASE1(norm_arg_verify_vectors),
     CASE1(norm_arg_prove_vectors),

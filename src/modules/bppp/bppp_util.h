@@ -80,4 +80,37 @@ static size_t secp256k1_bppp_log2(size_t n) {
     return 64 - 1 - secp256k1_clz64_var((uint64_t)n);
 }
 
+/* Compute ceil(log2(n)). n must NOT be 0. */
+static size_t secp256k1_bppp_log2_ceil(size_t n) {
+    if (n <= 1) {
+        return 0;
+    }
+    return secp256k1_bppp_log2(n - 1) + 1;
+}
+
+/* Helpers used by the closed-form optimal layout computation. */
+
+/* Compute ceil(n / d). n and d must NOT be 0. */
+static size_t secp256k1_bppp_ceil_div(size_t n, size_t d) {
+    VERIFY_CHECK(n > 0 && d > 0);
+    return 1 + (n - 1) / d;
+}
+
+/* Compute ceil(n / 2^rounds). n must NOT be 0. */
+static size_t secp256k1_bppp_ceil_div_pow2(size_t n, size_t rounds) {
+    VERIFY_CHECK(n > 0);
+    if (rounds >= secp256k1_bppp_log2_ceil(n)) {
+        return 1;
+    }
+    return 1 + ((n - 1) >> rounds);
+}
+
+/* Compute the minimum rounds k such that ceil(n / 2^k) <= limit.
+ * n and limit must NOT be 0.
+ */
+static size_t secp256k1_bppp_rounds_to_fit(size_t n, size_t limit) {
+    VERIFY_CHECK(n > 0 && limit > 0);
+    return secp256k1_bppp_log2_ceil(secp256k1_bppp_ceil_div(n, limit));
+}
+
 #endif
