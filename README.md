@@ -1,65 +1,21 @@
-libsecp256k1
-============
+libsecp256k1-zkp
+================
 
 ![Dependencies: None](https://img.shields.io/badge/dependencies-none-success)
-[![irc.libera.chat #secp256k1](https://img.shields.io/badge/irc.libera.chat-%23secp256k1-success)](https://web.libera.chat/#secp256k1)
 
-High-performance high-assurance C library for digital signatures and other cryptographic primitives on the secp256k1 elliptic curve.
+A fork of [libsecp256k1](https://github.com/bitcoin-core/secp256k1) with support for advanced and experimental features
 
-This library is intended to be the highest quality publicly available library for cryptography on the secp256k1 curve. However, the primary focus of its development has been for usage in the Bitcoin system and usage unlike Bitcoin's may be less well tested, verified, or suffer from a less well thought out interface. Correct usage requires some care and consideration that the library is fit for your application's purpose.
+Added features:
+* Experimental module for ECDSA adaptor signatures.
+* Experimental module for ECDSA sign-to-contract.
+* Experimental modules for Confidential Assets (Pedersen commitments, range proofs, and [surjection proofs](src/modules/surjection/surjection.md)).
+* Experimental module for [address whitelisting](src/modules/whitelist/whitelist.md).
+* Experimental module for Schnorr signature half-aggregation.
 
-Features:
-* secp256k1 ECDSA signing/verification and key generation.
-* Additive and multiplicative tweaking of secret/public keys.
-* Serialization/parsing of secret keys, public keys, signatures.
-* Constant time, constant memory access signing and public key generation.
-* Derandomized ECDSA (via RFC6979 or with a caller provided function.)
-* Very efficient implementation.
-* Suitable for embedded systems.
-* No runtime dependencies.
-* Optional module for public key recovery.
-* Optional module for ECDH key exchange.
-* Optional module for Schnorr signatures according to [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki).
-* Optional module for ElligatorSwift key exchange according to [BIP-324](https://github.com/bitcoin/bips/blob/master/bip-0324.mediawiki).
-* Optional module for MuSig2 Schnorr multi-signatures according to [BIP-327](https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki).
+Experimental features are made available for testing and review by the community. The APIs of these features should not be considered stable.
 
-Implementation details
-----------------------
-
-* General
-  * No runtime heap allocation.
-  * Extensive testing infrastructure.
-  * Structured to facilitate review and analysis.
-  * Intended to be portable to any system with a C89 compiler and uint64_t support.
-  * No use of floating types.
-  * Expose only higher level interfaces to minimize the API surface and improve application security. ("Be difficult to use insecurely.")
-* Field operations
-  * Optimized implementation of arithmetic modulo the curve's field size (2^256 - 0x1000003D1).
-    * Using 5 52-bit limbs
-    * Using 10 26-bit limbs (including hand-optimized assembly for 32-bit ARM, by Wladimir J. van der Laan).
-      * This is an experimental feature that has not received enough scrutiny to satisfy the standard of quality of this library but is made available for testing and review by the community.
-* Scalar operations
-  * Optimized implementation without data-dependent branches of arithmetic modulo the curve's order.
-    * Using 4 64-bit limbs (relying on __int128 support in the compiler).
-    * Using 8 32-bit limbs.
-* Modular inverses (both field elements and scalars) based on [safegcd](https://gcd.cr.yp.to/index.html) with some modifications, and a variable-time variant (by Peter Dettman).
-* Group operations
-  * Point addition formula specifically simplified for the curve equation (y^2 = x^3 + 7).
-  * Use addition between points in Jacobian and affine coordinates where possible.
-  * Use a unified addition/doubling formula where necessary to avoid data-dependent branches.
-  * Point/x comparison without a field inversion by comparison in the Jacobian coordinate space.
-* Point multiplication for verification (a*P + b*G).
-  * Use wNAF notation for point multiplicands.
-  * Use a much larger window for multiples of G, using precomputed multiples.
-  * Use Shamir's trick to do the multiplication with the public key and the generator simultaneously.
-  * Use secp256k1's efficiently-computable endomorphism to split the P multiplicand into 2 half-sized ones.
-* Point multiplication for signing
-  * Use a precomputed table of multiples of powers of 16 multiplied with the generator, so general multiplication becomes a series of additions.
-  * Intended to be completely free of timing sidechannels for secret-key operations (on reasonable hardware/toolchains)
-    * Access the table with branch-free conditional moves so memory access is uniform.
-    * No data-dependent branches
-  * Optional runtime blinding which attempts to frustrate differential power analysis.
-  * The precomputed tables add and eventually subtract points for which no known scalar (secret key) is known, preventing even an attacker with control over the secret key used to control the data internally.
+Build steps
+-----------
 
 Obtaining and verifying
 -----------------------
@@ -106,7 +62,7 @@ Building with Autotools
     $ make check         # Run the test suite
     $ sudo make install  # Install the library into the system (optional)
 
-To compile optional modules (such as Schnorr signatures), you need to run `./configure` with additional flags (such as `--enable-module-schnorrsig`). Run `./configure --help` to see the full list of available flags.
+To compile optional modules (such as Schnorr signatures), you need to run `./configure` with additional flags (such as `--enable-module-schnorrsig`). Run `./configure --help` to see the full list of available flags. For experimental modules, you will also need `--enable-experimental` as well as a flag for each individual module, e.g. `--enable-module-rangeproof`.
 
 Building with CMake
 -------------------
@@ -144,6 +100,7 @@ In "Developer Command Prompt for VS 2022":
 
 Usage examples
 -----------
+
 Usage examples can be found in the [examples](examples) directory. To compile them you need to configure with `--enable-examples`.
   * [ECDSA example](examples/ecdsa.c)
   * [Schnorr signatures example](examples/schnorr.c)
@@ -155,7 +112,7 @@ To compile the examples, make sure the corresponding modules are enabled.
 
 Benchmark
 ------------
-If configured with `--enable-benchmark` (which is the default), binaries for benchmarking the libsecp256k1 functions will be present in the root directory after the build.
+If configured with `--enable-benchmark` (which is the default), binaries for benchmarking the libsecp256k1-zkp functions will be present in the root directory after the build.
 
 To print the benchmark result to the command line:
 

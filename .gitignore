@@ -1,6 +1,10 @@
 bench
+bench_bppp
 bench_ecmult
+bench_generator
+bench_rangeproof
 bench_internal
+bench_whitelist
 noverify_tests
 tests
 exhaustive_tests
@@ -49,6 +53,7 @@ coverage.*.html
 !/autotools-aux/m4/bitcoin_secp.m4
 
 libsecp256k1.pc
+contrib/gh-pr-create.sh
 
 ### CMake
 /CMakeUserPresets.json

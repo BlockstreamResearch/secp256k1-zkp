@@ -121,6 +121,15 @@ static void bench_scalar_negate(void* arg, int iters) {
     }
 }
 
+static void bench_scalar_sqr(void* arg, int iters) {
+    int i;
+    bench_inv *data = (bench_inv*)arg;
+
+    for (i = 0; i < iters; i++) {
+        secp256k1_scalar_sqr(&data->scalar[0], &data->scalar[0]);
+    }
+}
+
 static void bench_scalar_half(void* arg, int iters) {
     int i;
     bench_inv *data = (bench_inv*)arg;
@@ -303,6 +312,26 @@ static void bench_group_add_affine_var(void* arg, int iters) {
     }
 }
 
+static void bench_group_jacobi_var(void* arg, int iters) {
+    int i, j = 0;
+    bench_inv *data = (bench_inv*)arg;
+
+    for (i = 0; i < iters; i++) {
+        j += secp256k1_gej_has_quad_y_var(&data->gej[0]);
+        /* Vary the Y and Z coordinates of the input (the X coordinate doesn't matter to
+           secp256k1_gej_has_quad_y_var). Note that the resulting coordinates will
+           generally not correspond to a point on the curve, but this is not a problem
+           for the code being benchmarked here. Adding and normalizing have less
+           overhead than EC operations (which could guarantee the point remains on the
+           curve). */
+        secp256k1_fe_add(&data->gej[0].y, &data->fe[1]);
+        secp256k1_fe_add(&data->gej[0].z, &data->fe[2]);
+        secp256k1_fe_normalize_var(&data->gej[0].y);
+        secp256k1_fe_normalize_var(&data->gej[0].z);
+    }
+    CHECK(j <= iters);
+}
+
 static void bench_group_add_zinv_var(void* arg, int iters) {
     int i;
     bench_inv *data = (bench_inv*)arg;
@@ -319,10 +348,8 @@ static void bench_group_to_affine_var(void* arg, int iters) {
     for (i = 0; i < iters; ++i) {
         secp256k1_ge_set_gej_var(&data->ge[1], &data->gej[0]);
         /* Use the output affine X/Y coordinates to vary the input X/Y/Z coordinates.
-           Note that the resulting coordinates will generally not correspond to a point
-           on the curve, but this is not a problem for the code being benchmarked here.
-           Adding and normalizing have less overhead than EC operations (which could
-           guarantee the point remains on the curve). */
+           Similar to bench_group_jacobi_var, this approach does not result in
+           coordinates of points on the curve. */
         secp256k1_fe_add(&data->gej[0].x, &data->ge[1].y);
         secp256k1_fe_add(&data->gej[0].y, &data->fe[2]);
         secp256k1_fe_add(&data->gej[0].z, &data->ge[1].x);
@@ -414,6 +441,7 @@ int main(int argc, char **argv) {
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "half")) run_benchmark("scalar_half", bench_scalar_half, bench_setup, NULL, &data, 10, iters*100);
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "add")) run_benchmark("scalar_add", bench_scalar_add, bench_setup, NULL, &data, 10, iters*100);
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "negate")) run_benchmark("scalar_negate", bench_scalar_negate, bench_setup, NULL, &data, 10, iters*100);
+    if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "sqr")) run_benchmark("scalar_sqr", bench_scalar_sqr, bench_setup, NULL, &data, 10, iters*10);
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "mul")) run_benchmark("scalar_mul", bench_scalar_mul, bench_setup, NULL, &data, 10, iters*10);
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "split")) run_benchmark("scalar_split", bench_scalar_split, bench_setup, NULL, &data, 10, iters);
     if (d || have_flag(argc, argv, "scalar") || have_flag(argc, argv, "inverse")) run_benchmark("scalar_inverse", bench_scalar_inverse, bench_setup, NULL, &data, 10, iters);
@@ -433,6 +461,7 @@ int main(int argc, char **argv) {
     if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "add")) run_benchmark("group_add_var", bench_group_add_var, bench_setup, NULL, &data, 10, iters*10);
     if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "add")) run_benchmark("group_add_affine", bench_group_add_affine, bench_setup, NULL, &data, 10, iters*10);
     if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "add")) run_benchmark("group_add_affine_var", bench_group_add_affine_var, bench_setup, NULL, &data, 10, iters*10);
+    if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "jacobi")) run_benchmark("group_jacobi_var", bench_group_jacobi_var, bench_setup, NULL, &data, 10, iters);
     if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "add")) run_benchmark("group_add_zinv_var", bench_group_add_zinv_var, bench_setup, NULL, &data, 10, iters*10);
     if (d || have_flag(argc, argv, "group") || have_flag(argc, argv, "to_affine")) run_benchmark("group_to_affine_var", bench_group_to_affine_var, bench_setup, NULL, &data, 10, iters);
 

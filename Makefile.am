@@ -18,6 +18,8 @@ noinst_HEADERS += src/scalar_8x32_impl.h
 noinst_HEADERS += src/scalar_low_impl.h
 noinst_HEADERS += src/group.h
 noinst_HEADERS += src/group_impl.h
+noinst_HEADERS += src/eccommit.h
+noinst_HEADERS += src/eccommit_impl.h
 noinst_HEADERS += src/ecdsa.h
 noinst_HEADERS += src/ecdsa_impl.h
 noinst_HEADERS += src/eckey.h
@@ -291,12 +293,36 @@ EXTRA_DIST += src/wycheproof/ecdh_secp256k1_test.json
 EXTRA_DIST += tools/tests_wycheproof_generate_ecdsa.py
 EXTRA_DIST += tools/tests_wycheproof_generate_ecdh.py
 
+if ENABLE_MODULE_SCHNORRSIG_HALFAGG
+include src/modules/schnorrsig_halfagg/Makefile.am.include
+endif
+
+if ENABLE_MODULE_BPPP
+include src/modules/bppp/Makefile.am.include
+endif
+
 if ENABLE_MODULE_ECDH
 include src/modules/ecdh/Makefile.am.include
 endif
 
 if ENABLE_MODULE_RECOVERY
 include src/modules/recovery/Makefile.am.include
+endif
+
+if ENABLE_MODULE_GENERATOR
+include src/modules/generator/Makefile.am.include
+endif
+
+if ENABLE_MODULE_RANGEPROOF
+include src/modules/rangeproof/Makefile.am.include
+endif
+
+if ENABLE_MODULE_WHITELIST
+include src/modules/whitelist/Makefile.am.include
+endif
+
+if ENABLE_MODULE_SURJECTIONPROOF
+include src/modules/surjection/Makefile.am.include
 endif
 
 if ENABLE_MODULE_EXTRAKEYS
@@ -313,4 +339,12 @@ endif
 
 if ENABLE_MODULE_ELLSWIFT
 include src/modules/ellswift/Makefile.am.include
+endif
+
+if ENABLE_MODULE_ECDSA_S2C
+include src/modules/ecdsa_s2c/Makefile.am.include
+endif
+
+if ENABLE_MODULE_ECDSA_ADAPTOR
+include src/modules/ecdsa_adaptor/Makefile.am.include
 endif

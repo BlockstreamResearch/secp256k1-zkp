@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 2013, 2014, 2015 Pieter Wuille, Gregory Maxwell       *
+ * Copyright (c) 2013-2015 Pieter Wuille, Gregory Maxwell              *
  * Distributed under the MIT software license, see the accompanying    *
  * file COPYING or https://www.opensource.org/licenses/mit-license.php.*
  ***********************************************************************/
@@ -86,6 +86,52 @@ static void counting_callback_fn(const char* str, void* data) {
     p = data;
     CHECK(*p != INT32_MAX);
     (*p)++;
+}
+
+static void run_util_tests(void) {
+    int i;
+    uint64_t r;
+    uint64_t r2;
+    uint64_t r3;
+    int64_t s;
+    CHECK(secp256k1_clz64_var(0) == 64);
+    CHECK(secp256k1_clz64_var(1) == 63);
+    CHECK(secp256k1_clz64_var(2) == 62);
+    CHECK(secp256k1_clz64_var(3) == 62);
+    CHECK(secp256k1_clz64_var(~0ULL) == 0);
+    CHECK(secp256k1_clz64_var((~0ULL) - 1) == 0);
+    CHECK(secp256k1_clz64_var((~0ULL) >> 1) == 1);
+    CHECK(secp256k1_clz64_var((~0ULL) >> 2) == 2);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MAX) == 0);
+    CHECK(r == INT64_MAX);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MAX - 1) == 0);
+    CHECK(r == INT64_MAX - 1);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MIN) == 1);
+    CHECK(r == (uint64_t)INT64_MAX + 1);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MIN + 1) == 1);
+    CHECK(r == (uint64_t)INT64_MAX);
+    CHECK(secp256k1_sign_and_abs64(&r, 0) == 0);
+    CHECK(r == 0);
+    CHECK(secp256k1_sign_and_abs64(&r, 1) == 0);
+    CHECK(r == 1);
+    CHECK(secp256k1_sign_and_abs64(&r, -1) == 1);
+    CHECK(r == 1);
+    CHECK(secp256k1_sign_and_abs64(&r, 2) == 0);
+    CHECK(r == 2);
+    CHECK(secp256k1_sign_and_abs64(&r, -2) == 1);
+    CHECK(r == 2);
+    for (i = 0; i < 10; i++) {
+        CHECK(secp256k1_clz64_var((~0ULL) - testrand32()) == 0);
+        r = ((uint64_t)testrand32() << 32) | testrand32();
+        r2 = testrandi64(0, r);
+        CHECK(r2 <= r);
+        r3 = testrandi64(r2, r);
+        CHECK((r3 >= r2) && (r3 <= r));
+        r = testrandi64(0, INT64_MAX);
+        s = (int64_t)r * (testrand32()&1?-1:1);
+        CHECK(secp256k1_sign_and_abs64(&r2, s) == (s < 0));
+        CHECK(r2 == r);
+    }
 }
 
 static void run_xoshiro256pp_tests(void) {
@@ -2306,6 +2352,14 @@ static void scalar_test(void) {
     }
 
     {
+        /* Test square. */
+        secp256k1_scalar r1, r2;
+        secp256k1_scalar_sqr(&r1, &s1);
+        secp256k1_scalar_mul(&r2, &s1, &s1);
+        CHECK(secp256k1_scalar_eq(&r1, &r2));
+    }
+
+    {
         /* Test multiplicative identity. */
         secp256k1_scalar r1;
         secp256k1_scalar_mul(&r1, &s1, &secp256k1_scalar_one);
@@ -3034,6 +3088,8 @@ static void run_scalar_tests(void) {
                 CHECK(secp256k1_scalar_eq(&secp256k1_scalar_one, &zz));
             }
             secp256k1_scalar_mul(&z, &x, &x);
+            secp256k1_scalar_sqr(&zz, &x);
+            CHECK(secp256k1_scalar_eq(&zz, &z));
             CHECK(secp256k1_scalar_eq(&r2, &z));
         }
     }
@@ -4330,38 +4386,144 @@ static void run_ec_combine(void) {
     }
 }
 
+static void test_ec_commit(void) {
+    secp256k1_scalar seckey_s;
+    secp256k1_ge pubkey;
+    secp256k1_gej pubkeyj;
+    secp256k1_ge commitment;
+    unsigned char data[32];
+    secp256k1_sha256 sha;
+
+    /* Create random keypair and data */
+    testutil_random_scalar_order_test(&seckey_s);
+    secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pubkeyj, &seckey_s);
+    secp256k1_ge_set_gej(&pubkey, &pubkeyj);
+    testrand256_test(data);
+
+    /* Commit to data and verify */
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 32) == 1);
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 32) == 1);
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit_seckey(&seckey_s, &pubkey, &sha, data, 32) == 1);
+    secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pubkeyj, &seckey_s);
+    secp256k1_gej_eq_ge_var(&pubkeyj, &commitment);
+
+    /* Check that verification fails with different data */
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 31) == 0);
+
+    /* Check that commmitting fails when the inner pubkey is the point at
+     * infinity */
+    secp256k1_sha256_initialize(&sha);
+    secp256k1_ge_set_infinity(&pubkey);
+    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 32) == 0);
+    secp256k1_scalar_set_int(&seckey_s, 0);
+    CHECK(secp256k1_ec_commit_seckey(&seckey_s, &pubkey, &sha, data, 32) == 0);
+    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 32) == 0);
+}
+
+static void test_ec_commit_api(void) {
+    unsigned char seckey[32];
+    secp256k1_scalar seckey_s;
+    secp256k1_ge pubkey;
+    secp256k1_gej pubkeyj;
+    secp256k1_ge commitment;
+    unsigned char data[32];
+    secp256k1_sha256 sha;
+
+    memset(data, 23, sizeof(data));
+
+    /* Create random keypair */
+    testutil_random_scalar_order_test(&seckey_s);
+    secp256k1_scalar_get_b32(seckey, &seckey_s);
+    secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pubkeyj, &seckey_s);
+    secp256k1_ge_set_gej(&pubkey, &pubkeyj);
+
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 1) == 1);
+    /* The same pubkey can be both input and output of the function */
+    {
+        secp256k1_ge pubkey_tmp = pubkey;
+        secp256k1_sha256_initialize(&sha);
+        CHECK(secp256k1_ec_commit(&pubkey_tmp, &pubkey_tmp, &sha, data, 1) == 1);
+        secp256k1_ge_eq_var(&commitment, &pubkey_tmp);
+    }
+
+    secp256k1_sha256_initialize(&sha);
+    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 1) == 1);
+}
+
+static void run_ec_commit(void) {
+    int i;
+    for (i = 0; i < COUNT * 8; i++) {
+         test_ec_commit();
+    }
+    test_ec_commit_api();
+}
+
 static void test_group_decompress(const secp256k1_fe* x) {
     /* The input itself, normalized. */
     secp256k1_fe fex = *x;
-    /* Results of set_xo_var(..., 0), set_xo_var(..., 1). */
-    secp256k1_ge ge_even, ge_odd;
+    secp256k1_fe fez;
+    /* Results of set_xquad_var, set_xo_var(..., 0), set_xo_var(..., 1). */
+    secp256k1_ge ge_quad, ge_even, ge_odd;
+    secp256k1_gej gej_quad;
     /* Return values of the above calls. */
-    int res_even, res_odd;
+    int res_quad, res_even, res_odd;
 
     secp256k1_fe_normalize_var(&fex);
 
+    res_quad = secp256k1_ge_set_xquad(&ge_quad, &fex);
     res_even = secp256k1_ge_set_xo_var(&ge_even, &fex, 0);
     res_odd = secp256k1_ge_set_xo_var(&ge_odd, &fex, 1);
 
-    CHECK(res_even == res_odd);
+    CHECK(res_quad == res_even);
+    CHECK(res_quad == res_odd);
 
-    if (res_even) {
+    if (res_quad) {
+        secp256k1_fe_normalize_var(&ge_quad.x);
         secp256k1_fe_normalize_var(&ge_odd.x);
         secp256k1_fe_normalize_var(&ge_even.x);
+        secp256k1_fe_normalize_var(&ge_quad.y);
         secp256k1_fe_normalize_var(&ge_odd.y);
         secp256k1_fe_normalize_var(&ge_even.y);
 
         /* No infinity allowed. */
+        CHECK(!secp256k1_ge_is_infinity(&ge_quad));
         CHECK(!secp256k1_ge_is_infinity(&ge_even));
         CHECK(!secp256k1_ge_is_infinity(&ge_odd));
 
         /* Check that the x coordinates check out. */
+        CHECK(secp256k1_fe_equal(&ge_quad.x, x));
         CHECK(secp256k1_fe_equal(&ge_even.x, x));
         CHECK(secp256k1_fe_equal(&ge_odd.x, x));
+
+        /* Check that the Y coordinate result in ge_quad is a square. */
+        CHECK(secp256k1_fe_is_square_var(&ge_quad.y));
 
         /* Check odd/even Y in ge_odd, ge_even. */
         CHECK(secp256k1_fe_is_odd(&ge_odd.y));
         CHECK(!secp256k1_fe_is_odd(&ge_even.y));
+
+        /* Check secp256k1_gej_has_quad_y_var. */
+        secp256k1_gej_set_ge(&gej_quad, &ge_quad);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
+        do {
+            testutil_random_fe_test(&fez);
+        } while (secp256k1_fe_is_zero(&fez));
+        secp256k1_gej_rescale(&gej_quad, &fez);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
+        secp256k1_gej_neg(&gej_quad, &gej_quad);
+        CHECK(!secp256k1_gej_has_quad_y_var(&gej_quad));
+        do {
+            testutil_random_fe_test(&fez);
+        } while (secp256k1_fe_is_zero(&fez));
+        secp256k1_gej_rescale(&gej_quad, &fez);
+        CHECK(!secp256k1_gej_has_quad_y_var(&gej_quad));
+        secp256k1_gej_neg(&gej_quad, &gej_quad);
+        CHECK(secp256k1_gej_has_quad_y_var(&gej_quad));
     }
 }
 
@@ -7671,12 +7833,36 @@ static void run_ecdsa_wycheproof(void) {
     test_ecdsa_wycheproof();
 }
 
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+# include "modules/schnorrsig_halfagg/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_BPPP
+# include "modules/bppp/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDH
 # include "modules/ecdh/tests_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_RECOVERY
 # include "modules/recovery/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_GENERATOR
+# include "modules/generator/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_RANGEPROOF
+# include "modules/rangeproof/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_WHITELIST
+# include "modules/whitelist/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+# include "modules/surjection/tests_impl.h"
 #endif
 
 #ifdef ENABLE_MODULE_EXTRAKEYS
@@ -7693,6 +7879,14 @@ static void run_ecdsa_wycheproof(void) {
 
 #ifdef ENABLE_MODULE_ELLSWIFT
 # include "modules/ellswift/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_S2C
+# include "modules/ecdsa_s2c/tests_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+# include "modules/ecdsa_adaptor/tests_impl.h"
 #endif
 
 static void run_secp256k1_memczero_test(void) {
@@ -8032,6 +8226,31 @@ static const struct tf_test_module registry_modules[] = {
 #endif
 #ifdef ENABLE_MODULE_ELLSWIFT
     MAKE_TEST_MODULE(ellswift),
+#endif
+    /* --- ZKP-SPECIFIC MODULES --- */
+#ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG
+    MAKE_TEST_MODULE(schnorrsig_halfagg),
+#endif
+#ifdef ENABLE_MODULE_BPPP
+    MAKE_TEST_MODULE(bppp),
+#endif
+#ifdef ENABLE_MODULE_GENERATOR
+    MAKE_TEST_MODULE(generator),
+#endif
+#ifdef ENABLE_MODULE_RANGEPROOF
+    MAKE_TEST_MODULE(rangeproof),
+#endif
+#ifdef ENABLE_MODULE_WHITELIST
+    MAKE_TEST_MODULE(whitelist),
+#endif
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+    MAKE_TEST_MODULE(surjection),
+#endif
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+    MAKE_TEST_MODULE(ecdsa_adaptor),
+#endif
+#ifdef ENABLE_MODULE_ECDSA_S2C
+    MAKE_TEST_MODULE(ecdsa_s2c),
 #endif
     MAKE_TEST_MODULE(utils),
 };
