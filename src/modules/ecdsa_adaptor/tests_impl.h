@@ -20,15 +20,17 @@ static void rand_point(secp256k1_ge *point) {
 }
 
 static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     secp256k1_scalar k1, k2;
 
-    CHECK(secp256k1_dleq_nonce(&k1, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
+    CHECK(secp256k1_dleq_nonce(hash_ctx, &k1, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
     testrand_flip(args[n_flip], n_bytes);
-    CHECK(secp256k1_dleq_nonce(&k2, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
+    CHECK(secp256k1_dleq_nonce(hash_ctx, &k2, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
     CHECK(secp256k1_scalar_eq(&k1, &k2) == 0);
 }
 
 static void dleq_tests_internal(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     secp256k1_scalar s, e, sk, k;
     secp256k1_ge gen2, p1, p2;
     secp256k1_ge p[2];
@@ -46,20 +48,20 @@ static void dleq_tests_internal(void) {
     p1 = p[0];
     p2 = p[1];
     CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &p1, &gen2, &p2, NULL, NULL) == 1);
-    CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p2) == 1);
+    CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &gen2, &p2) == 1);
 
     {
         secp256k1_scalar tmp;
         secp256k1_scalar_set_int(&tmp, 1);
-        CHECK(secp256k1_dleq_verify(&tmp, &e, &p1, &gen2, &p2) == 0);
-        CHECK(secp256k1_dleq_verify(&s, &tmp, &p1, &gen2, &p2) == 0);
+        CHECK(secp256k1_dleq_verify(hash_ctx, &tmp, &e, &p1, &gen2, &p2) == 0);
+        CHECK(secp256k1_dleq_verify(hash_ctx, &s, &tmp, &p1, &gen2, &p2) == 0);
     }
     {
         secp256k1_ge p_tmp;
         rand_point(&p_tmp);
-        CHECK(secp256k1_dleq_verify(&s, &e, &p_tmp, &gen2, &p2) == 0);
-        CHECK(secp256k1_dleq_verify(&s, &e, &p1, &p_tmp, &p2) == 0);
-        CHECK(secp256k1_dleq_verify(&s, &e, &p1, &gen2, &p_tmp) == 0);
+        CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p_tmp, &gen2, &p2) == 0);
+        CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &p_tmp, &p2) == 0);
+        CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &gen2, &p_tmp) == 0);
     }
 
     /* Nonce tests */
@@ -67,7 +69,7 @@ static void dleq_tests_internal(void) {
     secp256k1_eckey_pubkey_serialize33(&gen2, gen2_33);
     secp256k1_eckey_pubkey_serialize33(&p1, p1_33);
     secp256k1_eckey_pubkey_serialize33(&p2, p2_33);
-    CHECK(secp256k1_dleq_nonce(&k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
+    CHECK(secp256k1_dleq_nonce(hash_ctx, &k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 
     testrand_bytes_test(sk32, sizeof(sk32));
     testrand_bytes_test(gen2_33, sizeof(gen2_33));
@@ -93,7 +95,7 @@ static void dleq_tests_internal(void) {
     }
 
     /* NULL aux_rand argument is allowed. */
-    CHECK(secp256k1_dleq_nonce(&k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
+    CHECK(secp256k1_dleq_nonce(hash_ctx, &k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 }
 
 static void rand_flip_bit(unsigned char *array, size_t n) {
@@ -715,6 +717,7 @@ static void nonce_function_ecdsa_adaptor_bitflip(unsigned char **args, size_t n_
 }
 
 static void run_nonce_function_ecdsa_adaptor_tests(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     static const unsigned char tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
     static const unsigned char aux_tag[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'a', 'u', 'x'};
     unsigned char algo[] = {'E', 'C', 'D', 'S', 'A', 'a', 'd', 'a', 'p', 't', 'o', 'r', '/', 'n', 'o', 'n'};
@@ -733,19 +736,19 @@ static void run_nonce_function_ecdsa_adaptor_tests(void) {
      * secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged has the expected
      * state. */
     secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, tag, sizeof(tag));
+    test_sha256_tag_midstate(hash_ctx, &sha_optimized, tag, sizeof(tag));
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux has the expected
     * state. */
     secp256k1_nonce_function_ecdsa_adaptor_sha256_tagged_aux(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, aux_tag, sizeof(aux_tag));
+    test_sha256_tag_midstate(hash_ctx, &sha_optimized, aux_tag, sizeof(aux_tag));
 
    /* Check that hash initialized by
     * secp256k1_nonce_function_dleq_sha256_tagged_aux has the expected
     * state. */
     secp256k1_nonce_function_dleq_sha256_tagged(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, dleq_tag, sizeof(dleq_tag));
+    test_sha256_tag_midstate(hash_ctx, &sha_optimized, dleq_tag, sizeof(dleq_tag));
 
     testrand_bytes_test(msg, sizeof(msg));
     testrand_bytes_test(key, sizeof(key));

@@ -619,18 +619,6 @@ int secp256k1_musig_nonce_process(const secp256k1_context* ctx, secp256k1_musig_
         secp256k1_ge_set_gej(&aggnonce_pts[0], &tmp);
     }
 
-    /* Add public adaptor to nonce */
-    if (adaptor != NULL) {
-        secp256k1_ge adaptorp;
-        secp256k1_gej tmp;
-        if (!secp256k1_pubkey_load(ctx, &adaptorp, adaptor)) {
-            return 0;
-        }
-        secp256k1_gej_set_ge(&tmp, &aggnonce_pts[0]);
-        secp256k1_gej_add_ge_var(&tmp, &tmp, &adaptorp, NULL);
-        secp256k1_ge_set_gej(&aggnonce_pts[0], &tmp);
-    }
-
     secp256k1_musig_nonce_process_internal(ctx, &session_i.fin_nonce_parity, fin_nonce, &session_i.noncecoef, aggnonce_pts, agg_pk32, msg32);
     secp256k1_schnorrsig_challenge(secp256k1_get_hash_context(ctx), &session_i.challenge, fin_nonce, msg32, 32, agg_pk32);
 

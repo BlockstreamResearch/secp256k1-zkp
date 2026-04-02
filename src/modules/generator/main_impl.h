@@ -211,6 +211,7 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_sha256 sha256;
     unsigned char b32[32];
     int ret = 1;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
 
     if (blind32) {
         secp256k1_scalar blind;
@@ -220,9 +221,9 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     }
 
     secp256k1_sha256_initialize(&sha256);
-    secp256k1_sha256_write(&sha256, prefix1, 16);
-    secp256k1_sha256_write(&sha256, key32, 32);
-    secp256k1_sha256_finalize(&sha256, b32);
+    secp256k1_sha256_write(hash_ctx, &sha256, prefix1, 16);
+    secp256k1_sha256_write(hash_ctx, &sha256, key32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256, b32);
     secp256k1_sha256_clear(&sha256);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);
@@ -233,9 +234,9 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     }
 
     secp256k1_sha256_initialize(&sha256);
-    secp256k1_sha256_write(&sha256, prefix2, 16);
-    secp256k1_sha256_write(&sha256, key32, 32);
-    secp256k1_sha256_finalize(&sha256, b32);
+    secp256k1_sha256_write(hash_ctx, &sha256, prefix2, 16);
+    secp256k1_sha256_write(hash_ctx, &sha256, key32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256, b32);
     secp256k1_sha256_clear(&sha256);
     ret &= secp256k1_fe_set_b32_limit(&t, b32);
     shallue_van_de_woestijne(&add, &t);

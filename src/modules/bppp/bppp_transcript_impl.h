@@ -22,12 +22,12 @@ static void secp256k1_bppp_sha256_tagged_commitment_init(secp256k1_sha256 *sha) 
 }
 
 /* Obtain a challenge scalar from the current transcript.*/
-static void secp256k1_bppp_challenge_scalar(secp256k1_scalar* ch, const secp256k1_sha256 *transcript, uint64_t idx) {
+static void secp256k1_bppp_challenge_scalar(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar* ch, const secp256k1_sha256 *transcript, uint64_t idx) {
     unsigned char buf[32];
     secp256k1_sha256 sha = *transcript;
     secp256k1_bppp_le64(buf, idx);
-    secp256k1_sha256_write(&sha, buf, 8);
-    secp256k1_sha256_finalize(&sha, buf);
+    secp256k1_sha256_write(hash_ctx, &sha, buf, 8);
+    secp256k1_sha256_finalize(hash_ctx, &sha, buf);
     secp256k1_sha256_clear(&sha);
     secp256k1_scalar_set_b32(ch, buf, NULL);
 }

@@ -21,6 +21,7 @@ int secp256k1_schnorrsig_inc_aggregate(const secp256k1_context *ctx, unsigned ch
     size_t n;
     secp256k1_sha256 hash;
     secp256k1_scalar s;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(aggsig != NULL);
@@ -47,11 +48,11 @@ int secp256k1_schnorrsig_inc_aggregate(const secp256k1_context *ctx, unsigned ch
             return 0;
         }
         /* write r_i */
-        secp256k1_sha256_write(&hash, &aggsig[i*32], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &aggsig[i*32], 32);
         /* write pk_i */
-        secp256k1_sha256_write(&hash, pk_ser, 32);
+        secp256k1_sha256_write(hash_ctx, &hash, pk_ser, 32);
         /* write m_i*/
-        secp256k1_sha256_write(&hash, &all_msgs32[i*32], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &all_msgs32[i*32], 32);
     }
 
     /* Compute s = s_old + sum_{i = n_before}^{n} z_i*s_i */
@@ -72,13 +73,13 @@ int secp256k1_schnorrsig_inc_aggregate(const secp256k1_context *ctx, unsigned ch
 
         /* Step 1: z_i = TaggedHash(...) */
         /* 1.a) Write into hash r_i, pk_i, m_i, r_i */
-        secp256k1_sha256_write(&hash, &new_sigs64[(i-n_before)*64], 32);
-        secp256k1_sha256_write(&hash, pk_ser, 32);
-        secp256k1_sha256_write(&hash, &all_msgs32[i*32], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &new_sigs64[(i-n_before)*64], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, pk_ser, 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &all_msgs32[i*32], 32);
         /* 1.b) Copy the hash */
         hashcopy = hash;
         /* 1.c) Finalize the copy to get zi*/
-        secp256k1_sha256_finalize(&hashcopy, hashoutput);
+        secp256k1_sha256_finalize(hash_ctx, &hashcopy, hashoutput);
         secp256k1_sha256_clear(&hashcopy);
         /* Note: No need to check overflow, comes from hash */
         secp256k1_scalar_set_b32(&zi, hashoutput, NULL);
@@ -105,6 +106,7 @@ int secp256k1_schnorrsig_aggregate(const secp256k1_context *ctx, unsigned char *
 }
 
 int secp256k1_schnorrsig_aggverify(const secp256k1_context *ctx, const secp256k1_xonly_pubkey *pubkeys, const unsigned char *msgs32, size_t n, const unsigned char *aggsig, size_t aggsig_len) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     size_t i;
     secp256k1_gej lhs, rhs;
     secp256k1_scalar s;
@@ -150,13 +152,13 @@ int secp256k1_schnorrsig_aggverify(const secp256k1_context *ctx, const secp256k1
 
         /* Step 1: z_i = TaggedHash(...) */
         /* 1.a) Write into hash r_i, pk_i, m_i, r_i */
-        secp256k1_sha256_write(&hash, &aggsig[i*32], 32);
-        secp256k1_sha256_write(&hash, pk_ser, 32);
-        secp256k1_sha256_write(&hash, &msgs32[i*32], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &aggsig[i*32], 32);
+        secp256k1_sha256_write(hash_ctx, &hash, pk_ser, 32);
+        secp256k1_sha256_write(hash_ctx, &hash, &msgs32[i*32], 32);
         /* 1.b) Copy the hash */
         hashcopy = hash;
         /* 1.c) Finalize the copy to get zi*/
-        secp256k1_sha256_finalize(&hashcopy, hashoutput);
+        secp256k1_sha256_finalize(hash_ctx, &hashcopy, hashoutput);
         secp256k1_sha256_clear(&hashcopy);
         secp256k1_scalar_set_b32(&zi, hashoutput, NULL);
 
@@ -170,7 +172,7 @@ int secp256k1_schnorrsig_aggverify(const secp256k1_context *ctx, const secp256k1
         }
 
         /* 2.b) e_i = int(hash_{BIP0340/challenge}(bytes(r_i) || pk_i || m_i)) mod n */
-        secp256k1_schnorrsig_challenge(&ei, &aggsig[i*32], &msgs32[i*32], 32, pk_ser);
+        secp256k1_schnorrsig_challenge(hash_ctx, &ei, &aggsig[i*32], &msgs32[i*32], 32, pk_ser);
         secp256k1_gej_set_ge(&ppj, &pp);
         /* 2.c) T_i = R_i + e_i*P_i */
         secp256k1_ecmult(&ti, &ppj, &ei, NULL);
