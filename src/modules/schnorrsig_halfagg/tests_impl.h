@@ -11,9 +11,10 @@
 void test_schnorrsig_sha256_tagged_aggregate(void) {
     static const unsigned char tag[] = {'H', 'a', 'l', 'f', 'A', 'g', 'g', '/', 'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'r'};
     secp256k1_sha256 sha_optimized;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
 
     secp256k1_schnorrsig_sha256_tagged_aggregation(&sha_optimized);
-    test_sha256_tag_midstate(&sha_optimized, tag, sizeof(tag));
+    test_sha256_tag_midstate(hash_ctx, &sha_optimized, tag, sizeof(tag));
 }
 
 /* Create n many x-only pubkeys and sigs for random messages */

@@ -561,6 +561,7 @@ const secp256k1_nonce_function secp256k1_nonce_function_default = nonce_function
 
 static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_scalar* r, secp256k1_scalar* s, int* recid, secp256k1_sha256* s2c_sha, secp256k1_ecdsa_s2c_opening *s2c_opening, const unsigned char* s2c_data32, const unsigned char *msg32, const unsigned char *seckey, secp256k1_nonce_function noncefp, const void* noncedata) {
     secp256k1_scalar sec, non, msg;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     int ret = 0;
     int is_sec_valid;
     unsigned char nonce32[32];
@@ -575,8 +576,8 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
      * because we need to ensure that s2c_data is actually hashed into the nonce and
      * not just ignored. Otherwise an attacker can exfiltrate the secret key by
      * signing the same message thrice with different commitments. */
-    VERIFY_CHECK(s2c_data32 == NULL || noncefp == secp256k1_nonce_function_default);
-    
+    VERIFY_CHECK(s2c_data32 == NULL || noncefp == NULL || noncefp == secp256k1_nonce_function_default);
+
     /* Fail if the secret key is invalid. */
     is_sec_valid = secp256k1_scalar_set_b32_seckey(&sec, seckey);
     secp256k1_scalar_cmov(&sec, &secp256k1_scalar_one, !is_sec_valid);
@@ -615,7 +616,7 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
                 secp256k1_declassify(ctx, &nonce_p.infinity, sizeof(nonce_p.infinity));
 
                 /* Tweak nonce with s2c commitment. */
-                ret = secp256k1_ec_commit_seckey(&non, &nonce_p, s2c_sha, s2c_data32, 32);
+                ret = secp256k1_ec_commit_seckey(hash_ctx, &non, &nonce_p, s2c_sha, s2c_data32, 32);
                 secp256k1_declassify(ctx, &ret, sizeof(ret)); /* may be secret that the tweak falied, but happens with negligible probability */
                 if (!ret) {
                     break;

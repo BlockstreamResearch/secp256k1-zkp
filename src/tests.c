@@ -4387,6 +4387,7 @@ static void run_ec_combine(void) {
 }
 
 static void test_ec_commit(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     secp256k1_scalar seckey_s;
     secp256k1_ge pubkey;
     secp256k1_gej pubkeyj;
@@ -4402,29 +4403,30 @@ static void test_ec_commit(void) {
 
     /* Commit to data and verify */
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 32) == 1);
+    CHECK(secp256k1_ec_commit(hash_ctx, &commitment, &pubkey, &sha, data, 32) == 1);
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 32) == 1);
+    CHECK(secp256k1_ec_commit_verify(hash_ctx, &commitment, &pubkey, &sha, data, 32) == 1);
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit_seckey(&seckey_s, &pubkey, &sha, data, 32) == 1);
+    CHECK(secp256k1_ec_commit_seckey(hash_ctx, &seckey_s, &pubkey, &sha, data, 32) == 1);
     secp256k1_ecmult_gen(&CTX->ecmult_gen_ctx, &pubkeyj, &seckey_s);
     secp256k1_gej_eq_ge_var(&pubkeyj, &commitment);
 
     /* Check that verification fails with different data */
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 31) == 0);
+    CHECK(secp256k1_ec_commit_verify(hash_ctx, &commitment, &pubkey, &sha, data, 31) == 0);
 
     /* Check that commmitting fails when the inner pubkey is the point at
      * infinity */
     secp256k1_sha256_initialize(&sha);
     secp256k1_ge_set_infinity(&pubkey);
-    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 32) == 0);
+    CHECK(secp256k1_ec_commit(hash_ctx, &commitment, &pubkey, &sha, data, 32) == 0);
     secp256k1_scalar_set_int(&seckey_s, 0);
-    CHECK(secp256k1_ec_commit_seckey(&seckey_s, &pubkey, &sha, data, 32) == 0);
-    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 32) == 0);
+    CHECK(secp256k1_ec_commit_seckey(hash_ctx, &seckey_s, &pubkey, &sha, data, 32) == 0);
+    CHECK(secp256k1_ec_commit_verify(hash_ctx, &commitment, &pubkey, &sha, data, 32) == 0);
 }
 
 static void test_ec_commit_api(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     unsigned char seckey[32];
     secp256k1_scalar seckey_s;
     secp256k1_ge pubkey;
@@ -4442,17 +4444,17 @@ static void test_ec_commit_api(void) {
     secp256k1_ge_set_gej(&pubkey, &pubkeyj);
 
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit(&commitment, &pubkey, &sha, data, 1) == 1);
+    CHECK(secp256k1_ec_commit(hash_ctx, &commitment, &pubkey, &sha, data, 1) == 1);
     /* The same pubkey can be both input and output of the function */
     {
         secp256k1_ge pubkey_tmp = pubkey;
         secp256k1_sha256_initialize(&sha);
-        CHECK(secp256k1_ec_commit(&pubkey_tmp, &pubkey_tmp, &sha, data, 1) == 1);
+        CHECK(secp256k1_ec_commit(hash_ctx, &pubkey_tmp, &pubkey_tmp, &sha, data, 1) == 1);
         secp256k1_ge_eq_var(&commitment, &pubkey_tmp);
     }
 
     secp256k1_sha256_initialize(&sha);
-    CHECK(secp256k1_ec_commit_verify(&commitment, &pubkey, &sha, data, 1) == 1);
+    CHECK(secp256k1_ec_commit_verify(hash_ctx, &commitment, &pubkey, &sha, data, 1) == 1);
 }
 
 static void run_ec_commit(void) {

@@ -18,6 +18,7 @@
 secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_context *ctx, size_t n) {
     secp256k1_bppp_generators *ret;
     secp256k1_rfc6979_hmac_sha256 rng;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     unsigned char seed[64];
     size_t i;
 
@@ -37,11 +38,11 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
     secp256k1_fe_get_b32(&seed[0], &secp256k1_ge_const_g.x);
     secp256k1_fe_get_b32(&seed[32], &secp256k1_ge_const_g.y);
 
-    secp256k1_rfc6979_hmac_sha256_initialize(&rng, seed, 64);
+    secp256k1_rfc6979_hmac_sha256_initialize(hash_ctx, &rng, seed, 64);
     for (i = 0; i < n; i++) {
         secp256k1_generator gen;
         unsigned char tmp[32] = { 0 };
-        secp256k1_rfc6979_hmac_sha256_generate(&rng, tmp, 32);
+        secp256k1_rfc6979_hmac_sha256_generate(hash_ctx, &rng, tmp, 32);
         CHECK(secp256k1_generator_generate(ctx, &gen, tmp));
         secp256k1_generator_load(&ret->gens[i], &gen);
     }

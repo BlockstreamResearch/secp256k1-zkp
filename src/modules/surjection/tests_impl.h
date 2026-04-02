@@ -26,7 +26,7 @@ static void test_surjectionproof_api(void) {
     size_t  serialized_len;
     secp256k1_surjectionproof proof;
     secp256k1_surjectionproof* proof_on_heap;
-    size_t n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]);
+    size_t n_inputs = ARRAY_SIZE(fixed_input_tags);
     size_t input_index;
     size_t i;
 
@@ -146,7 +146,7 @@ static void test_input_selection(size_t n_inputs) {
     size_t try_count = n_inputs * 100;
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag fixed_input_tags[1000];
-    const size_t max_n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]) - 1;
+    const size_t max_n_inputs = ARRAY_SIZE(fixed_input_tags) - 1;
 
     CHECK(n_inputs < max_n_inputs);
     testrand256(seed);
@@ -313,7 +313,7 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     secp256k1_fixed_asset_tag fixed_input_tags[1000];
     secp256k1_generator ephemeral_input_tags[1000];
     unsigned char *input_blinding_key[1000];
-    const size_t max_n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]) - 1;
+    const size_t max_n_inputs = ARRAY_SIZE(fixed_input_tags) - 1;
     size_t try_count = n_inputs * 100;
     size_t key_index;
     size_t input_index;
@@ -395,6 +395,7 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
 
 /* check that a proof with empty n_used_inputs is invalid */
 static void test_no_used_inputs_verify(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     secp256k1_surjectionproof proof;
     secp256k1_fixed_asset_tag fixed_input_tag;
     secp256k1_fixed_asset_tag fixed_output_tag;
@@ -422,10 +423,10 @@ static void test_no_used_inputs_verify(void) {
 
     /* create "borromean signature" which is just a hash of metadata (pubkeys, etc) in this case */
     secp256k1_generator_load(&output, &ephemeral_output_tag);
-    secp256k1_surjection_genmessage(proof.data, ephemeral_input_tags, 1, &ephemeral_output_tag);
+    secp256k1_surjection_genmessage(hash_ctx, proof.data, ephemeral_input_tags, 1, &ephemeral_output_tag);
     secp256k1_sha256_initialize(&sha256_e0);
-    secp256k1_sha256_write(&sha256_e0, proof.data, 32);
-    secp256k1_sha256_finalize(&sha256_e0, proof.data);
+    secp256k1_sha256_write(hash_ctx, &sha256_e0, proof.data, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha256_e0, proof.data);
 
     result = secp256k1_surjectionproof_verify(CTX, &proof, ephemeral_input_tags, n_ephemeral_input_tags, &ephemeral_output_tag);
     CHECK(result == 0);
