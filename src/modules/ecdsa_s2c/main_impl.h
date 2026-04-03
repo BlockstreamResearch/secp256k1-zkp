@@ -55,6 +55,7 @@ static void secp256k1_s2c_ecdsa_data_sha256_tagged(secp256k1_sha256 *sha) {
 
 int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signature* signature, secp256k1_ecdsa_s2c_opening* s2c_opening, const unsigned char
  *msg32, const unsigned char *seckey, const unsigned char* s2c_data32) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_scalar r, s;
     int ret;
     unsigned char ndata[32];
@@ -72,8 +73,8 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
      * to derive nonces even if only a SHA256 commitment to the data is
      * known.  This is important in the ECDSA anti-exfil protocol. */
     secp256k1_s2c_ecdsa_data_sha256_tagged(&s2c_sha);
-    secp256k1_sha256_write(&s2c_sha, s2c_data32, 32);
-    secp256k1_sha256_finalize(&s2c_sha, ndata);
+    secp256k1_sha256_write(hash_ctx, &s2c_sha, s2c_data32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &s2c_sha, ndata);
     secp256k1_sha256_clear(&s2c_sha);
 
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
@@ -85,6 +86,7 @@ int secp256k1_ecdsa_s2c_sign(const secp256k1_context* ctx, secp256k1_ecdsa_signa
 }
 
 int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp256k1_ecdsa_signature* sig, const unsigned char* data32, const secp256k1_ecdsa_s2c_opening* opening) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_ge commitment_ge;
     secp256k1_ge original_pubnonce_ge;
     unsigned char x_bytes[32];
@@ -100,7 +102,7 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
         return 0;
     }
     secp256k1_s2c_ecdsa_point_sha256_tagged(&s2c_sha);
-    if (!secp256k1_ec_commit(&commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
+    if (!secp256k1_ec_commit(hash_ctx, &commitment_ge, &original_pubnonce_ge, &s2c_sha, data32, 32)) {
         return 0;
     }
 
@@ -128,14 +130,15 @@ int secp256k1_ecdsa_s2c_verify_commit(const secp256k1_context* ctx, const secp25
 /*** anti-exfil ***/
 int secp256k1_ecdsa_anti_exfil_host_commit(const secp256k1_context* ctx, unsigned char* rand_commitment32, const unsigned char* rand32) {
     secp256k1_sha256 sha;
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(rand_commitment32 != NULL);
     ARG_CHECK(rand32 != NULL);
 
     secp256k1_s2c_ecdsa_data_sha256_tagged(&sha);
-    secp256k1_sha256_write(&sha, rand32, 32);
-    secp256k1_sha256_finalize(&sha, rand_commitment32);
+    secp256k1_sha256_write(hash_ctx, &sha, rand32, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha, rand_commitment32);
     secp256k1_sha256_clear(&sha);
     return 1;
 }

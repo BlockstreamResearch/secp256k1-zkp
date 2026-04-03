@@ -51,15 +51,17 @@ static void run_test(bench_data* data, int iters) {
 
 static void generate_scalar(secp256k1_scalar *scalar, unsigned char *seckey, uint32_t num) {
     secp256k1_sha256 sha256;
+    secp256k1_hash_ctx hash_ctx;
     unsigned char c[13] = {'w','h','i','t','e','l','i','s','t', 0, 0, 0, 0};
     int is_valid;
+    secp256k1_hash_ctx_init(&hash_ctx);
     c[9] = num;
     c[10] = num >> 8;
     c[11] = num >> 16;
     c[12] = num >> 24;
     secp256k1_sha256_initialize(&sha256);
-    secp256k1_sha256_write(&sha256, c, sizeof(c));
-    secp256k1_sha256_finalize(&sha256, seckey);
+    secp256k1_sha256_write(&hash_ctx, &sha256, c, sizeof(c));
+    secp256k1_sha256_finalize(&hash_ctx, &sha256, seckey);
     is_valid = secp256k1_scalar_set_b32_seckey(scalar, seckey);
     CHECK(is_valid);
 }

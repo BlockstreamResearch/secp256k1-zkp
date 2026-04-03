@@ -104,6 +104,7 @@ static void test_bppp_generators_fixed(void) {
 }
 
 static void test_bppp_tagged_hash(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     unsigned char tag_data[] = {'B', 'u', 'l', 'l', 'e', 't', 'p', 'r', 'o', 'o', 'f', 's', '_', 'p', 'p', '/', 'v', '0', '/', 'c', 'o', 'm', 'm', 'i', 't', 'm', 'e', 'n', 't'};
     secp256k1_sha256 sha;
     secp256k1_sha256 sha_cached;
@@ -111,10 +112,10 @@ static void test_bppp_tagged_hash(void) {
     unsigned char output_cached[32];
     secp256k1_scalar s;
 
-    secp256k1_sha256_initialize_tagged(&sha, tag_data, sizeof(tag_data));
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag_data, sizeof(tag_data));
     secp256k1_bppp_sha256_tagged_commitment_init(&sha_cached);
-    secp256k1_sha256_finalize(&sha, output);
-    secp256k1_sha256_finalize(&sha_cached, output_cached);
+    secp256k1_sha256_finalize(hash_ctx, &sha, output);
+    secp256k1_sha256_finalize(hash_ctx, &sha_cached, output_cached);
     CHECK(secp256k1_memcmp_var(output, output_cached, 32) == 0);
 
     {
@@ -123,7 +124,7 @@ static void test_bppp_tagged_hash(void) {
                                        0x8A, 0x41, 0xC6, 0x85, 0x1A, 0x79, 0x14, 0xFC,
                                        0x48, 0x15, 0xC7, 0x2D, 0xF8, 0x63, 0x8F, 0x1B };
         secp256k1_bppp_sha256_tagged_commitment_init(&sha);
-        secp256k1_bppp_challenge_scalar(&s, &sha, 0);
+        secp256k1_bppp_challenge_scalar(hash_ctx, &s, &sha, 0);
         secp256k1_scalar_get_b32(output, &s);
         CHECK(secp256k1_memcmp_var(output, expected, sizeof(output)) == 0);
     }
@@ -134,8 +135,8 @@ static void test_bppp_tagged_hash(void) {
                                        0x72, 0x7E, 0x3E, 0xB7, 0x10, 0x03, 0xF0, 0xE9,
                                        0x69, 0x4D, 0xAA, 0x96, 0xCE, 0x98, 0xBB, 0x39,
                                        0x1C, 0x2F, 0x7C, 0x2E, 0x1C, 0x17, 0x78, 0x6D };
-        secp256k1_sha256_write(&sha, tmp, sizeof(tmp));
-        secp256k1_bppp_challenge_scalar(&s, &sha, 0);
+        secp256k1_sha256_write(hash_ctx, &sha, tmp, sizeof(tmp));
+        secp256k1_bppp_challenge_scalar(hash_ctx, &s, &sha, 0);
         secp256k1_scalar_get_b32(output, &s);
         CHECK(secp256k1_memcmp_var(output, expected, sizeof(output)) == 0);
     }
@@ -279,6 +280,7 @@ static void secp256k1_norm_arg_commit_initial_data(
     const secp256k1_ge* commit
 ) {
     /* Commit to the initial public values */
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     unsigned char ser_commit[33], ser_scalar[32], ser_le64[8];
     size_t i;
     secp256k1_ge comm = *commit;
@@ -287,24 +289,24 @@ static void secp256k1_norm_arg_commit_initial_data(
     secp256k1_fe_normalize(&comm.y);
     CHECK(secp256k1_ge_is_infinity(&comm) == 0);
     CHECK(secp256k1_bppp_serialize_pt(&ser_commit[0], &comm));
-    secp256k1_sha256_write(transcript, ser_commit, 33);
+    secp256k1_sha256_write(hash_ctx, transcript, ser_commit, 33);
     secp256k1_scalar_get_b32(ser_scalar, rho);
-    secp256k1_sha256_write(transcript, ser_scalar, 32);
+    secp256k1_sha256_write(hash_ctx, transcript, ser_scalar, 32);
     secp256k1_bppp_le64(ser_le64, g_len);
-    secp256k1_sha256_write(transcript, ser_le64, 8);
+    secp256k1_sha256_write(hash_ctx, transcript, ser_le64, 8);
     secp256k1_bppp_le64(ser_le64, gens_vec->n);
-    secp256k1_sha256_write(transcript, ser_le64, 8);
+    secp256k1_sha256_write(hash_ctx, transcript, ser_le64, 8);
     for (i = 0; i < gens_vec->n; i++) {
         secp256k1_fe_normalize(&gens_vec->gens[i].x);
         secp256k1_fe_normalize(&gens_vec->gens[i].y);
         CHECK(secp256k1_bppp_serialize_pt(&ser_commit[0], &gens_vec->gens[i]));
-        secp256k1_sha256_write(transcript, ser_commit, 33);
+        secp256k1_sha256_write(hash_ctx, transcript, ser_commit, 33);
     }
     secp256k1_bppp_le64(ser_le64, c_vec_len);
-    secp256k1_sha256_write(transcript, ser_le64, 8);
+    secp256k1_sha256_write(hash_ctx, transcript, ser_le64, 8);
     for (i = 0; i < c_vec_len; i++) {
         secp256k1_scalar_get_b32(ser_scalar, &c_vec[i]);
-        secp256k1_sha256_write(transcript, ser_scalar, 32);
+        secp256k1_sha256_write(hash_ctx, transcript, ser_scalar, 32);
     }
 }
 
@@ -561,7 +563,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
     return ret;
 }
 
-#define IDX_TO_TEST(i) (norm_arg_verify_vectors_helper(scratch, verify_vector_gens, verify_vector_##i##_proof, sizeof(verify_vector_##i##_proof), verify_vector_##i##_r32, verify_vector_##i##_n_vec_len, verify_vector_##i##_c_vec32, verify_vector_##i##_c_vec, sizeof(verify_vector_##i##_c_vec)/sizeof(secp256k1_scalar), verify_vector_##i##_commit33) == verify_vector_##i##_result)
+#define IDX_TO_TEST(i) (norm_arg_verify_vectors_helper(scratch, verify_vector_gens, verify_vector_##i##_proof, sizeof(verify_vector_##i##_proof), verify_vector_##i##_r32, verify_vector_##i##_n_vec_len, verify_vector_##i##_c_vec32, verify_vector_##i##_c_vec, ARRAY_SIZE(verify_vector_##i##_c_vec), verify_vector_##i##_commit33) == verify_vector_##i##_result)
 
 static void norm_arg_verify_vectors(void) {
     secp256k1_scratch *scratch = secp256k1_scratch_space_create(CTX, 1000*1000); /* shouldn't need much */
@@ -629,9 +631,9 @@ static void norm_arg_prove_vectors_helper(secp256k1_scratch *scratch, const unsi
 
 
 #define IDX_TO_TEST(i) (norm_arg_prove_vectors_helper(scratch, prove_vector_gens, prove_vector_##i##_proof, sizeof(prove_vector_##i##_proof), prove_vector_##i##_r32,\
-    prove_vector_##i##_n_vec32, prove_vector_##i##_n_vec, sizeof(prove_vector_##i##_n_vec)/sizeof(secp256k1_scalar),\
+    prove_vector_##i##_n_vec32, prove_vector_##i##_n_vec, ARRAY_SIZE(prove_vector_##i##_n_vec),\
     prove_vector_##i##_l_vec32, prove_vector_##i##_l_vec,\
-    prove_vector_##i##_c_vec32, prove_vector_##i##_c_vec, sizeof(prove_vector_##i##_c_vec)/sizeof(secp256k1_scalar), \
+    prove_vector_##i##_c_vec32, prove_vector_##i##_c_vec, ARRAY_SIZE(prove_vector_##i##_c_vec), \
     prove_vector_##i##_result))
 
 static void norm_arg_prove_vectors(void) {
