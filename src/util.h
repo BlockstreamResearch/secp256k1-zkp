@@ -207,6 +207,8 @@ SECP256K1_INLINE static int secp256k1_clz64_var(uint64_t x) {
     return ret;
 }
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 /* Macro for restrict, when available and not in a VERIFY build. */
 #if defined(SECP256K1_BUILD) && defined(VERIFY)
 # define SECP256K1_RESTRICT

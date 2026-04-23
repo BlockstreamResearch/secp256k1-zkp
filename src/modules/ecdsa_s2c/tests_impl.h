@@ -11,6 +11,7 @@
 #include "../../unit_test.h"
 
 static void test_ecdsa_s2c_tagged_hash(void) {
+    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     unsigned char tag_data[] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'd', 'a', 't', 'a'};
     unsigned char tag_point[] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'p', 'o', 'i', 'n', 't'};
     secp256k1_sha256 sha;
@@ -18,16 +19,16 @@ static void test_ecdsa_s2c_tagged_hash(void) {
     unsigned char output[32];
     unsigned char output_optimized[32];
 
-    secp256k1_sha256_initialize_tagged(&sha, tag_data, sizeof(tag_data));
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag_data, sizeof(tag_data));
     secp256k1_s2c_ecdsa_data_sha256_tagged(&sha_optimized);
-    secp256k1_sha256_finalize(&sha, output);
-    secp256k1_sha256_finalize(&sha_optimized, output_optimized);
+    secp256k1_sha256_finalize(hash_ctx, &sha, output);
+    secp256k1_sha256_finalize(hash_ctx, &sha_optimized, output_optimized);
     CHECK(secp256k1_memcmp_var(output, output_optimized, 32) == 0);
 
-    secp256k1_sha256_initialize_tagged(&sha, tag_point, sizeof(tag_point));
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag_point, sizeof(tag_point));
     secp256k1_s2c_ecdsa_point_sha256_tagged(&sha_optimized);
-    secp256k1_sha256_finalize(&sha, output);
-    secp256k1_sha256_finalize(&sha_optimized, output_optimized);
+    secp256k1_sha256_finalize(hash_ctx, &sha, output);
+    secp256k1_sha256_finalize(hash_ctx, &sha_optimized, output_optimized);
     CHECK(secp256k1_memcmp_var(output, output_optimized, 32) == 0);
 }
 
@@ -171,7 +172,7 @@ static void test_ecdsa_s2c_fixed_vectors(void) {
     };
     size_t i;
 
-    for (i = 0; i < sizeof(ecdsa_s2c_tests) / sizeof(ecdsa_s2c_tests[0]); i++) {
+    for (i = 0; i < ARRAY_SIZE(ecdsa_s2c_tests); i++) {
         secp256k1_ecdsa_s2c_opening s2c_opening;
         unsigned char opening_ser[33];
         const ecdsa_s2c_test *test = &ecdsa_s2c_tests[i];
@@ -248,7 +249,7 @@ static void test_ecdsa_anti_exfil_signer_commit(void) {
         0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88, 0x88,
     };
     /* Check that original pubnonce is derived from s2c_data */
-    for (i = 0; i < sizeof(ecdsa_s2c_tests) / sizeof(ecdsa_s2c_tests[0]); i++) {
+    for (i = 0; i < ARRAY_SIZE(ecdsa_s2c_tests); i++) {
         secp256k1_ecdsa_s2c_opening s2c_opening;
         unsigned char buf[33];
         const ecdsa_s2c_test *test = &ecdsa_s2c_tests[i];
