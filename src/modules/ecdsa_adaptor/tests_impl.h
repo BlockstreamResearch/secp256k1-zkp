@@ -19,35 +19,19 @@ static void rand_point(secp256k1_ge *point) {
     secp256k1_ge_set_gej(point, &pointj);
 }
 
-static void dleq_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
-    const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
-    secp256k1_scalar k1, k2;
-
-    CHECK(secp256k1_dleq_nonce(hash_ctx, &k1, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
-    testrand_flip(args[n_flip], n_bytes);
-    CHECK(secp256k1_dleq_nonce(hash_ctx, &k2, args[0], args[1], args[2], args[3], NULL, args[4]) == 1);
-    CHECK(secp256k1_scalar_eq(&k1, &k2) == 0);
-}
-
 static void dleq_tests_internal(void) {
     const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(CTX);
     secp256k1_scalar s, e, sk, k;
     secp256k1_ge gen2, p1, p2;
     secp256k1_ge p[2];
-    unsigned char *args[5];
-    unsigned char sk32[32];
-    unsigned char gen2_33[33];
-    unsigned char p1_33[33];
-    unsigned char p2_33[33];
-    unsigned char aux_rand[32];
-    int i;
 
     rand_point(&gen2);
     rand_scalar(&sk);
     secp256k1_dleq_pair(&CTX->ecmult_gen_ctx, p, &sk, &gen2);
     p1 = p[0];
     p2 = p[1];
-    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &p1, &gen2, &p2, NULL, NULL) == 1);
+    rand_scalar(&k);
+    CHECK(secp256k1_dleq_prove(CTX, &s, &e, &sk, &k, &p1, &gen2, &p2) == 1);
     CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &gen2, &p2) == 1);
 
     {
@@ -63,39 +47,6 @@ static void dleq_tests_internal(void) {
         CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &p_tmp, &p2) == 0);
         CHECK(secp256k1_dleq_verify(hash_ctx, &s, &e, &p1, &gen2, &p_tmp) == 0);
     }
-
-    /* Nonce tests */
-    secp256k1_scalar_get_b32(sk32, &sk);
-    secp256k1_eckey_pubkey_serialize33(&gen2, gen2_33);
-    secp256k1_eckey_pubkey_serialize33(&p1, p1_33);
-    secp256k1_eckey_pubkey_serialize33(&p2, p2_33);
-    CHECK(secp256k1_dleq_nonce(hash_ctx, &k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
-
-    testrand_bytes_test(sk32, sizeof(sk32));
-    testrand_bytes_test(gen2_33, sizeof(gen2_33));
-    testrand_bytes_test(p1_33, sizeof(p1_33));
-    testrand_bytes_test(p2_33, sizeof(p2_33));
-    testrand_bytes_test(aux_rand, sizeof(aux_rand));
-
-    /* Check that a bitflip in an argument results in different nonces. */
-    args[0] = sk32;
-    args[1] = gen2_33;
-    args[2] = p1_33;
-    args[3] = p2_33;
-    args[4] = aux_rand;
-    for (i = 0; i < COUNT; i++) {
-        dleq_nonce_bitflip(args, 0, sizeof(sk32));
-        dleq_nonce_bitflip(args, 1, sizeof(gen2_33));
-        dleq_nonce_bitflip(args, 2, sizeof(p1_33));
-        /* Flip p2 */
-        dleq_nonce_bitflip(args, 3, sizeof(p2_33));
-        /* Flip p2 again */
-        dleq_nonce_bitflip(args, 3, sizeof(p2_33));
-        dleq_nonce_bitflip(args, 4, sizeof(aux_rand));
-    }
-
-    /* NULL aux_rand argument is allowed. */
-    CHECK(secp256k1_dleq_nonce(hash_ctx, &k, sk32, gen2_33, p1_33, p2_33, NULL, NULL) == 1);
 }
 
 static void rand_flip_bit(unsigned char *array, size_t n) {

@@ -31,32 +31,6 @@ static void secp256k1_dleq_hash_point(const secp256k1_hash_ctx *hash_ctx, secp25
     secp256k1_sha256_write(hash_ctx, sha, buf, 33);
 }
 
-static int secp256k1_dleq_nonce(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *k, const unsigned char *sk32, const unsigned char *gen2_33, const unsigned char *p1_33, const unsigned char *p2_33, secp256k1_nonce_function_hardened_ecdsa_adaptor noncefp, void *ndata) {
-    secp256k1_sha256 sha;
-    unsigned char buf[32];
-    unsigned char nonce[32];
-
-    if (noncefp == NULL) {
-        noncefp = secp256k1_nonce_function_ecdsa_adaptor;
-    }
-
-    secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(hash_ctx, &sha, p1_33, 33);
-    secp256k1_sha256_write(hash_ctx, &sha, p2_33, 33);
-    secp256k1_sha256_finalize(hash_ctx, &sha, buf);
-    secp256k1_sha256_clear(&sha);
-
-    if (!noncefp(nonce, buf, sk32, gen2_33, dleq_algo, sizeof(dleq_algo), ndata)) {
-        return 0;
-    }
-    secp256k1_scalar_set_b32(k, nonce, NULL);
-    if (secp256k1_scalar_is_zero(k)) {
-        return 0;
-    }
-
-    return 1;
-}
-
 /* Generates a challenge as defined in the DLC Specification at
  * https://github.com/discreetlogcontracts/dlcspecs */
 static void secp256k1_dleq_challenge(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *e, secp256k1_ge *gen2, secp256k1_ge *r1, secp256k1_ge *r2, secp256k1_ge *p1, secp256k1_ge *p2) {
@@ -86,32 +60,14 @@ static void secp256k1_dleq_pair(const secp256k1_ecmult_gen_context *ecmult_gen_c
 
 /* Generates a proof that the discrete logarithm of P1 to the secp256k1 base G is the
  * same as the discrete logarithm of P2 to the base Y */
-static int secp256k1_dleq_prove(const secp256k1_context* ctx, secp256k1_scalar *s, secp256k1_scalar *e, const secp256k1_scalar *sk, secp256k1_ge *p1, secp256k1_ge *gen2, secp256k1_ge *p2, secp256k1_nonce_function_hardened_ecdsa_adaptor noncefp, void *ndata) {
+static int secp256k1_dleq_prove(const secp256k1_context* ctx, secp256k1_scalar *s, secp256k1_scalar *e, const secp256k1_scalar *sk, const secp256k1_scalar *k, secp256k1_ge *p1, secp256k1_ge *gen2, secp256k1_ge *p2) {
     /* Note: r[2] and k are local to the DLEQ proof, and they differ from the
      * values with the same identifiers in main_impl.h. */
     const secp256k1_hash_ctx *hash_ctx = secp256k1_get_hash_context(ctx);
     secp256k1_ge r[2];
-    secp256k1_scalar k = { 0 };
-    unsigned char sk32[32];
-    unsigned char gen2_33[33];
-    unsigned char p1_33[33];
-    unsigned char p2_33[33];
-    int ret;
 
-    secp256k1_eckey_pubkey_serialize33(gen2, gen2_33);
-    secp256k1_eckey_pubkey_serialize33(p1, p1_33);
-    secp256k1_eckey_pubkey_serialize33(p2, p2_33);
-
-    secp256k1_scalar_get_b32(sk32, sk);
-
-    ret = secp256k1_dleq_nonce(hash_ctx, &k, sk32, gen2_33, p1_33, p2_33, noncefp, ndata);
-    secp256k1_declassify(ctx, &ret, sizeof(ret));
-    if (!ret) {
-        secp256k1_memclear_explicit(sk32, sizeof(sk32));
-        return 0;
-    }
     /* R1 = k*G, R2 = k*Y */
-    secp256k1_dleq_pair(&ctx->ecmult_gen_ctx, r, &k, gen2);
+    secp256k1_dleq_pair(&ctx->ecmult_gen_ctx, r, k, gen2);
     /* We declassify the non-secret values r[0] and r[1] to allow using them as
      * branch points. */
     secp256k1_declassify(ctx, &r[0], sizeof(r[0]));
@@ -121,10 +77,8 @@ static int secp256k1_dleq_prove(const secp256k1_context* ctx, secp256k1_scalar *
     /* s = k + e * sk */
     secp256k1_dleq_challenge(hash_ctx, e, gen2, &r[0], &r[1], p1, p2);
     secp256k1_scalar_mul(s, e, sk);
-    secp256k1_scalar_add(s, s, &k);
+    secp256k1_scalar_add(s, s, k);
 
-    secp256k1_scalar_clear(&k);
-    secp256k1_memclear_explicit(sk32, sizeof(sk32));
     return 1;
 }
 
