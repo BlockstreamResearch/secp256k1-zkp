@@ -16,7 +16,6 @@
 #include "../../../src/ecmult.h"
 #include "../../../src/ecmult_const.h"
 #include "../../../src/group.h"
-#include "../../../src/hash.h"
 #include "../../../src/scalar.h"
 
 /* (R, R', s', dleq_proof) */
@@ -150,7 +149,9 @@ static int nonce_function_ecdsa_adaptor(
 const secp256k1_nonce_function_hardened_ecdsa_adaptor secp256k1_nonce_function_ecdsa_adaptor = nonce_function_ecdsa_adaptor;
 
 int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char *adaptor_sig162, unsigned char *seckey32, const secp256k1_pubkey *enckey, const unsigned char *msg32, secp256k1_nonce_function_hardened_ecdsa_adaptor noncefp, void *ndata) {
+    const secp256k1_hash_ctx *hash_ctx;
     secp256k1_scalar k;
+    secp256k1_scalar dleq_k;
     secp256k1_ge r[2];               /* R, R' */
     secp256k1_gej rj[2];             /* R, R' */
     secp256k1_ge enckey_ge;          /* Y */
@@ -162,7 +163,13 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar sigr;
     secp256k1_scalar n;
     unsigned char nonce32[32] = { 0 };
+    unsigned char dleq_nonce32[32] = { 0 };
+    unsigned char dleq_msg32[32];
+    unsigned char r0_33[33];
+    unsigned char r1_33[33];
+    unsigned char k32[32];
     unsigned char buf33[33];
+    secp256k1_sha256 sha;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -175,16 +182,18 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar_clear(&dleq_proof_e);
     secp256k1_scalar_clear(&dleq_proof_s);
 
-    if (noncefp == NULL) {
-        noncefp = secp256k1_nonce_function_ecdsa_adaptor;
-    }
-
     if (!secp256k1_pubkey_load(ctx, &enckey_ge, enckey)) {
         return 0;
     }
 
+    hash_ctx = secp256k1_get_hash_context(ctx);
+
     secp256k1_eckey_pubkey_serialize33(&enckey_ge, buf33);
-    ret &= !!noncefp(nonce32, msg32, seckey32, buf33, ecdsa_adaptor_algo, sizeof(ecdsa_adaptor_algo), ndata);
+    if (noncefp == NULL || noncefp == secp256k1_nonce_function_ecdsa_adaptor) {
+        ret &= nonce_function_ecdsa_adaptor_impl(hash_ctx, nonce32, msg32, seckey32, buf33, ecdsa_adaptor_algo, sizeof(ecdsa_adaptor_algo), ndata);
+    } else {
+        ret &= !!noncefp(nonce32, msg32, seckey32, buf33, ecdsa_adaptor_algo, sizeof(ecdsa_adaptor_algo), ndata);
+    }
     secp256k1_scalar_set_b32(&k, nonce32, NULL);
     ret &= !secp256k1_scalar_is_zero(&k);
     secp256k1_scalar_cmov(&k, &secp256k1_scalar_one, !ret);
@@ -200,11 +209,34 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_declassify(ctx, &r[0], sizeof(r[0]));
     secp256k1_declassify(ctx, &r[1], sizeof(r[1]));
 
+    /* Compute DLEQ nonce: msg = SHA256(R' || R), key = k, pk = Y */
+    secp256k1_eckey_pubkey_serialize33(&r[1], r1_33);
+    secp256k1_eckey_pubkey_serialize33(&r[0], r0_33);
+    secp256k1_scalar_get_b32(k32, &k);
+    secp256k1_sha256_initialize(&sha);
+    secp256k1_sha256_write(hash_ctx, &sha, r1_33, 33);
+    secp256k1_sha256_write(hash_ctx, &sha, r0_33, 33);
+    secp256k1_sha256_finalize(hash_ctx, &sha, dleq_msg32);
+    secp256k1_sha256_clear(&sha);
+
+    if (noncefp == NULL || noncefp == secp256k1_nonce_function_ecdsa_adaptor) {
+        ret &= nonce_function_ecdsa_adaptor_impl(hash_ctx, dleq_nonce32, dleq_msg32, k32, buf33, dleq_algo, sizeof(dleq_algo), ndata);
+    } else {
+        ret &= !!noncefp(dleq_nonce32, dleq_msg32, k32, buf33, dleq_algo, sizeof(dleq_algo), ndata);
+    }
+
+    secp256k1_scalar_set_b32(&dleq_k, dleq_nonce32, NULL);
+    ret &= !secp256k1_scalar_is_zero(&dleq_k);
+    secp256k1_scalar_cmov(&dleq_k, &secp256k1_scalar_one, !ret);
+
     /* dleq_proof = DLEQ_prove(k, (R', Y, R)) */
-    if (!secp256k1_dleq_prove(ctx, &dleq_proof_s, &dleq_proof_e, &k, &r[1], &enckey_ge, &r[0], noncefp, ndata)) {
+    if (!secp256k1_dleq_prove(ctx, &dleq_proof_s, &dleq_proof_e, &k, &dleq_k, &r[1], &enckey_ge, &r[0])) {
         memset(adaptor_sig162, 0, 162);
         secp256k1_memclear_explicit(nonce32, sizeof(nonce32));
+        secp256k1_memclear_explicit(dleq_nonce32, sizeof(dleq_nonce32));
+        secp256k1_memclear_explicit(k32, sizeof(k32));
         secp256k1_scalar_clear(&k);
+        secp256k1_scalar_clear(&dleq_k);
         return 0;
     }
     ret &= secp256k1_scalar_set_b32_seckey(&sk, seckey32);
@@ -226,8 +258,11 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
 
     secp256k1_memczero(adaptor_sig162, 162, !ret);
     secp256k1_memclear_explicit(nonce32, sizeof(nonce32));
+    secp256k1_memclear_explicit(dleq_nonce32, sizeof(dleq_nonce32));
+    secp256k1_memclear_explicit(k32, sizeof(k32));
     secp256k1_scalar_clear(&n);
     secp256k1_scalar_clear(&k);
+    secp256k1_scalar_clear(&dleq_k);
     secp256k1_scalar_clear(&sk);
 
     return ret;
