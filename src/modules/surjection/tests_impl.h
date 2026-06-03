@@ -784,6 +784,41 @@ static void test_surjectionproof_generate_changes_s_values(void) {
     }
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_surjection)
+static void test_surjectionproof_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char serialized_default[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(1, 1)];
+    unsigned char serialized_custom[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(1, 1)];
+    unsigned char seed[32] = {1};
+    unsigned char input_blinding[32] = {1}, output_blinding[32] = {2};
+    secp256k1_fixed_asset_tag fixed_tag = {{1}};
+    secp256k1_generator input_tag, output_tag;
+    secp256k1_surjectionproof proof;
+    size_t input_index;
+    size_t serialized_len = sizeof(serialized_default);
+
+    CHECK(secp256k1_generator_generate_blinded(CTX, &input_tag, fixed_tag.data, input_blinding));
+    CHECK(secp256k1_generator_generate_blinded(CTX, &output_tag, fixed_tag.data, output_blinding));
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 100, seed) > 0);
+    CHECK(secp256k1_surjectionproof_generate(ctx, &proof, &input_tag, 1, &output_tag, 0, input_blinding, output_blinding));
+    CHECK(secp256k1_surjectionproof_serialize(ctx, serialized_default, &serialized_len, &proof));
+    CHECK(!sha256_surjection_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_surjection;
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, &fixed_tag, 1, 1, &fixed_tag, 100, seed) > 0);
+    CHECK(secp256k1_surjectionproof_generate(ctx, &proof, &input_tag, 1, &output_tag, 0, input_blinding, output_blinding));
+    CHECK(secp256k1_surjectionproof_serialize(ctx, serialized_custom, &serialized_len, &proof));
+    CHECK(sha256_surjection_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(serialized_default, serialized_custom, serialized_len) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 static const struct tf_test_entry tests_surjection[] = {
     CASE1(test_surjectionproof_api),
@@ -797,6 +832,7 @@ static const struct tf_test_entry tests_surjection[] = {
     CASE1(test_no_used_inputs_verify),
     CASE1(test_bad_serialize),
     CASE1(test_bad_parse),
+    CASE1(test_surjectionproof_ctx_sha256),
 };
 
 #endif

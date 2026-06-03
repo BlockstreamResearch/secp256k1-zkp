@@ -1319,6 +1319,32 @@ static void test_single_value_proof_all(void) {
     test_single_value_proof(UINT64_MAX);
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_rangeproof)
+static void test_rangeproof_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char proof_default[5134], proof_custom[5134];
+    size_t len = sizeof(proof_default);
+    unsigned char blind[32] = {1};
+    secp256k1_pedersen_commitment commit;
+
+    CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, 1, secp256k1_generator_h));
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_rangeproof_sign(ctx, proof_default, &len, 0, &commit, blind, commit.data, 0, 0, 1, NULL, 0, NULL, 0, secp256k1_generator_h));
+    CHECK(!sha256_rangeproof_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_rangeproof;
+    len = sizeof(proof_custom);
+    CHECK(secp256k1_rangeproof_sign(ctx, proof_custom, &len, 0, &commit, blind, commit.data, 0, 0, 1, NULL, 0, NULL, 0, secp256k1_generator_h));
+    CHECK(sha256_rangeproof_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(proof_default, proof_custom, len) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(test_rangeproof_api)
 REPEAT_TEST(test_borromean)
@@ -1332,6 +1358,7 @@ static const struct tf_test_entry tests_rangeproof[] = {
     CASE1(test_rangeproof),
     CASE1(test_rangeproof_null_blinder),
     CASE1(test_multiple_generators),
+    CASE1(test_rangeproof_ctx_sha256),
 };
 
 #endif

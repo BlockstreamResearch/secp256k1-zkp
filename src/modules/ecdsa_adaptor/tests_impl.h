@@ -1182,6 +1182,30 @@ static void adaptor_test_issue335(void) {
     }
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_ecdsa_adaptor)
+static void test_ecdsa_adaptor_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char out_default[162], out_custom[162];
+    unsigned char sk[32] = {1}, msg32[32] = {1};
+    unsigned char enckey_sk[32] = {2};
+    secp256k1_pubkey enckey;
+    CHECK(secp256k1_ec_pubkey_create(ctx, &enckey, enckey_sk));
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(ctx, out_default, sk, &enckey, msg32, NULL, NULL));
+    CHECK(!sha256_ecdsa_adaptor_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_ecdsa_adaptor;
+    CHECK(secp256k1_ecdsa_adaptor_encrypt(ctx, out_custom, sk, &enckey, msg32, NULL, NULL));
+    CHECK(sha256_ecdsa_adaptor_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(out_default, out_custom, 162) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(dleq_tests)
 REPEAT_TEST(adaptor_tests)
@@ -1195,6 +1219,7 @@ static const struct tf_test_entry tests_ecdsa_adaptor[] = {
     CASE1(adaptor_tests),
     CASE1(multi_hop_lock_tests),
     CASE1(adaptor_test_issue335),
+    CASE1(test_ecdsa_adaptor_ctx_sha256),
 };
 
 #endif /* SECP256K1_MODULE_ECDSA_ADAPTOR_TESTS_H */

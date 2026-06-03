@@ -662,6 +662,34 @@ static void norm_arg_test_all(void) {
     norm_arg_test(64, 64);
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_bppp)
+static void test_bppp_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char out_default[66], out_custom[66];
+    secp256k1_bppp_generators *gens;
+    size_t len = sizeof(out_default);
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    gens = secp256k1_bppp_generators_create(ctx, 2);
+    CHECK(gens != NULL);
+    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, out_default, &len));
+    secp256k1_bppp_generators_destroy(ctx, gens);
+    CHECK(!sha256_bppp_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_bppp;
+    gens = secp256k1_bppp_generators_create(ctx, 2);
+    CHECK(gens != NULL);
+    CHECK(secp256k1_bppp_generators_serialize(ctx, gens, out_custom, &len));
+    secp256k1_bppp_generators_destroy(ctx, gens);
+    CHECK(sha256_bppp_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(out_default, out_custom, 66) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 static const struct tf_test_entry tests_bppp[] = {
     CASE1(test_log_exp),
@@ -674,6 +702,7 @@ static const struct tf_test_entry tests_bppp[] = {
     CASE1(norm_arg_test_all),
     CASE1(norm_arg_verify_vectors),
     CASE1(norm_arg_prove_vectors),
+    CASE1(test_bppp_ctx_sha256),
 };
 
 #endif
