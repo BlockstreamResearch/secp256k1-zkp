@@ -170,15 +170,8 @@ int secp256k1_frost_pubnonce_serialize(const secp256k1_context* ctx, unsigned ch
         return 0;
     }
     for (i = 0; i < 2; i++) {
-        int ret;
-        size_t size = 33;
-        ret = secp256k1_eckey_pubkey_serialize(&ges[i], &out66[33*i], &size, 1);
-#ifdef VERIFY
-         /* serialize must succeed because the point was just loaded */
-         VERIFY_CHECK(ret && size == 33);
-#else
-        (void) ret;
-#endif
+        /* serialize must succeed because the point was just loaded */
+        secp256k1_eckey_pubkey_serialize33(&ges[i], &out66[33*i]);
     }
     return 1;
 }
@@ -212,22 +205,25 @@ int secp256k1_frost_partial_sig_serialize(const secp256k1_context* ctx, unsigned
 }
 
 /* Write optional inputs into the hash */
-static void secp256k1_nonce_function_frost_helper(secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data32) {
+static void secp256k1_nonce_function_frost_helper(const secp256k1_hash_ctx *hash_ctx, secp256k1_sha256 *sha, unsigned int prefix_size, const unsigned char *data32) {
     /* The spec requires length prefix to be 4 bytes for `extra_in`, 1 byte
      * otherwise */
     VERIFY_CHECK(prefix_size == 4 || prefix_size == 1);
     if (prefix_size == 4) {
         /* Four byte big-endian value, pad first three bytes with 0 */
         unsigned char zero[3] = {0};
-        secp256k1_sha256_write(sha, zero, 3);
+        secp256k1_sha256_write(hash_ctx, sha, zero, 3);
     }
     if (data32 != NULL) {
-        unsigned char len = 32;
-        secp256k1_sha256_write(sha, &len, 1);
-        secp256k1_sha256_write(sha, data32, 32);
+        /* BIP-FROST-signing §NonceGen: prefix with 0x01 when message is present */
+        unsigned char len = 1;
+        secp256k1_sha256_write(hash_ctx, sha, &len, 1);
+        len = 32;
+        secp256k1_sha256_write(hash_ctx, sha, &len, 1);
+        secp256k1_sha256_write(hash_ctx, sha, data32, 32);
     } else {
         unsigned char len = 0;
-        secp256k1_sha256_write(sha, &len, 1);
+        secp256k1_sha256_write(hash_ctx, sha, &len, 1);
     }
 }
 
@@ -262,15 +258,15 @@ static void secp256k1_nonce_function_frost_sha256_tagged(secp256k1_sha256 *sha) 
 }
 
 
-static void secp256k1_nonce_function_frost(secp256k1_scalar *k, const unsigned char *session_id, const unsigned char *msg32, const unsigned char *key32, const unsigned char *pk32, const unsigned char *extra_input32) {
+static void secp256k1_nonce_function_frost(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *k, const unsigned char *session_id, const unsigned char *msg32, const unsigned char *key32, const unsigned char *pk32, const unsigned char *extra_input32) {
     secp256k1_sha256 sha;
     unsigned char rand[32];
     unsigned char i;
 
     if (key32 != NULL) {
         secp256k1_nonce_function_frost_sha256_tagged_aux(&sha);
-        secp256k1_sha256_write(&sha, session_id, 32);
-        secp256k1_sha256_finalize(&sha, rand);
+        secp256k1_sha256_write(hash_ctx, &sha, session_id, 32);
+        secp256k1_sha256_finalize(hash_ctx, &sha, rand);
         for (i = 0; i < 32; i++) {
             rand[i] ^= key32[i];
         }
@@ -279,16 +275,16 @@ static void secp256k1_nonce_function_frost(secp256k1_scalar *k, const unsigned c
     }
 
     secp256k1_nonce_function_frost_sha256_tagged(&sha);
-    secp256k1_sha256_write(&sha, rand, sizeof(rand));
-    secp256k1_nonce_function_frost_helper(&sha, 1, pk32);
-    secp256k1_nonce_function_frost_helper(&sha, 1, msg32);
-    secp256k1_nonce_function_frost_helper(&sha, 4, extra_input32);
+    secp256k1_sha256_write(hash_ctx, &sha, rand, sizeof(rand));
+    secp256k1_nonce_function_frost_helper(hash_ctx, &sha, 1, pk32);
+    secp256k1_nonce_function_frost_helper(hash_ctx, &sha, 1, msg32);
+    secp256k1_nonce_function_frost_helper(hash_ctx, &sha, 4, extra_input32);
 
     for (i = 0; i < 2; i++) {
         unsigned char buf[32];
         secp256k1_sha256 sha_tmp = sha;
-        secp256k1_sha256_write(&sha_tmp, &i, 1);
-        secp256k1_sha256_finalize(&sha_tmp, buf);
+        secp256k1_sha256_write(hash_ctx, &sha_tmp, &i, 1);
+        secp256k1_sha256_finalize(hash_ctx, &sha_tmp, buf);
         secp256k1_scalar_set_b32(&k[i], buf, NULL);
 
         /* Attempt to erase secret data */
@@ -350,7 +346,7 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
         pk_ser_ptr = pk_ser;
     }
 
-    secp256k1_nonce_function_frost(k, session_id32, msg32, sk_ser_ptr, pk_ser_ptr, extra_input32);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(ctx), k, session_id32, msg32, sk_ser_ptr, pk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
     VERIFY_CHECK(!secp256k1_scalar_eq(&k[0], &k[1]));
@@ -412,7 +408,7 @@ static void secp256k1_frost_compute_noncehash_sha256_tagged(secp256k1_sha256 *sh
 
 /* TODO: consider updating to frost-08 to address maleability at the cost of performance */
 /* See https://github.com/cfrg/draft-irtf-cfrg-frost/pull/217 */
-static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces, const unsigned char *pk32, const size_t *ids) {
+static int secp256k1_frost_compute_noncehash(const secp256k1_hash_ctx *hash_ctx, const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces, const unsigned char *pk32, const size_t *ids) {
     unsigned char buf[66];
     secp256k1_sha256 sha;
     size_t i;
@@ -424,15 +420,15 @@ static int secp256k1_frost_compute_noncehash(const secp256k1_context* ctx, unsig
 
         secp256k1_frost_get_scalar_index(&idx, ids[i]);
         secp256k1_scalar_get_b32(buf, &idx);
-        secp256k1_sha256_write(&sha, buf, 32);
+        secp256k1_sha256_write(hash_ctx, &sha, buf, 32);
         if (!secp256k1_frost_pubnonce_serialize(ctx, buf, pubnonces[i])) {
             return 0;
         }
-        secp256k1_sha256_write(&sha, buf, sizeof(buf));
+        secp256k1_sha256_write(hash_ctx, &sha, buf, sizeof(buf));
     }
-    secp256k1_sha256_write(&sha, pk32, 32);
-    secp256k1_sha256_write(&sha, msg, 32);
-    secp256k1_sha256_finalize(&sha, noncehash);
+    secp256k1_sha256_write(hash_ctx, &sha, pk32, 32);
+    secp256k1_sha256_write(hash_ctx, &sha, msg, 32);
+    secp256k1_sha256_finalize(hash_ctx, &sha, noncehash);
     return 1;
 }
 
@@ -444,7 +440,7 @@ static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, 
 
     secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
     secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
-    if (!secp256k1_frost_compute_noncehash(ctx, noncehash, msg, pubnonces, n_pubnonces, pk32, ids)) {
+    if (!secp256k1_frost_compute_noncehash(secp256k1_get_hash_context(ctx), ctx, noncehash, msg, pubnonces, n_pubnonces, pk32, ids)) {
         return 0;
     }
     /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
@@ -500,7 +496,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
         return 0;
     }
 
-    secp256k1_schnorrsig_challenge(&session_i.challenge, fin_nonce, msg32, 32, pk32);
+    secp256k1_schnorrsig_challenge(secp256k1_get_hash_context(ctx), &session_i.challenge, fin_nonce, msg32, 32, pk32);
 
     /* If there is a tweak then set `challenge` times `tweak` to the `s`-part.*/
     secp256k1_scalar_set_int(&session_i.s_part, 0);

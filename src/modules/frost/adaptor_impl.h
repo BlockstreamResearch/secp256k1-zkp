@@ -78,7 +78,7 @@ int secp256k1_frost_verify_adaptor(const secp256k1_context* ctx, const unsigned 
 
     /* Compute e. */
     secp256k1_fe_get_b32(buf, &pk.x);
-    secp256k1_schnorrsig_challenge(&e, &pre_sig64[0], msg32, 32, buf);
+    secp256k1_schnorrsig_challenge(secp256k1_get_hash_context(ctx), &e, &pre_sig64[0], msg32, 32, buf);
 
     /* Compute rj =  s*G + (-e)*pkj */
     secp256k1_scalar_negate(&e, &e);

@@ -51,7 +51,7 @@ static void frost_simple_test(void) {
         ids[i] = i;
         pubshare_ptr[i] = &pubshare[i];
     }
-    secp256k1_testrand256(buf);
+    testrand256(buf);
     CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, buf, 3, 5) == 1);
     for (i = 0; i < 5; i++) {
         CHECK(secp256k1_frost_share_verify(CTX, 3, i, &shares[i], vss_commitment) == 1);
@@ -59,9 +59,9 @@ static void frost_simple_test(void) {
     }
     CHECK(secp256k1_frost_pubkey_gen(CTX, &cache, pubshare_ptr, 5, ids) == 1);
 
-    secp256k1_testrand256(msg);
+    testrand256(msg);
     for (i = 0; i < 3; i++) {
-        secp256k1_testrand256(buf);
+        testrand256(buf);
         CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], buf, &shares[i], NULL, NULL, NULL) == 1);
     }
     for (i = 0; i < 3; i++) {
@@ -101,7 +101,7 @@ int frost_memcmp_and_randomize(unsigned char *value, const unsigned char *expect
     size_t i;
     ret = secp256k1_memcmp_var(value, expected, len);
     for (i = 0; i < len; i++) {
-        value[i] = secp256k1_testrand_bits(8);
+        value[i] = testrand_bits(8);
     }
     return ret;
 }
@@ -149,7 +149,7 @@ static void frost_api_tests(void) {
     int i;
     size_t ids[5];
     const secp256k1_pubkey *pubshare_ptr[5];
-    
+
     /** setup **/
     memset(max64, 0xff, sizeof(max64));
     /* Simulate structs being uninitialized by setting it to 0s. We don't want
@@ -165,18 +165,18 @@ static void frost_api_tests(void) {
     memset(&invalid_session, 0, sizeof(invalid_session));
     frost_pubnonce_summing_to_inf(inf_pubnonce);
 
-    secp256k1_testrand256(sec_adaptor);
-    secp256k1_testrand256(msg);
-    secp256k1_testrand256(tweak);
+    testrand256(sec_adaptor);
+    testrand256(msg);
+    testrand256(tweak);
     CHECK(secp256k1_ec_pubkey_create(CTX, &adaptor, sec_adaptor) == 1);
-    secp256k1_testrand256(seed);
+    testrand256(seed);
     for (i = 0; i < 5; i++) {
         pubnonce_ptr[i] = &pubnonce[i];
         partial_sig_ptr[i] = &partial_sig[i];
         invalid_partial_sig_ptr[i] = &partial_sig[i];
         ids[i] = i;
         pubshare_ptr[i] = &pubshare[i];
-        secp256k1_testrand256(session_id[i]);
+        testrand256(session_id[i]);
     }
 
     invalid_partial_sig_ptr[0] = &invalid_partial_sig;
@@ -452,9 +452,9 @@ static void frost_api_tests(void) {
 void frost_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     secp256k1_scalar k1[2], k2[2];
 
-    secp256k1_nonce_function_frost(k1, args[0], args[1], args[2], args[3], args[4]);
-    secp256k1_testrand_flip(args[n_flip], n_bytes);
-    secp256k1_nonce_function_frost(k2, args[0], args[1], args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k1, args[0], args[1], args[2], args[3], args[4]);
+    testrand_flip(args[n_flip], n_bytes);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k2, args[0], args[1], args[2], args[3], args[4]);
     CHECK(secp256k1_scalar_eq(&k1[0], &k2[0]) == 0);
     CHECK(secp256k1_scalar_eq(&k1[1], &k2[1]) == 0);
 }
@@ -469,11 +469,11 @@ static void frost_nonce_test(void) {
     int i, j;
     secp256k1_scalar k[5][2];
 
-    secp256k1_testrand_bytes_test(session_id, sizeof(session_id));
-    secp256k1_testrand_bytes_test(sk, sizeof(sk));
-    secp256k1_testrand_bytes_test(msg, sizeof(msg));
-    secp256k1_testrand_bytes_test(agg_pk, sizeof(agg_pk));
-    secp256k1_testrand_bytes_test(extra_input, sizeof(extra_input));
+    testrand_bytes_test(session_id, sizeof(session_id));
+    testrand_bytes_test(sk, sizeof(sk));
+    testrand_bytes_test(msg, sizeof(msg));
+    testrand_bytes_test(agg_pk, sizeof(agg_pk));
+    testrand_bytes_test(extra_input, sizeof(extra_input));
 
     /* Check that a bitflip in an argument results in different nonces. */
     args[0] = session_id;
@@ -494,11 +494,11 @@ static void frost_nonce_test(void) {
     memcpy(sk, session_id, sizeof(sk));
     memcpy(agg_pk, session_id, sizeof(agg_pk));
     memcpy(extra_input, session_id, sizeof(extra_input));
-    secp256k1_nonce_function_frost(k[0], args[0], args[1], args[2], args[3], args[4]);
-    secp256k1_nonce_function_frost(k[1], args[0], NULL, args[2], args[3], args[4]);
-    secp256k1_nonce_function_frost(k[2], args[0], args[1], NULL, args[3], args[4]);
-    secp256k1_nonce_function_frost(k[3], args[0], args[1], args[2], NULL, args[4]);
-    secp256k1_nonce_function_frost(k[4], args[0], args[1], args[2], args[3], NULL);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[0], args[0], args[1], args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[1], args[0], NULL, args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[2], args[0], args[1], NULL, args[3], args[4]);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[3], args[0], args[1], args[2], NULL, args[4]);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[4], args[0], args[1], args[2], args[3], NULL);
     for (i = 0; i < 5; i++) {
         CHECK(!secp256k1_scalar_eq(&k[i][0], &k[i][1]));
         for (j = i+1; j < 5; j++) {
@@ -508,9 +508,9 @@ static void frost_nonce_test(void) {
     }
 }
 
-static void frost_sha256_tag_test_internal(secp256k1_sha256 *sha_tagged, unsigned char *tag, size_t taglen) {
+static void frost_sha256_tag_test_internal(const secp256k1_hash_ctx *hash_ctx, secp256k1_sha256 *sha_tagged, unsigned char *tag, size_t taglen) {
     secp256k1_sha256 sha;
-    secp256k1_sha256_initialize_tagged(&sha, tag, taglen);
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag, taglen);
     test_sha256_eq(&sha, sha_tagged);
 }
 
@@ -521,17 +521,17 @@ static void frost_sha256_tag_test(void) {
     {
         unsigned char tag[] = "FROST/aux";
         secp256k1_nonce_function_frost_sha256_tagged_aux(&sha);
-        frost_sha256_tag_test_internal(&sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
     {
         unsigned char tag[] = "FROST/nonce";
         secp256k1_nonce_function_frost_sha256_tagged(&sha);
-        frost_sha256_tag_test_internal(&sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
     {
         unsigned char tag[] = "FROST/noncecoef";
         secp256k1_frost_compute_noncehash_sha256_tagged(&sha);
-        frost_sha256_tag_test_internal(&sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
 }
 
@@ -556,9 +556,9 @@ static void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const 
     sr_pks[0] = sr_pk0; sr_pks[1] = sr_pk1; sr_pks[2] = sr_pk2;
 
     for (i = 0; i < N; i++) {
-        secp256k1_testrand256(session_id[i]);
+        testrand256(session_id[i]);
     }
-    secp256k1_testrand256(msg);
+    testrand256(msg);
 
     for (i = 0; i < N; i++) {
         CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], shares[i], NULL, NULL, NULL) == 1);
@@ -600,7 +600,7 @@ static void frost_tweak_test(void) {
         pubshare_ptr[i] = &pubshare[i];
         ids[i] = (size_t)i;
     }
-    secp256k1_testrand256(seed);
+    testrand256(seed);
     CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
     for (i = 0; i < 5; i++) {
         CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshare[i], 3, (size_t)i, vss_commitment) == 1);
@@ -608,7 +608,7 @@ static void frost_tweak_test(void) {
     }
     CHECK(secp256k1_frost_pubkey_gen(CTX, &keygen_cache, pubshare_ptr, 5, ids) == 1);
     CHECK(secp256k1_frost_pubkey_get(CTX, &P[0], &keygen_cache) == 1);
-    
+
     /* Compute P0 and test signing for it */
     CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &P_xonly[0], NULL, &P[0]));
     frost_tweak_test_helper(&P_xonly[0], &shares[0], &shares[1], &shares[2], &keygen_cache, &pubshare[0], &pubshare[1], &pubshare[2]);
@@ -620,9 +620,9 @@ static void frost_tweak_test(void) {
     for (i = 1; i <= N_TWEAKS; i++) {
         unsigned char tweak[32];
         int P_parity;
-        int xonly = secp256k1_testrand_bits(1);
+        int xonly = testrand_bits(1);
 
-        secp256k1_testrand256(tweak);
+        testrand256(tweak);
         if (xonly) {
             CHECK(secp256k1_frost_pubkey_xonly_tweak_add(CTX, &P[i], &keygen_cache, tweak) == 1);
         } else {
@@ -653,7 +653,7 @@ void frost_dkg_test_helper(secp256k1_frost_keygen_cache *keygen_cache, secp256k1
     secp256k1_pubkey pubshare[5];
     const secp256k1_pubkey *pubshare_ptr[5];
     size_t ids[5];
-    secp256k1_testrand256(seed);
+    testrand256(seed);
     for (i = 0; i < 5; i++) {
         pubshare_ptr[i] = &pubshare[i];
         ids[i] = (size_t)i;
@@ -686,7 +686,7 @@ int frost_sign_test_helper(unsigned char *pre_sig, const secp256k1_frost_secshar
     }
 
     for (i = 0; i < 3; i++) {
-        secp256k1_testrand256(session_id[i]);
+        testrand256(session_id[i]);
         CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], &shares[i], NULL, NULL, NULL) == 1);
     }
     for (i = 0; i < 3; i++) {
@@ -706,7 +706,7 @@ int frost_sign_test_helper(unsigned char *pre_sig, const secp256k1_frost_secshar
 
 void frost_rand_scalar(secp256k1_scalar *scalar) {
     unsigned char buf32[32];
-    secp256k1_testrand256(buf32);
+    testrand256(buf32);
     secp256k1_scalar_set_b32(scalar, buf32, NULL);
 }
 
@@ -746,11 +746,11 @@ void frost_multi_hop_lock_tests(void) {
 
     /* Carol setup */
     /* Proof of payment */
-    secp256k1_testrand256(pop);
+    testrand256(pop);
     CHECK(secp256k1_ec_pubkey_create(CTX, &pubkey_pop, pop));
 
     /* Alice setup */
-    secp256k1_testrand256(tx_ab);
+    testrand256(tx_ab);
     frost_rand_scalar(&t1);
     frost_rand_scalar(&t2);
     secp256k1_scalar_add(&tp, &t1, &t2);
@@ -767,7 +767,7 @@ void frost_multi_hop_lock_tests(void) {
 
     /* Bob setup */
     CHECK(secp256k1_frost_verify_adaptor(CTX, asig_ab, tx_ab, &pk_a, &l, nonce_parity_ab) == 1);
-    secp256k1_testrand256(tx_bc);
+    testrand256(tx_bc);
     /* Encrypt Bob's signature with the right lock as the encryption key */
     nonce_parity_bc = frost_sign_test_helper(asig_bc, shares_b, tx_bc, &r, &cache_b);
 

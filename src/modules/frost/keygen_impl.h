@@ -99,15 +99,15 @@ int secp256k1_frost_share_parse(const secp256k1_context* ctx, secp256k1_frost_se
     return 1;
 }
 
-static void secp256k1_frost_derive_coeff(secp256k1_scalar *coeff, const unsigned char *polygen32, size_t i) {
+static void secp256k1_frost_derive_coeff(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *coeff, const unsigned char *polygen32, size_t i) {
     secp256k1_sha256 sha;
     unsigned char buf[32];
 
-    secp256k1_sha256_initialize_tagged(&sha, (unsigned char*)"FROST/coeffgen", sizeof("FROST/coeffgen") - 1);
-    secp256k1_sha256_write(&sha, polygen32, 32);
+    secp256k1_sha256_initialize_tagged(hash_ctx, &sha, (unsigned char*)"FROST/coeffgen", sizeof("FROST/coeffgen") - 1);
+    secp256k1_sha256_write(hash_ctx, &sha, polygen32, 32);
     secp256k1_write_be64(&buf[0], i);
-    secp256k1_sha256_write(&sha, buf, 8);
-    secp256k1_sha256_finalize(&sha, buf);
+    secp256k1_sha256_write(hash_ctx, &sha, buf, 8);
+    secp256k1_sha256_finalize(hash_ctx, &sha, buf);
     secp256k1_scalar_set_b32(coeff, buf, NULL);
 }
 
@@ -120,18 +120,17 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
     for (i = 0; i < threshold; i++) {
         secp256k1_scalar coeff_i;
 
-        secp256k1_frost_derive_coeff(&coeff_i, polygen32, i);
+        secp256k1_frost_derive_coeff(secp256k1_get_hash_context(ctx), &coeff_i, polygen32, i);
         secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &coeff_i);
         secp256k1_ge_set_gej(&rp, &rj);
         secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
     }
 }
 
-static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const size_t id) {
+static int secp256k1_frost_share_gen(const secp256k1_hash_ctx *hash_ctx, secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const size_t id) {
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
     size_t i;
-    int ret = 1;
 
     /* Derive share */
     /* See RFC 9591, appendix C.1 */
@@ -139,7 +138,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsi
     for (i = 0; i < threshold; i++) {
         secp256k1_scalar coeff_i;
 
-        secp256k1_frost_derive_coeff(&coeff_i, polygen32, i);
+        secp256k1_frost_derive_coeff(hash_ctx, &coeff_i, polygen32, i);
         /* Horner's method to evaluate polynomial to derive shares */
         secp256k1_scalar_add(&share_i, &share_i, &coeff_i);
         if (i < threshold - 1) {
@@ -149,7 +148,7 @@ static int secp256k1_frost_share_gen(secp256k1_frost_secshare *share, const unsi
     }
     secp256k1_frost_share_save(share, &share_i);
 
-    return ret;
+    return 1;
 }
 
 int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_secshare *shares, secp256k1_pubkey *vss_commitment, const unsigned char *seed32, size_t threshold, size_t n_participants) {
@@ -171,16 +170,16 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
 
     /* Commit to all inputs */
     secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(&sha, seed32, 32);
+    secp256k1_sha256_write(secp256k1_get_hash_context(ctx), &sha, seed32, 32);
     secp256k1_write_be64(&polygen[0], threshold);
     secp256k1_write_be64(&polygen[8], n_participants);
-    secp256k1_sha256_write(&sha, polygen, 16);
-    secp256k1_sha256_finalize(&sha, polygen);
+    secp256k1_sha256_write(secp256k1_get_hash_context(ctx), &sha, polygen, 16);
+    secp256k1_sha256_finalize(secp256k1_get_hash_context(ctx), &sha, polygen);
 
     secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
 
     for (i = 0; i < n_participants; i++) {
-        ret &= secp256k1_frost_share_gen(&shares[i], polygen, threshold, i);
+        ret &= secp256k1_frost_share_gen(secp256k1_get_hash_context(ctx), &shares[i], polygen, threshold, i);
     }
 
     return ret;
@@ -236,7 +235,7 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
     /* Use an EC multi-multiplication to verify the following equation:
      *   0 = - share_i*G + idx^0*vss_commitment[0]
      *                   + ...
-     *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/  
+     *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(share != NULL);
