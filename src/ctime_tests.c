@@ -445,7 +445,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         /* extract_adaptor */
         ret = secp256k1_frost_extract_adaptor(ctx, sec_adaptor, sig, pre_sig, nonce_parity);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
-        CHECK(ret == 1); 
+        CHECK(ret == 1);
     }
 #endif
 }
