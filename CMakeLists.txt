@@ -61,7 +61,7 @@ option(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR "Enable ecdsa adaptor signatures mo
 option(SECP256K1_ENABLE_MODULE_ECDSA_S2C "Enable ECDSA sign-to-contract module." ON)
 option(SECP256K1_ENABLE_MODULE_BPPP "Enable Bulletproofs++ module." ON)
 option(SECP256K1_ENABLE_MODULE_SCHNORRSIG_HALFAGG "Enable schnorrsig half-aggregation module." ON)
-option(SECP256K1_ENABLE_MODULE_FROST "Enable FROST module." ON)
+option(SECP256K1_ENABLE_MODULE_FROST "Enable FROST module." OFF)
 
 option(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS "Enable external default callback functions." OFF)
 if(SECP256K1_USE_EXTERNAL_DEFAULT_CALLBACKS)
@@ -126,6 +126,9 @@ option(SECP256K1_EXPERIMENTAL "Allow experimental configuration options." OFF)
 if(NOT SECP256K1_EXPERIMENTAL)
   if(SECP256K1_ASM STREQUAL "arm32")
     message(FATAL_ERROR "ARM32 assembly is experimental. Use -DSECP256K1_EXPERIMENTAL=ON to allow.")
+  endif()
+  if(SECP256K1_ENABLE_MODULE_FROST)
+    message(FATAL_ERROR "FROST module is experimental. Use -DSECP256K1_EXPERIMENTAL=ON to allow.")
   endif()
 endif()
 
