@@ -50,7 +50,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
             size_t i;
             unsigned char nonce32[32];
             int done;
-            ret = secp256k1_nonce_function_default(nonce32, msg32, seckey32, NULL, NULL, count);
+            ret = nonce_function_rfc6979_impl(hash_ctx, nonce32, msg32, seckey32, NULL, NULL, count);
             if (!ret) {
                 break;
             }
@@ -64,7 +64,7 @@ int secp256k1_whitelist_sign(const secp256k1_context* ctx, secp256k1_whitelist_s
             for (i = 0; i < n_keys; i++) {
                 msg32[0] ^= i + 1;
                 msg32[1] ^= (i + 1) / 0x100;
-                ret = secp256k1_nonce_function_default(&sig->data[32 * (i + 1)], msg32, seckey32, NULL, NULL, count);
+                ret = nonce_function_rfc6979_impl(hash_ctx, &sig->data[32 * (i + 1)], msg32, seckey32, NULL, NULL, count);
                 if (!ret) {
                     break;
                 }
