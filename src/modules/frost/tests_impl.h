@@ -22,10 +22,11 @@
 #include "../../group.h"
 #include "../../hash.h"
 #include "../../util.h"
+#include "../../unit_test.h"
 
 /* Simple (non-adaptor, non-tweaked) 3-of-5 FROST generate, sign, verify
  * test. */
-static void frost_simple_test(void) {
+static void frost_simple_test_internal(void) {
     secp256k1_frost_pubnonce pubnonce[5];
     const secp256k1_frost_pubnonce *pubnonce_ptr[5];
     unsigned char msg[32];
@@ -582,7 +583,7 @@ static void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const 
 
 /* Create group public key P[0], tweak multiple times (using xonly and
  * ordinary tweaking) and test signing. */
-static void frost_tweak_test(void) {
+static void frost_tweak_test_internal(void) {
     secp256k1_pubkey pubshare[5];
     secp256k1_frost_keygen_cache keygen_cache;
     enum { N_TWEAKS = 8 };
@@ -710,7 +711,7 @@ void frost_rand_scalar(secp256k1_scalar *scalar) {
     secp256k1_scalar_set_b32(scalar, buf32, NULL);
 }
 
-void frost_multi_hop_lock_tests(void) {
+void frost_multi_hop_lock_test_internal(void) {
     secp256k1_frost_secshare shares_a[5];
     secp256k1_frost_secshare shares_b[5];
     secp256k1_xonly_pubkey pk_a;
@@ -797,24 +798,19 @@ void frost_multi_hop_lock_tests(void) {
     CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
 }
 
-void run_frost_tests(void) {
-    int i;
+/* --- Test registry --- */
+REPEAT_TEST(frost_simple_test)
+/* Run multiple times to ensure that pk and nonce have different y parities */
+REPEAT_TEST(frost_tweak_test)
+REPEAT_TEST(frost_multi_hop_lock_test)
 
-    for (i = 0; i < COUNT; i++) {
-        frost_simple_test();
-    }
-    frost_api_tests();
-    frost_nonce_test();
-    for (i = 0; i < COUNT; i++) {
-        /* Run multiple times to ensure that pk and nonce have different y
-         * parities */
-        frost_tweak_test();
-    }
-    for (i = 0; i < COUNT; i++) {
-        frost_multi_hop_lock_tests();
-    }
-
-    frost_sha256_tag_test();
-}
+static const struct tf_test_entry tests_frost[] = {
+    CASE1(frost_simple_test),
+    CASE1(frost_api_tests),
+    CASE1(frost_nonce_test),
+    CASE1(frost_tweak_test),
+    CASE1(frost_multi_hop_lock_test),
+    CASE1(frost_sha256_tag_test),
+};
 
 #endif
