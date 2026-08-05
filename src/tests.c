@@ -8292,6 +8292,9 @@ static const struct tf_test_module registry_modules[] = {
 #ifdef ENABLE_MODULE_ECDSA_S2C
     MAKE_TEST_MODULE(ecdsa_s2c),
 #endif
+#ifdef ENABLE_MODULE_FROST
+    MAKE_TEST_MODULE(frost),
+#endif
     MAKE_TEST_MODULE(utils),
 };
 
