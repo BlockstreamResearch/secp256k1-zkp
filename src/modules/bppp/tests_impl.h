@@ -28,6 +28,8 @@ static void test_bppp_generators_api(void) {
     CHECK(gens != NULL);
     gens_orig = gens; /* Preserve for round-trip test */
 
+    CHECK(secp256k1_bppp_generators_create(CTX, SIZE_MAX / sizeof(secp256k1_ge) + 1) == NULL);
+
     /* Serialize */
     CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, NULL, gens_ser, &len));
     CHECK_ILLEGAL(CTX, secp256k1_bppp_generators_serialize(CTX, gens, NULL, &len));

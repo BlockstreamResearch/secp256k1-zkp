@@ -28,6 +28,11 @@ secp256k1_bppp_generators *secp256k1_bppp_generators_create(const secp256k1_cont
     if (ret == NULL) {
         return NULL;
     }
+    /* Ensure that multiplication will not wrap around */
+    if (n > SIZE_MAX / sizeof(*ret->gens)) {
+        free(ret);
+        return NULL;
+    }
     ret->gens = checked_malloc(&ctx->error_callback, n * sizeof(*ret->gens));
     if (ret->gens == NULL) {
         free(ret);
