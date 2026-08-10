@@ -68,6 +68,10 @@ SECP256K1_API int secp256k1_whitelist_signature_parse(
  *
  *  Returns: the number of keys for the given signature
  *  In: sig: pointer to a signature object
+ *
+ *  This count is a property of the signature only. It might not match the
+ *  number of public keys the caller has, and the caller should not truncate
+ *  their key set to match it.
  */
 SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
     const secp256k1_whitelist_signature *sig
