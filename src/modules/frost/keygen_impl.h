@@ -9,10 +9,6 @@
 
 #include <string.h>
 
-#include "../../../include/secp256k1.h"
-#include "../../../include/secp256k1_extrakeys.h"
-#include "../../../include/secp256k1_frost.h"
-
 #include "keygen.h"
 #include "../../ecmult.h"
 #include "../../field.h"
@@ -30,7 +26,7 @@ static const unsigned char secp256k1_frost_keygen_cache_magic[4] = { 0x40, 0x25,
  * - 32 byte tweak
  */
 /* Requires that cache_i->pk is not infinity. */
-static void secp256k1_keygen_cache_save(secp256k1_frost_keygen_cache *cache, secp256k1_keygen_cache_internal *cache_i) {
+static void secp256k1_keygen_cache_save(secp256k1_frost_keygen_cache *cache, const secp256k1_keygen_cache_internal *cache_i) {
     unsigned char *ptr = cache->data;
     memcpy(ptr, secp256k1_frost_keygen_cache_magic, 4);
     ptr += 4;
@@ -59,7 +55,7 @@ static void secp256k1_frost_get_scalar_index(secp256k1_scalar *idx, const size_t
 
 static const unsigned char secp256k1_frost_share_magic[4] = { 0xa1, 0x6a, 0x42, 0x03 };
 
-static void secp256k1_frost_share_save(secp256k1_frost_secshare* share, secp256k1_scalar *s) {
+static void secp256k1_frost_share_save(secp256k1_frost_secshare* share, const secp256k1_scalar *s) {
     memcpy(&share->data[0], secp256k1_frost_share_magic, 4);
     secp256k1_scalar_get_b32(&share->data[4], s);
 }
@@ -121,7 +117,7 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
         secp256k1_scalar coeff_i;
 
         secp256k1_frost_derive_coeff(secp256k1_get_hash_context(ctx), &coeff_i, polygen32, i);
-        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &rj, &coeff_i);
+        secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &rj, &coeff_i);
         secp256k1_ge_set_gej(&rp, &rj);
         secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
     }
@@ -212,18 +208,11 @@ static int secp256k1_frost_evaluate_vss_ecmult_callback(secp256k1_scalar *sc, se
 
 static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *sc, secp256k1_ge *pt, size_t idx, void *data) {
     secp256k1_frost_interpolate_pubkey_ecmult_data *ctx = (secp256k1_frost_interpolate_pubkey_ecmult_data *) data;
-    secp256k1_scalar l;
 
     if (!secp256k1_pubkey_load(ctx->ctx, pt, ctx->pubshares[idx])) {
         return 0;
     }
-
-    if (!secp256k1_frost_lagrange_coefficient(&l, ctx->ids, ctx->n_pubshares, ctx->ids[idx])) {
-        return 0;
-    }
-
-    *sc = l;
-
+    secp256k1_frost_lagrange_coefficient(sc, ctx->ids, ctx->n_pubshares, ctx->ids[idx]);
     return 1;
 }
 
@@ -279,7 +268,7 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
     }
 
     secp256k1_scalar_negate(&share_neg, &share_i);
-    secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &snj, &share_neg);
+    secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &snj, &share_neg);
     secp256k1_ge_set_gej(&sng, &snj);
     secp256k1_gej_add_ge(&tmpj, &tmpj, &sng);
     return secp256k1_gej_is_infinity(&tmpj);
@@ -390,8 +379,7 @@ int secp256k1_frost_pubkey_xonly_tweak_add(const secp256k1_context* ctx, secp256
     return secp256k1_frost_pubkey_tweak_add_internal(ctx, output_pubkey, keygen_cache, tweak32, 1);
 }
 
-/* TODO: change to void */
-static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_t *ids, size_t n_participants, const size_t my_id) {
+static void secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_t *ids, size_t n_participants, const size_t my_id) {
     size_t i;
     secp256k1_scalar num = secp256k1_scalar_one;
     secp256k1_scalar den = secp256k1_scalar_one;
@@ -414,8 +402,6 @@ static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_
 
     secp256k1_scalar_inverse_var(&den, &den);
     secp256k1_scalar_mul(r, &num, &den);
-
-    return 1;
 }
 
 #endif
