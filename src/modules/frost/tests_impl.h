@@ -278,7 +278,7 @@ static void frost_api_tests(void) {
     }
 
     /** Session creation **/
-    CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &pk_xonly, NULL, &pk) == 1);
+    CHECK(secp256k1_frost_shares_gen(CTX, shares, vss_commitment, seed, 3, 5) == 1);
 
     for (i = 0; i < 3; i++) {
         CHECK(secp256k1_frost_nonce_gen(CTX, &secnonce[i], &pubnonce[i], session_id[i], &shares[i], NULL, NULL, NULL) == 1);
@@ -416,6 +416,7 @@ static void frost_api_tests(void) {
     CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[2], partial_sig_ptr, 3) == 1);
 
     /** Adaptor signature verification */
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &pk_xonly, NULL, &pk) == 1);
     CHECK(secp256k1_frost_nonce_parity(CTX, &nonce_parity, &session[0]) == 1);
     CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_parity(CTX, NULL, &session[0]));
     CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_parity(CTX, &nonce_parity, NULL));
