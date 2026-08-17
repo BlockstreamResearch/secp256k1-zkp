@@ -91,6 +91,7 @@ int secp256k1_frost_share_parse(const secp256k1_context* ctx, secp256k1_frost_se
         return 0;
     }
     secp256k1_frost_share_save(share, &tmp);
+    secp256k1_scalar_clear(&tmp);
     return 1;
 }
 
@@ -104,6 +105,8 @@ static void secp256k1_frost_derive_coeff(const secp256k1_hash_ctx *hash_ctx, sec
     secp256k1_sha256_write(hash_ctx, &sha, buf, 8);
     secp256k1_sha256_finalize(hash_ctx, &sha, buf);
     secp256k1_scalar_set_b32(coeff, buf, NULL);
+    secp256k1_memclear_explicit(buf, sizeof(buf));
+    secp256k1_sha256_clear(&sha);
 }
 
 static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubkey *vss_commitment, const unsigned char *polygen32, size_t threshold) {
@@ -119,6 +122,7 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
         secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &rj, &coeff_i);
         secp256k1_ge_set_gej(&rp, &rj);
         secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
+        secp256k1_scalar_clear(&coeff_i);
     }
 }
 
@@ -140,8 +144,10 @@ static void secp256k1_frost_share_gen(const secp256k1_hash_ctx *hash_ctx, secp25
             secp256k1_frost_get_scalar_index(&idx, id);
             secp256k1_scalar_mul(&share_i, &share_i, &idx);
         }
+        secp256k1_scalar_clear(&coeff_i);
     }
     secp256k1_frost_share_save(share, &share_i);
+    secp256k1_scalar_clear(&share_i);
 }
 
 int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_secshare *shares, secp256k1_pubkey *vss_commitment, const unsigned char *seed32, size_t threshold, size_t n_participants) {
@@ -268,6 +274,8 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
     secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &snj, &share_neg);
     secp256k1_ge_set_gej(&sng, &snj);
     secp256k1_gej_add_ge(&tmpj, &tmpj, &sng);
+    secp256k1_scalar_clear(&share_i);
+    secp256k1_scalar_clear(&share_neg);
     return secp256k1_gej_is_infinity(&tmpj);
 }
 
@@ -309,11 +317,15 @@ int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_key
     secp256k1_gej pkj;
     secp256k1_frost_interpolate_pubkey_ecmult_data interpolate_pubkey_ecmult_data;
     secp256k1_keygen_cache_internal cache_i = { 0 };
+    size_t i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(cache != NULL);
     ARG_CHECK(pubshares != NULL);
+    for (i = 0; i < n_pubshares; i++) {
+        ARG_CHECK(pubshares[i] != NULL);
+    }
     ARG_CHECK(ids != NULL);
     ARG_CHECK(n_pubshares > 1);
 
