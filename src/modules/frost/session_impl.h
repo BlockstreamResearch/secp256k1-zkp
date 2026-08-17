@@ -304,7 +304,6 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
     unsigned char *pk_ser_ptr = NULL;
     unsigned char sk_ser[32];
     unsigned char *sk_ser_ptr = NULL;
-    int sk_serialize_success;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -322,18 +321,8 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
 
     /* Check that the share is valid to be able to sign for it later. */
     if (share != NULL) {
-        secp256k1_scalar sk;
-
-        ret &= secp256k1_frost_share_load(ctx, &sk, share);
-        secp256k1_scalar_clear(&sk);
-
-        sk_serialize_success = secp256k1_frost_share_serialize(ctx, sk_ser, share);
+        ret &= secp256k1_frost_share_serialize(ctx, sk_ser, share);
         sk_ser_ptr = sk_ser;
-#ifdef VERIFY
-    VERIFY_CHECK(sk_serialize_success);
-#else
-    (void) sk_serialize_success;
-#endif
     }
 
     if (keygen_cache != NULL) {

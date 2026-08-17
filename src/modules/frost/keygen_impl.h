@@ -61,14 +61,10 @@ static void secp256k1_frost_share_save(secp256k1_frost_secshare* share, const se
 }
 
 static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_scalar *s, const secp256k1_frost_secshare* share) {
-    int overflow;
-
     /* The magic is non-secret so it can be declassified to allow branching. */
     secp256k1_declassify(ctx, &share->data[0], 4);
     ARG_CHECK(secp256k1_memcmp_var(&share->data[0], secp256k1_frost_share_magic, 4) == 0);
-    secp256k1_scalar_set_b32(s, &share->data[4], &overflow);
-    /* Parsed shares cannot overflow */
-    VERIFY_CHECK(!overflow);
+    secp256k1_scalar_set_b32(s, &share->data[4], NULL);
     return 1;
 }
 
@@ -76,6 +72,8 @@ int secp256k1_frost_share_serialize(const secp256k1_context* ctx, unsigned char 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(out32 != NULL);
     ARG_CHECK(share != NULL);
+    secp256k1_declassify(ctx, &share->data[0], 4);
+    ARG_CHECK(secp256k1_memcmp_var(&share->data[0], secp256k1_frost_share_magic, 4) == 0);
     memcpy(out32, &share->data[4], 32);
     return 1;
 }
@@ -87,6 +85,7 @@ int secp256k1_frost_share_parse(const secp256k1_context* ctx, secp256k1_frost_se
     ARG_CHECK(share != NULL);
     ARG_CHECK(in32 != NULL);
 
+    memset(share, 0, sizeof(*share));
     secp256k1_scalar_set_b32(&tmp, in32, &overflow);
     if (overflow) {
         return 0;
@@ -123,7 +122,7 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
     }
 }
 
-static int secp256k1_frost_share_gen(const secp256k1_hash_ctx *hash_ctx, secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const size_t id) {
+static void secp256k1_frost_share_gen(const secp256k1_hash_ctx *hash_ctx, secp256k1_frost_secshare *share, const unsigned char *polygen32, size_t threshold, const size_t id) {
     secp256k1_scalar idx;
     secp256k1_scalar share_i;
     size_t i;
@@ -143,15 +142,12 @@ static int secp256k1_frost_share_gen(const secp256k1_hash_ctx *hash_ctx, secp256
         }
     }
     secp256k1_frost_share_save(share, &share_i);
-
-    return 1;
 }
 
 int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_secshare *shares, secp256k1_pubkey *vss_commitment, const unsigned char *seed32, size_t threshold, size_t n_participants) {
     secp256k1_sha256 sha;
     unsigned char polygen[32];
     size_t i;
-    int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
@@ -175,10 +171,11 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
     secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
 
     for (i = 0; i < n_participants; i++) {
-        ret &= secp256k1_frost_share_gen(secp256k1_get_hash_context(ctx), &shares[i], polygen, threshold, i);
+        secp256k1_frost_share_gen(secp256k1_get_hash_context(ctx), &shares[i], polygen, threshold, i);
     }
-
-    return ret;
+    secp256k1_memclear_explicit(polygen, sizeof(polygen));
+    secp256k1_sha256_clear(&sha);
+    return 1;
 }
 
 typedef struct {
@@ -219,6 +216,7 @@ static int secp256k1_frost_interpolate_pubkey_ecmult_callback(secp256k1_scalar *
 static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_gej *share, size_t threshold, const size_t id, const secp256k1_pubkey *vss_commitment) {
     secp256k1_frost_evaluate_vss_ecmult_data evaluate_vss_ecmult_data;
 
+    VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
 
     /* Use an EC multi-multiplication to verify the following equation:
@@ -226,7 +224,6 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
      *                   + ...
      *                   + idx^(threshold - 1)*vss_commitment[threshold - 1]*/
 
-    VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(share != NULL);
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(threshold > 1);
