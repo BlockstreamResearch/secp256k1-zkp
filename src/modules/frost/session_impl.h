@@ -354,7 +354,7 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
     secp256k1_frost_secnonce_invalidate(ctx, secnonce, !ret);
 
     for (i = 0; i < 2; i++) {
-        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &nonce_ptj[i], &k[i]);
+        secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &nonce_ptj[i], &k[i]);
         secp256k1_scalar_clear(&k[i]);
     }
 
@@ -510,9 +510,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     }
     /* Update the challenge by multiplying the Lagrange coefficient to prepare
      * for signing. */
-    if (!secp256k1_frost_lagrange_coefficient(&l, ids, n_pubnonces, my_id)) {
-        return 0;
-    }
+    secp256k1_frost_lagrange_coefficient(&l, ids, n_pubnonces, my_id);
     secp256k1_scalar_mul(&session_i.challenge, &session_i.challenge, &l);
     memcpy(session_i.fin_nonce, fin_nonce, sizeof(session_i.fin_nonce));
     secp256k1_frost_session_save(session, &session_i);

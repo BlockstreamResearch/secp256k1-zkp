@@ -28,6 +28,6 @@ static int secp256k1_frost_share_load(const secp256k1_context* ctx, secp256k1_sc
 
 static void secp256k1_frost_get_scalar_index(secp256k1_scalar *idx, const size_t id);
 
-static int secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_t *ids, size_t n_participants, const size_t my_id);
+static void secp256k1_frost_lagrange_coefficient(secp256k1_scalar *r, const size_t *ids, size_t n_participants, const size_t my_id);
 
 #endif
