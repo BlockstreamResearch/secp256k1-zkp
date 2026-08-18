@@ -117,6 +117,9 @@ static int secp256k1_whitelist_compute_keys_and_message(const secp256k1_context*
         /* compute tweaked keys */
         secp256k1_gej_set_ge(&tweaked_gej, &offline_ge);
         secp256k1_gej_add_ge_var(&tweaked_gej, &tweaked_gej, &subkey_ge, NULL);
+        /* Fails only for the degenerate destination W = -P_i, where the ring
+         * key intentionally collapses to Q_i. See the rationale on
+         * secp256k1_whitelist_verify in include/secp256k1_whitelist.h. */
         secp256k1_whitelist_tweak_pubkey(hash_ctx, &tweaked_gej);
         secp256k1_gej_add_ge_var(&keys[i], &tweaked_gej, &online_ge, NULL);
     }

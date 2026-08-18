@@ -68,6 +68,10 @@ SECP256K1_API int secp256k1_whitelist_signature_parse(
  *
  *  Returns: the number of keys for the given signature
  *  In: sig: pointer to a signature object
+ *
+ *  This count is a property of the signature only. It might not match the
+ *  number of public keys the caller has, and the caller should not truncate
+ *  their key set to match it.
  */
 SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
     const secp256k1_whitelist_signature *sig
@@ -109,6 +113,8 @@ SECP256K1_API int secp256k1_whitelist_signature_serialize(
  *     online_i + H(offline_i + whitelist)(offline_i + whitelist)
  * for each public key pair (offline_i, offline_i). Here H means sha256 of the
  * compressed serialization of the key.
+ *
+ * See secp256k1_whitelist_verify for the rationale on the degenerate destination W = -P_i.
  */
 SECP256K1_API int secp256k1_whitelist_sign(
   const secp256k1_context *ctx,
@@ -131,6 +137,13 @@ SECP256K1_API int secp256k1_whitelist_sign(
  *         offline_pubkeys: list of all offline pubkeys
  *         n_keys: the number of entries in each of the above two arrays
  *         sub_pubkey: the key to be whitelisted
+ *
+ *  When the destination W equals -P_i for a whitelisted offline key, the tweak
+ *  degenerates and the ring key collapses to K_i = Q_i, so the online key alone
+ *  produces a valid proof for that destination. This is accepted deliberately:
+ *  the output is spendable only by the holder of p_i (the discrete log of -P_i
+ *  is -p_i), i.e. the offline half of the same whitelist entry, so no funds can
+ *  be diverted.
  */
 SECP256K1_API int secp256k1_whitelist_verify(
   const secp256k1_context *ctx,

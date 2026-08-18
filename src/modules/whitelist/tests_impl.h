@@ -23,12 +23,17 @@ static void test_whitelist_end_to_end_internal(const unsigned char *summed_secke
         /* Serialization round trip */
         CHECK(secp256k1_whitelist_signature_serialize(CTX, serialized, &slen, &sig) == 1);
         CHECK(slen == 33 + 32 * n_keys);
-        CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, slen) == 1);
         /* (Check various bad-length conditions) */
         CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, slen + 32) == 0);
         CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, slen + 1) == 0);
         CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, slen - 1) == 0);
         CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, 0) == 0);
+        /* A failed parse must leave a signature that fails validation for any
+         * key set, as documented on secp256k1_whitelist_signature_parse. */
+        CHECK(secp256k1_whitelist_signature_n_keys(&sig1) > SECP256K1_WHITELIST_MAX_N_KEYS);
+        CHECK(secp256k1_whitelist_verify(CTX, &sig1, online_pubkeys, offline_pubkeys, n_keys, sub_pubkey) == 0);
+        /* Re-parse to restore a valid state. */
+        CHECK(secp256k1_whitelist_signature_parse(CTX, &sig1, serialized, slen) == 1);
         CHECK(secp256k1_whitelist_verify(CTX, &sig1, online_pubkeys, offline_pubkeys, n_keys, sub_pubkey) == 1);
         CHECK(secp256k1_whitelist_verify(CTX, &sig1, offline_pubkeys, online_pubkeys, n_keys, sub_pubkey) != 1);
 
