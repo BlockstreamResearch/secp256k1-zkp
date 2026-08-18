@@ -319,6 +319,42 @@ static void test_schnorrsig_aggregate_overflow_internal(void) {
     }
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_schnorrsig_halfagg)
+static void test_schnorrsig_halfagg_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char aggsig_default[96], aggsig_custom[96];
+    unsigned char sk[2][32] = {{1}, {2}};
+    unsigned char msgs[2*32];
+    secp256k1_keypair keypairs[2];
+    secp256k1_xonly_pubkey pks[2];
+    unsigned char sigs[2*64];
+    size_t aggsig_len;
+    size_t i;
+
+    memset(msgs, 1, sizeof(msgs));
+    for (i = 0; i < 2; i++) {
+        CHECK(secp256k1_keypair_create(CTX, &keypairs[i], sk[i]));
+        CHECK(secp256k1_keypair_xonly_pub(CTX, &pks[i], NULL, &keypairs[i]));
+        CHECK(secp256k1_schnorrsig_sign32(CTX, &sigs[i*64], &msgs[i*32], &keypairs[i], NULL));
+    }
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    aggsig_len = sizeof(aggsig_default);
+    CHECK(secp256k1_schnorrsig_aggregate(ctx, aggsig_default, &aggsig_len, pks, msgs, sigs, 2));
+    CHECK(!sha256_schnorrsig_halfagg_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_schnorrsig_halfagg;
+    aggsig_len = sizeof(aggsig_custom);
+    CHECK(secp256k1_schnorrsig_aggregate(ctx, aggsig_custom, &aggsig_len, pks, msgs, sigs, 2));
+    CHECK(sha256_schnorrsig_halfagg_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(aggsig_default, aggsig_custom, 96) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(test_schnorrsig_aggregate)
 REPEAT_TEST(test_schnorrsig_aggregate_api)
@@ -332,6 +368,7 @@ static const struct tf_test_entry tests_schnorrsig_halfagg[] = {
     CASE1(test_schnorrsig_aggregate_api),
     CASE1(test_schnorrsig_aggregate_unforge),
     CASE1(test_schnorrsig_aggregate_overflow),
+    CASE1(test_schnorrsig_halfagg_ctx_sha256),
 };
 
 #undef N_MAX
