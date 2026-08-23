@@ -230,31 +230,21 @@ static void secp256k1_nonce_function_frost_helper(const secp256k1_hash_ctx *hash
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("FROST/aux")||SHA256("FROST/aux"). */
 static void secp256k1_nonce_function_frost_sha256_tagged_aux(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0x3f307d0ful;
-    sha->s[1] = 0xaadb37feul;
-    sha->s[2] = 0xee046f28ul;
-    sha->s[3] = 0x5b291e9cul;
-    sha->s[4] = 0x04f1a312ul;
-    sha->s[5] = 0xe998b71bul;
-    sha->s[6] = 0x44518abful;
-    sha->s[7] = 0xf57558d9ul;
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0x3f307d0ful, 0xaadb37feul, 0xee046f28ul, 0x5b291e9cul,
+        0x04f1a312ul, 0xe998b71bul, 0x44518abful, 0xf57558d9ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("FROST/nonce")||SHA256("FROST/nonce"). */
 static void secp256k1_nonce_function_frost_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0x56d260d6ul;
-    sha->s[1] = 0x9bbae97cul;
-    sha->s[2] = 0xa5ce116cul;
-    sha->s[3] = 0x19f32eeful;
-    sha->s[4] = 0xf995de98ul;
-    sha->s[5] = 0x7f6f8d1aul;
-    sha->s[6] = 0x79ba95aeul;
-    sha->s[7] = 0x1fe66de5ul;
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0x56d260d6ul, 0x9bbae97cul, 0xa5ce116cul, 0x19f32eeful,
+        0xf995de98ul, 0x7f6f8d1aul, 0x79ba95aeul, 0x1fe66de5ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 
@@ -287,23 +277,20 @@ static void secp256k1_nonce_function_frost(const secp256k1_hash_ctx *hash_ctx, s
         secp256k1_sha256_finalize(hash_ctx, &sha_tmp, buf);
         secp256k1_scalar_set_b32(&k[i], buf, NULL);
 
-        /* Attempt to erase secret data */
-        memset(buf, 0, sizeof(buf));
-        memset(&sha_tmp, 0, sizeof(sha_tmp));
+        secp256k1_memclear_explicit(buf, sizeof(buf));
+        secp256k1_sha256_clear(&sha_tmp);
     }
-    memset(rand, 0, sizeof(rand));
-    memset(&sha, 0, sizeof(sha));
+    secp256k1_memclear_explicit(rand, sizeof(rand));
+    secp256k1_sha256_clear(&sha);
 }
 
-int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const secp256k1_frost_secshare *share, const unsigned char *msg32, const secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *extra_input32) {
+int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secnonce *secnonce, secp256k1_frost_pubnonce *pubnonce, const unsigned char *session_id32, const unsigned char *share, const unsigned char *msg32, const secp256k1_frost_keygen_cache *keygen_cache, const unsigned char *extra_input32) {
     secp256k1_scalar k[2];
     secp256k1_ge nonce_pts[2];
     secp256k1_gej nonce_ptj[2];
     int i;
     unsigned char pk_ser[32];
     unsigned char *pk_ser_ptr = NULL;
-    unsigned char sk_ser[32];
-    unsigned char *sk_ser_ptr = NULL;
     int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
@@ -321,8 +308,9 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
 
     /* Check that the share is valid to be able to sign for it later. */
     if (share != NULL) {
-        ret &= secp256k1_frost_share_serialize(ctx, sk_ser, share);
-        sk_ser_ptr = sk_ser;
+        secp256k1_scalar sk;
+        ret &= secp256k1_scalar_set_b32_seckey(&sk, share);
+        secp256k1_scalar_clear(&sk);
     }
 
     if (keygen_cache != NULL) {
@@ -335,7 +323,7 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
         pk_ser_ptr = pk_ser;
     }
 
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(ctx), k, session_id32, msg32, sk_ser_ptr, pk_ser_ptr, extra_input32);
+    secp256k1_nonce_function_frost(secp256k1_get_hash_context(ctx), k, session_id32, msg32, share, pk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
     VERIFY_CHECK(!secp256k1_scalar_eq(&k[0], &k[1]));
@@ -383,16 +371,11 @@ static int secp256k1_frost_sum_nonces(const secp256k1_context* ctx, secp256k1_ge
 /* Initializes SHA256 with fixed midstate. This midstate was computed by applying
  * SHA256 to SHA256("FROST/noncecoef")||SHA256("FROST/noncecoef"). */
 static void secp256k1_frost_compute_noncehash_sha256_tagged(secp256k1_sha256 *sha) {
-    secp256k1_sha256_initialize(sha);
-    sha->s[0] = 0xa123a1caul;
-    sha->s[1] = 0x7dea94e1ul;
-    sha->s[2] = 0x40b0fbf7ul;
-    sha->s[3] = 0x14c389e4ul;
-    sha->s[4] = 0xbd6daae4ul;
-    sha->s[5] = 0xab02db8ful;
-    sha->s[6] = 0x073b4036ul;
-    sha->s[7] = 0x47788b04ul;
-    sha->bytes = 64;
+    static const uint32_t midstate[8] = {
+        0xa123a1caul, 0x7dea94e1ul, 0x40b0fbf7ul, 0x14c389e4ul,
+        0xbd6daae4ul, 0xab02db8ful, 0x073b4036ul, 0x47788b04ul
+    };
+    secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
 /* TODO: consider updating to frost-08 to address maleability at the cost of performance */
@@ -456,6 +439,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     secp256k1_frost_session_internal session_i = { 0 };
     unsigned char pk32[32];
     secp256k1_scalar l;
+    size_t i;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(session != NULL);
@@ -464,6 +448,9 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     ARG_CHECK(ids != NULL);
     ARG_CHECK(keygen_cache != NULL);
     ARG_CHECK(n_pubnonces > 1);
+    for (i = 0; i < n_pubnonces; i++) {
+        ARG_CHECK(pubnonces[i] != NULL);
+    }
 
     if (!secp256k1_keygen_cache_load(ctx, &cache_i, keygen_cache)) {
         return 0;
@@ -527,7 +514,7 @@ int secp256k1_frost_partial_sign(const secp256k1_context* ctx, secp256k1_frost_p
     ret = secp256k1_frost_secnonce_load(ctx, k, secnonce);
     /* Set nonce to zero to avoid nonce reuse. This will cause subsequent calls
      * of this function to fail */
-    memset(secnonce, 0, sizeof(*secnonce));
+    secp256k1_memzero_explicit(secnonce, sizeof(*secnonce));
     if (!ret) {
         secp256k1_frost_partial_sign_clear(&sk, k);
         return 0;
@@ -647,6 +634,9 @@ int secp256k1_frost_partial_sig_agg(const secp256k1_context* ctx, unsigned char 
     ARG_CHECK(session != NULL);
     ARG_CHECK(partial_sigs != NULL);
     ARG_CHECK(n_sigs > 0);
+    for (i = 0; i < n_sigs; i++) {
+        ARG_CHECK(partial_sigs[i] != NULL);
+    }
 
     if (!secp256k1_frost_session_load(ctx, &session_i, session)) {
         return 0;

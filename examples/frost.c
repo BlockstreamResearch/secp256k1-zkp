@@ -118,6 +118,7 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
     const secp256k1_frost_partial_sig *partial_sigs[THRESHOLD];
 
     for (i = 0; i < N_SIGNERS; i++) {
+        unsigned char sec_share_ser[32];
         unsigned char session_id[32];
         /* Create random session ID. It is absolutely necessary that the session ID
          * is unique for every call of secp256k1_frost_nonce_gen. Otherwise
@@ -125,9 +126,13 @@ static int sign(const secp256k1_context* ctx, struct signer_secrets *signer_secr
         if (!fill_random(session_id, sizeof(session_id))) {
             return 0;
         }
+        /* Serialize the secret share to be able to use it for signing. */
+        if (!secp256k1_frost_share_serialize(ctx, sec_share_ser, &signer_secrets[i].share)) {
+            return 0;
+        }
         /* Initialize session and create secret nonce for signing and public
          * nonce to send to the other signers. */
-        if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, &signer_secrets[i].share, msg32, cache, NULL)) {
+        if (!secp256k1_frost_nonce_gen(ctx, &signer_secrets[i].secnonce, &signer[i].pubnonce, session_id, sec_share_ser, msg32, cache, NULL)) {
             return 0;
         }
         is_signer[i] = 0; /* Initialize is_signer */
