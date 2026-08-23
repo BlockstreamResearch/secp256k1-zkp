@@ -42,7 +42,7 @@ extern "C" {
  *  Guaranteed to be 101 bytes in size. It can be safely copied/moved. No
  *  serialization and parsing functions.
  */
-typedef struct {
+typedef struct secp256k1_frost_keygen_cache {
     unsigned char data[101];
 } secp256k1_frost_keygen_cache;
 
@@ -51,7 +51,7 @@ typedef struct {
  *  Guaranteed to be 36 bytes in size. Serialized and parsed with
  *  `frost_share_serialize` and `frost_share_parse`.
  */
-typedef struct {
+typedef struct secp256k1_frost_secshare {
     unsigned char data[36];
 } secp256k1_frost_secshare;
 
@@ -67,7 +67,7 @@ typedef struct {
  *  Copying this data structure can result in nonce reuse which will leak the
  *  secret signing key.
  */
-typedef struct {
+typedef struct secp256k1_frost_secnonce {
     unsigned char data[68];
 } secp256k1_frost_secnonce;
 
@@ -77,7 +77,7 @@ typedef struct {
 *  Serialized and parsed with `frost_pubnonce_serialize` and
 *  `frost_pubnonce_parse`.
 */
-typedef struct {
+typedef struct secp256k1_frost_pubnonce {
     unsigned char data[132];
 } secp256k1_frost_pubnonce;
 
@@ -87,7 +87,7 @@ typedef struct {
  *  to be secure. Guaranteed to be 133 bytes in size. It can be safely
  *  copied/moved. No serialization and parsing functions.
  */
-typedef struct {
+typedef struct secp256k1_frost_session {
     unsigned char data[133];
 } secp256k1_frost_session;
 
@@ -96,7 +96,7 @@ typedef struct {
  *  Guaranteed to be 36 bytes in size. Serialized and parsed with
  *  `frost_partial_sig_serialize` and `frost_partial_sig_parse`.
  */
-typedef struct {
+typedef struct secp256k1_frost_partial_sig {
     unsigned char data[36];
 } secp256k1_frost_partial_sig;
 
@@ -411,7 +411,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_xonly_twea
  *                     unique to this call to secp256k1_frost_nonce_gen and
  *                     must be uniformly random unless you really know what you
  *                     are doing.
- *          agg_share: the aggregated share that will later be used for
+ *          agg_share: the 32-byte aggregated share that will later be used for
  *                     signing, if already known (can be NULL)
  *              msg32: the 32-byte message that will later be signed, if
  *                     already known (can be NULL)
@@ -426,7 +426,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_gen(
     secp256k1_frost_secnonce *secnonce,
     secp256k1_frost_pubnonce *pubnonce,
     const unsigned char *session_id32,
-    const secp256k1_frost_secshare *agg_share,
+    const unsigned char *agg_share,
     const unsigned char *msg32,
     const secp256k1_frost_keygen_cache *keygen_cache,
     const unsigned char *extra_input32
