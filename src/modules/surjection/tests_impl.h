@@ -165,7 +165,7 @@ static void test_input_selection(size_t n_inputs) {
         /* succeed in 100*n_inputs tries (probability of failure e^-100) */
         result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_inputs, 1, &fixed_input_tags[0], try_count, seed);
         CHECK(result > 0);
-        CHECK(result < n_inputs * 10);
+        CHECK(result <= try_count);
         CHECK(secp256k1_surjectionproof_n_used_inputs(CTX, &proof) == 1);
         CHECK(secp256k1_surjectionproof_n_total_inputs(CTX, &proof) == n_inputs);
         CHECK(secp256k1_surjectionproof_serialized_size(CTX, &proof) == 66 + (n_inputs + 7) / 8);
@@ -173,9 +173,10 @@ static void test_input_selection(size_t n_inputs) {
     }
 
     if (n_inputs >= 3) {
-        /* succeed in 10*n_inputs tries (probability of failure e^-10) */
+        /* succeed in 100*n_inputs tries (probability of failure e^-300) */
         result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[1], try_count, seed);
         CHECK(result > 0);
+        CHECK(result <= try_count);
         CHECK(secp256k1_surjectionproof_n_used_inputs(CTX, &proof) == 3);
         CHECK(secp256k1_surjectionproof_n_total_inputs(CTX, &proof) == n_inputs);
         CHECK(secp256k1_surjectionproof_serialized_size(CTX, &proof) == 130 + (n_inputs + 7) / 8);
@@ -193,10 +194,10 @@ static void test_input_selection(size_t n_inputs) {
         CHECK(secp256k1_surjectionproof_serialized_size(CTX, &proof) == 2 + 32 * (n_inputs + 1) + (n_inputs + 7) / 8);
         CHECK(input_index == 0);
 
-        /* succeed in less than 64 tries when told to use half keys. (probability of failure 2^-64) */
+        /* succeed in 64 tries when told to use half keys. (probability of failure 2^-64) */
         result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_inputs, n_inputs / 2, &fixed_input_tags[0], 64, seed);
         CHECK(result > 0);
-        CHECK(result < 64);
+        CHECK(result <= 64);
         CHECK(secp256k1_surjectionproof_n_used_inputs(CTX, &proof) == n_inputs / 2);
         CHECK(secp256k1_surjectionproof_n_total_inputs(CTX, &proof) == n_inputs);
         CHECK(secp256k1_surjectionproof_serialized_size(CTX, &proof) == 2 + 32 * (n_inputs / 2 + 1) + (n_inputs + 7) / 8);
@@ -218,7 +219,7 @@ static void test_input_selection_distribution_helper(const secp256k1_fixed_asset
     }
     for(j = 0; j < 10000; j++) {
         testrand256(seed);
-        result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, &fixed_input_tags[0], 64, seed);
+        result = secp256k1_surjectionproof_initialize(CTX, &proof, &input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, &fixed_input_tags[0], 128, seed);
         CHECK(result > 0);
 
         for (i = 0; i < n_input_tags; i++) {
