@@ -108,6 +108,7 @@ Usage examples can be found in the [examples](examples) directory. To compile th
   * [Deriving a shared secret (ECDH) example](examples/ecdh.c)
   * [ElligatorSwift key exchange example](examples/ellswift.c)
   * [MuSig2 Schnorr multi-signatures example](examples/musig.c)
+  * [Silent Payments send and receive example](examples/silentpayments.c)
 
 To compile the examples, make sure the corresponding modules are enabled.
 

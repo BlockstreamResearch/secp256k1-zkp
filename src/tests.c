@@ -240,9 +240,6 @@ static void run_ec_illegal_argument_tests(void) {
 }
 
 static void run_static_context_tests(int use_prealloc) {
-    /* Check that deprecated secp256k1_context_no_precomp is an alias to secp256k1_context_static. */
-    CHECK(secp256k1_context_no_precomp == secp256k1_context_static);
-
     {
         unsigned char seed[32] = {0x17};
 
@@ -7912,6 +7909,10 @@ static void run_ecdsa_wycheproof(void) {
 # include "modules/ellswift/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_SILENTPAYMENTS
+# include "modules/silentpayments/tests_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_ECDSA_S2C
 # include "modules/ecdsa_s2c/tests_impl.h"
 #endif
@@ -8262,6 +8263,9 @@ static const struct tf_test_module registry_modules[] = {
 #endif
 #ifdef ENABLE_MODULE_ELLSWIFT
     MAKE_TEST_MODULE(ellswift),
+#endif
+#ifdef ENABLE_MODULE_SILENTPAYMENTS
+    MAKE_TEST_MODULE(silentpayments),
 #endif
     /* --- ZKP-SPECIFIC MODULES --- */
 #ifdef ENABLE_MODULE_SCHNORRSIG_HALFAGG

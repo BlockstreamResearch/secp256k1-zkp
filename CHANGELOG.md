@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+#### Added
+ - New function `secp256k1_context_set_sha256_compression` for overriding the internal SHA256 compression function used by the library at runtime (e.g., to route SHA256 through a hardware-accelerated implementation).
+ - New module `silentpayments` implements sending and receiving of Silent Payments according to [BIP 352](https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki). See:
+   - Header file `include/secp256k1_silentpayments.h` which defines the new API.
+   - Usage example `examples/silentpayments.c`.
+ - The `silentpayments` API currently requires full access to the transaction data (light client scanning is not implemented).
+
+#### Changed
+ - The field multiplication and squaring routines of the 5x52 (64-bit) implementation are now force-inlined. This speeds up many library functions with GCC and MSVC (Clang is largely unaffected), e.g. `secp256k1_ecdsa_verify` and `secp256k1_schnorrsig_verify` by up to ~11%, at the cost of a somewhat larger compiled library. Force-inlining is disabled in unoptimized builds and when optimizing for size.
+ - CMake: Shared libraries built with CMake on OpenBSD and NetBSD now create the full versioned filename (e.g. `libsecp256k1.so.6.2` instead of `libsecp256k1.so.6`) and symlink chain, matching the behavior of GNU Autotools builds.
+
+#### Removed
+- Removed previously deprecated pointer `secp256k1_context_no_precomp`. Use `secp256k1_context_static` instead.
+- Removed previously deprecated function alias `secp256k1_schnorrsig_sign`. Use `secp256k1_schnorrsig_sign32` instead.
+- Removed macro SECP256K1_GNUC_PREREQ defined in the header file `include/secp256k1.h`. This macro was used in the library headers to check for GNU C extensions. The macro was not actually meant to be part of the public API of libsecp256k1. If you happened to use it in your code nevertheless, use the macros `__GNUC__` and `__GNUC_MINOR__` (defined by compilers with GNU C extensions) directly, or copy the macro definition from an old libsecp256k1 header file into your code.
+
 ## [0.7.1] - 2026-01-26
 
 #### Changed
@@ -33,7 +49,8 @@ The ABI is backward compatible with version 0.7.0.
  - Removed `SECP256K1_WARN_UNUSED_RESULT` attribute (defined as `__attribute__ ((__warn_unused_result__))`) from several API functions that always return 1. Compilers will no longer warn if the return value is unused.
  - CMake: Building with CMake is no longer considered experimental.
  - CMake: The minimum required CMake version was increased to 3.22.
- - CMake: Shared libraries built with CMake on FreeBSD now create the full versioned filename and symlink chain, matching the behavior of autotools builds.
+ - CMake: Shared libraries built with CMake on FreeBSD now create the full versioned filename (e.g. `libsecp256k1.so.5.0.1` instead of `libsecp256k1.so.5`) and symlink chain, matching the behavior of GNU Autotools builds.
+
 
 #### Removed
 - Removed previously deprecated function aliases `secp256k1_ec_privkey_negate`, `secp256k1_ec_privkey_tweak_add` and

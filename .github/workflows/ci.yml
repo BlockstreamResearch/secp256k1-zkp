@@ -39,6 +39,7 @@ env:
   SCHNORRSIG: 'no'
   MUSIG: 'no'
   ELLSWIFT: 'no'
+  SILENTPAYMENTS: 'no'
   ECDSA_S2C: 'no'
   GENERATOR: 'no'
   RANGEPROOF: 'no'
@@ -104,18 +105,18 @@ jobs:
       matrix:
         configuration:
           - env_vars: { WIDEMUL: 'int64',  RECOVERY: 'yes' }
-          - env_vars: { WIDEMUL: 'int64',                   ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { WIDEMUL: 'int64',                   ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
           - env_vars: { WIDEMUL: 'int128' }
           - env_vars: { WIDEMUL: 'int128_struct',                                                                           ELLSWIFT: 'yes' }
           - env_vars: { WIDEMUL: 'int128', RECOVERY: 'yes',              EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes' }
-          - env_vars: { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', SILENTPAYMENTS: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
           - env_vars: { WIDEMUL: 'int128', ASM: 'x86_64',                                                                   ELLSWIFT: 'yes' }
-          - env_vars: {                    RECOVERY: 'yes',              EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
-          - env_vars: { CTIMETESTS: 'no',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
+          - env_vars: {                    RECOVERY: 'yes',              EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes',                                         EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes'}
+          - env_vars: { CTIMETESTS: 'no',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', SILENTPAYMENTS: 'yes',                  EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
           - env_vars: { BUILD: 'distcheck', WITH_VALGRIND: 'no', CTIMETESTS: 'no', BENCH: 'no' }
           - env_vars: { CPPFLAGS: '-DDETERMINISTIC' }
           - env_vars: { CFLAGS: '-O0', CTIMETESTS: 'no' }
-          - env_vars: { CFLAGS: '-O1',     RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes' }
+          - env_vars: { CFLAGS: '-O1',     RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes' }
           - env_vars: { ECMULTGENKB: 2, ECMULTWINDOW: 2 }
           - env_vars: { ECMULTGENKB: 86, ECMULTWINDOW: 4 }
         cc:
@@ -168,6 +169,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       RANGEPROOF: 'yes'
@@ -205,6 +207,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       RANGEPROOF: 'yes'
@@ -244,6 +247,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -274,6 +278,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -323,6 +328,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -377,6 +383,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -415,6 +422,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -470,6 +478,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -504,6 +513,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'
@@ -545,15 +555,15 @@ jobs:
       fail-fast: false
       matrix:
         env_vars:
-          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128_struct', ECMULTGENKB: 2, ECMULTWINDOW: 4 }
-          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128', RECOVERY: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes',           WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc', WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY', CTIMETESTS: 'no' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes',            WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc', WRAPPER_CMD: 'valgrind --error-exitcode=42', SECP256K1_TEST_ITERS: 2 }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes',                        EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY', CTIMETESTS: 'no' }
           - BUILD: 'distcheck'
 
     steps:
@@ -602,13 +612,13 @@ jobs:
       fail-fast: false
       matrix:
         env_vars:
-          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int64',  RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128_struct', ECMULTGENKB: 2, ECMULTWINDOW: 4 }
-          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128',                  ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
           - { WIDEMUL: 'int128', RECOVERY: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
-          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CC: 'gcc' }
+          - { WIDEMUL: 'int128', RECOVERY: 'yes', ECDH: 'yes', EXTRAKEYS: 'yes', SCHNORRSIG: 'yes', MUSIG: 'yes', ELLSWIFT: 'yes', SILENTPAYMENTS: 'yes', EXPERIMENTAL: 'yes', ECDSA_S2C: 'yes', RANGEPROOF: 'yes', SURJECTIONPROOF: 'yes', WHITELIST: 'yes', GENERATOR: 'yes', ECDSAADAPTOR: 'yes', BPPP: 'yes', SCHNORRSIG_HALFAGG: 'yes', CPPFLAGS: '-DVERIFY' }
           - BUILD: 'distcheck'
 
     steps:
@@ -720,6 +730,7 @@ jobs:
       SCHNORRSIG: 'yes'
       MUSIG: 'yes'
       ELLSWIFT: 'yes'
+      SILENTPAYMENTS: 'yes'
       EXPERIMENTAL: 'yes'
       ECDSA_S2C: 'yes'
       GENERATOR: 'yes'

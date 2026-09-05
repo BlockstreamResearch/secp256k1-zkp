@@ -28,7 +28,7 @@ void test_schnorrsig_aggregate_input_helper(secp256k1_xonly_pubkey *pubkeys, uns
 
         CHECK(secp256k1_keypair_create(CTX, &keypair, sk));
         CHECK(secp256k1_keypair_xonly_pub(CTX, &pubkeys[i], NULL, &keypair));
-        CHECK(secp256k1_schnorrsig_sign(CTX, &sigs64[i*64], &msgs32[i*32], &keypair, NULL));
+        CHECK(secp256k1_schnorrsig_sign32(CTX, &sigs64[i*64], &msgs32[i*32], &keypair, NULL));
     }
 }
 
