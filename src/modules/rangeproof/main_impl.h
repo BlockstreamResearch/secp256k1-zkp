@@ -103,4 +103,50 @@ size_t secp256k1_rangeproof_max_size(const secp256k1_context* ctx, uint64_t max_
     return 10 + 32 * (npubs + rings - 1) + 32 + ((rings - 1 + 7) / 8);
 }
 
+int secp256k1_borromean_verify(const secp256k1_context* ctx, const unsigned char *e0, const unsigned char *s,
+ const unsigned char *m, size_t mlen, const secp256k1_pubkey * const *pubkeys, size_t n_pubkeys,
+ const size_t *rsizes, size_t nrings) {
+    secp256k1_gej pubs[128];
+    secp256k1_scalar sv[128];
+    size_t total;
+    size_t i;
+    int overflow;
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(e0 != NULL);
+    ARG_CHECK(s != NULL);
+    ARG_CHECK(m != NULL);
+    ARG_CHECK(pubkeys != NULL);
+    ARG_CHECK(n_pubkeys > 0);
+    ARG_CHECK(n_pubkeys <= 128);
+    ARG_CHECK(rsizes != NULL);
+    ARG_CHECK(nrings > 0);
+    ARG_CHECK(nrings <= 32);
+
+    /* Validate the ring shape before touching pubkeys or s through it. */
+    total = 0;
+    for (i = 0; i < nrings; i++) {
+        total += rsizes[i];
+    }
+    ARG_CHECK(total == n_pubkeys);
+
+    for (i = 0; i < n_pubkeys; i++) {
+        ARG_CHECK(pubkeys[i] != NULL);
+    }
+
+    for (i = 0; i < n_pubkeys; i++) {
+        secp256k1_ge ge;
+        if (!secp256k1_pubkey_load(ctx, &ge, pubkeys[i])) {
+            return 0;
+        }
+        secp256k1_gej_set_ge(&pubs[i], &ge);
+        secp256k1_scalar_set_b32(&sv[i], &s[i * 32], &overflow);
+        if (overflow) {
+            return 0;
+        }
+    }
+
+    return secp256k1_borromean_verify_impl(&ctx->hash_ctx, NULL, e0, sv, pubs, rsizes, nrings, m, mlen);
+}
+
 #endif
