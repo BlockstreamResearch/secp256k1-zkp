@@ -161,6 +161,81 @@ static void test_whitelist_end_to_end_all_internal(void) {
     test_whitelist_end_to_end(SECP256K1_WHITELIST_MAX_N_KEYS, 0);
 }
 
+/* Faithful counting probe: unlike DEFINE_SHA256_TRANSFORM_PROBE it does not
+ * perturb the output, so a fully ctx-aware signing operation stays bit-identical
+ * while the caller's ctx observes every compression it performs. */
+static size_t sha256_whitelist_blocks = 0;
+static void sha256_whitelist(uint32_t *s, const unsigned char *msg, size_t rounds) {
+    sha256_whitelist_blocks += rounds;
+    secp256k1_sha256_transform(s, msg, rounds);
+}
+
+static void test_whitelist_ctx_sha256(void) {
+    /* Whitelist cannot use the plain perturbing-probe pattern used by the other
+     * modules. The nonce inputs (msg32 from compute_keys_and_message, seckey32
+     * from compute_tweaked_privkey) are produced through hash_ctx already, so a
+     * perturbed compression changes the signature whether or not nonce generation
+     * itself routes through the caller's ctx. An "output differs" check therefore
+     * passes even when the nonce hashing bypasses the caller's ctx (hashing through
+     * the static context instead). What actually distinguishes the two cases is how
+     * many compressions the caller's ctx observes: the n_keys+1 RFC6979 nonce
+     * instantiations are the bulk of them. So use a faithful probe and assert
+     * the signature is bit-identical and the ctx observes the exact number
+     * of compressions a fully ctx-aware sign performs. */
+    const size_t n_keys = 3;
+    const size_t signer_i = 0;
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char online_seckey[3][32];
+    unsigned char offline_seckey[3][32];
+    unsigned char summed_seckey[3][32];
+    unsigned char sub_seckey[32];
+    secp256k1_pubkey online_pubkeys[3];
+    secp256k1_pubkey offline_pubkeys[3];
+    secp256k1_pubkey sub_pubkey;
+    secp256k1_whitelist_signature sig_default, sig_custom;
+    size_t i;
+
+    memset(sub_seckey, 0, sizeof(sub_seckey));
+    sub_seckey[31] = 200;
+    CHECK(secp256k1_ec_pubkey_create(CTX, &sub_pubkey, sub_seckey) == 1);
+    for (i = 0; i < n_keys; i++) {
+        memset(online_seckey[i], 0, 32);
+        memset(offline_seckey[i], 0, 32);
+        online_seckey[i][31] = (unsigned char)(1 + i);
+        offline_seckey[i][31] = (unsigned char)(100 + i);
+        CHECK(secp256k1_ec_pubkey_create(CTX, &online_pubkeys[i], online_seckey[i]) == 1);
+        CHECK(secp256k1_ec_pubkey_create(CTX, &offline_pubkeys[i], offline_seckey[i]) == 1);
+        /* summed_seckey corresponds to offline_pubkey + sub_pubkey */
+        memcpy(summed_seckey[i], offline_seckey[i], 32);
+        CHECK(secp256k1_ec_seckey_tweak_add(CTX, summed_seckey[i], sub_seckey) == 1);
+    }
+
+    sha256_whitelist_blocks = 0;
+
+    /* Default signing: no ctx-provided SHA256 compression. */
+    CHECK(secp256k1_whitelist_sign(ctx, &sig_default, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[signer_i], summed_seckey[signer_i], signer_i) == 1);
+    CHECK(sha256_whitelist_blocks == 0);
+
+    /* Install the faithful probe and re-sign with identical inputs. */
+    ctx->hash_ctx.fn_sha256_compression = sha256_whitelist;
+    sha256_whitelist_blocks = 0;
+    CHECK(secp256k1_whitelist_sign(ctx, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[signer_i], summed_seckey[signer_i], signer_i) == 1);
+
+    /* A faithful override must leave the signature bit-identical. */
+    CHECK(secp256k1_memcmp_var(sig_default.data, sig_custom.data, 32 * (n_keys + 1)) == 0);
+    /* The caller's ctx must observe every compression the sign performs. For these
+     * constant inputs a healthy sign runs exactly 104 compressions through the ctx; if
+     * the n_keys+1 RFC6979 nonce instantiations instead hash through the static
+     * context, the count drops to 16. Pinning the exact count catches the nonce
+     * path, or any other hashing path (keys/message, tweaked privkey, borromean),
+     * bypassing the caller's ctx, since any of them changes the total. Update this
+     * number if whitelist's hashing legitimately changes (constant inputs give a
+     * deterministic count). */
+    CHECK(sha256_whitelist_blocks == 104);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(test_whitelist_end_to_end_all)
 
@@ -168,6 +243,7 @@ static const struct tf_test_entry tests_whitelist[] = {
     CASE1(test_whitelist_bad_parse),
     CASE1(test_whitelist_bad_serialize),
     CASE1(test_whitelist_end_to_end_all),
+    CASE1(test_whitelist_ctx_sha256),
 };
 
 #endif
