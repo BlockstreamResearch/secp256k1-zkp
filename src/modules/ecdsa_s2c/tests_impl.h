@@ -346,6 +346,30 @@ static void test_ecdsa_s2c_ctx_sha256(void) {
     secp256k1_context_destroy(ctx);
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_anti_exfil_commit)
+static void test_ecdsa_anti_exfil_signer_commit_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    secp256k1_ecdsa_s2c_opening opening_default, opening_custom;
+    unsigned char out_default[33], out_custom[33];
+    unsigned char sk[32] = {1}, msg32[32] = {2}, rand_commitment32[32] = {3};
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &opening_default, msg32, sk, rand_commitment32) == 1);
+    CHECK(!sha256_anti_exfil_commit_called);
+    CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, out_default, &opening_default) == 1);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_anti_exfil_commit;
+    CHECK(secp256k1_ecdsa_anti_exfil_signer_commit(ctx, &opening_custom, msg32, sk, rand_commitment32) == 1);
+    CHECK(sha256_anti_exfil_commit_called);
+    CHECK(secp256k1_ecdsa_s2c_opening_serialize(ctx, out_custom, &opening_custom) == 1);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(out_default, out_custom, 33) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 static const struct tf_test_entry tests_ecdsa_s2c[] = {
     CASE1(run_s2c_opening_test),
@@ -356,6 +380,7 @@ static const struct tf_test_entry tests_ecdsa_s2c[] = {
     CASE1(test_ecdsa_anti_exfil_signer_commit),
     CASE1(test_ecdsa_anti_exfil),
     CASE1(test_ecdsa_s2c_ctx_sha256),
+    CASE1(test_ecdsa_anti_exfil_signer_commit_ctx_sha256),
 };
 
 #endif /* SECP256K1_MODULE_ECDSA_S2C_TESTS_H */

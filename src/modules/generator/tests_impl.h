@@ -340,6 +340,30 @@ static void test_pedersen_commitment_fixed_vector(void) {
     CHECK(!secp256k1_pedersen_commitment_parse(CTX, &parse, result));
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_generator)
+static void test_generator_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    secp256k1_generator gen_default, gen_custom;
+    unsigned char out_default[33], out_custom[33];
+    unsigned char seed32[32] = {1};
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_generator_generate(ctx, &gen_default, seed32) == 1);
+    CHECK(!sha256_generator_called);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_generator;
+    CHECK(secp256k1_generator_generate(ctx, &gen_custom, seed32) == 1);
+    CHECK(sha256_generator_called);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_generator_serialize(ctx, out_default, &gen_default) == 1);
+    CHECK(secp256k1_generator_serialize(ctx, out_custom, &gen_custom) == 1);
+    CHECK(secp256k1_memcmp_var(out_default, out_custom, 33) != 0);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(test_pedersen)
 
@@ -351,6 +375,7 @@ static const struct tf_test_entry tests_generator[] = {
     CASE1(test_pedersen),
     CASE1(test_pedersen_api),
     CASE1(test_pedersen_commitment_fixed_vector),
+    CASE1(test_generator_ctx_sha256),
 };
 
 #endif
