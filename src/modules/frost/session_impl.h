@@ -17,6 +17,7 @@
 #include "session.h"
 #include "../../eckey.h"
 #include "../../hash.h"
+#include "../../hsort.h"
 #include "../../scalar.h"
 #include "../../util.h"
 
@@ -378,26 +379,53 @@ static void secp256k1_frost_compute_noncehash_sha256_tagged(secp256k1_sha256 *sh
     secp256k1_sha256_initialize_midstate(sha, 64, midstate);
 }
 
+typedef struct {
+    size_t id;
+    const secp256k1_frost_pubnonce *pubnonce;
+} secp256k1_frost_nonce_pair;
+
+static int secp256k1_frost_nonce_pair_cmp(const void *a, const void *b, void *data) {
+    const secp256k1_frost_nonce_pair *pa = (const secp256k1_frost_nonce_pair *)a;
+    const secp256k1_frost_nonce_pair *pb = (const secp256k1_frost_nonce_pair *)b;
+    (void)data;
+    return (pa->id > pb->id) - (pa->id < pb->id);
+}
+
 /* TODO: consider updating to frost-08 to address maleability at the cost of performance */
 /* See https://github.com/cfrg/draft-irtf-cfrg-frost/pull/217 */
 static int secp256k1_frost_compute_noncehash(const secp256k1_hash_ctx *hash_ctx, const secp256k1_context* ctx, unsigned char *noncehash, const unsigned char *msg, const secp256k1_frost_pubnonce * const *pubnonces, size_t n_pubnonces, const unsigned char *pk32, const size_t *ids) {
     unsigned char buf[66];
     secp256k1_sha256 sha;
+    secp256k1_frost_nonce_pair *pairs;
     size_t i;
 
+    if (n_pubnonces > ((size_t)-1) / sizeof(*pairs)) {
+        return 0;
+    }
+    pairs = checked_malloc(&ctx->error_callback, n_pubnonces * sizeof(*pairs));
+    if (pairs == NULL) {
+        return 0;
+    }
+    /* Sort a copy to preserve the caller's arrays and each ID's nonce. */
+    for (i = 0; i < n_pubnonces; i++) {
+        pairs[i].id = ids[i];
+        pairs[i].pubnonce = pubnonces[i];
+    }
+    secp256k1_hsort(pairs, n_pubnonces, sizeof(*pairs), secp256k1_frost_nonce_pair_cmp, NULL);
     secp256k1_frost_compute_noncehash_sha256_tagged(&sha);
-    /* TODO: sort by index */
     for (i = 0; i < n_pubnonces; i++) {
         secp256k1_scalar idx;
 
-        secp256k1_frost_get_scalar_index(&idx, ids[i]);
+        secp256k1_frost_get_scalar_index(&idx, pairs[i].id);
         secp256k1_scalar_get_b32(buf, &idx);
         secp256k1_sha256_write(hash_ctx, &sha, buf, 32);
-        if (!secp256k1_frost_pubnonce_serialize(ctx, buf, pubnonces[i])) {
+        if (!secp256k1_frost_pubnonce_serialize(ctx, buf, pairs[i].pubnonce)) {
+            free(pairs);
             return 0;
         }
         secp256k1_sha256_write(hash_ctx, &sha, buf, sizeof(buf));
     }
+    free(pairs);
     secp256k1_sha256_write(hash_ctx, &sha, pk32, 32);
     secp256k1_sha256_write(hash_ctx, &sha, msg, 32);
     secp256k1_sha256_finalize(hash_ctx, &sha, noncehash);

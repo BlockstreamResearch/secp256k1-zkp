@@ -434,9 +434,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_gen(
 
 /** Takes the public nonces of all signers and computes a session that is
  *  required for signing and verification of partial signatures. The participant
- *  IDs can be sorted before combining, but the corresponding pubnonces must be
- *  resorted as well. All signers must use the same sorting of pubnonces,
- *  otherwise signing will fail.
+ *  IDs and their corresponding pubnonces may be provided in any order, with
+ *  pubnonces[i] belonging to ids[i]. The pairs are hashed in ascending ID order
+ *  internally without modifying either input array.
  *
  *  Returns: 0 if the arguments are invalid or if some signer sent invalid
  *           pubnonces, 1 otherwise

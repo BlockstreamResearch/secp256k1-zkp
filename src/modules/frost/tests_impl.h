@@ -298,6 +298,31 @@ static void frost_api_tests(void) {
     }
 
     {
+        static const size_t permutations[6][3] = {
+            {0, 1, 2}, {0, 2, 1}, {1, 0, 2},
+            {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
+        };
+        size_t p, j, signer;
+        for (p = 0; p < 6; p++) {
+            size_t permuted_ids[3];
+            const secp256k1_frost_pubnonce *permuted_nonces[3];
+            for (j = 0; j < 3; j++) {
+                permuted_ids[j] = ids[permutations[p][j]];
+                permuted_nonces[j] = pubnonce_ptr[permutations[p][j]];
+            }
+            for (signer = 0; signer < 3; signer++) {
+                secp256k1_frost_session permuted_session;
+                CHECK(secp256k1_frost_nonce_process(CTX, &permuted_session, permuted_nonces, 3, msg, ids[signer], permuted_ids, &keygen_cache, &adaptor) == 1);
+                CHECK(secp256k1_memcmp_var(&permuted_session, &session[signer], sizeof(permuted_session)) == 0);
+            }
+            for (j = 0; j < 3; j++) {
+                CHECK(permuted_ids[j] == ids[permutations[p][j]]);
+                CHECK(permuted_nonces[j] == pubnonce_ptr[permutations[p][j]]);
+            }
+        }
+    }
+
+    {
         secp256k1_frost_session tmp_sess;
         CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, NULL, pubnonce_ptr, 3, msg, ids[0], ids, &keygen_cache, &adaptor));
         CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_sess, NULL, 3, msg, ids[0], ids, &keygen_cache, &adaptor));
@@ -575,7 +600,15 @@ static void frost_tweak_test_helper(const secp256k1_xonly_pubkey* agg_pk, const 
         partial_sig_ptr[i] = &partial_sig[i];
     }
     for (i = 0; i < N; i++) {
-        CHECK(secp256k1_frost_nonce_process(CTX, &session[i], pubnonce_ptr, N, msg, ids[i], ids, keygen_cache, NULL) == 1);
+        size_t ordered_ids[N];
+        const secp256k1_frost_pubnonce *ordered_nonces[N];
+        int j;
+        /* Each signer receives the same pairs in a different order. */
+        for (j = 0; j < N; j++) {
+            ordered_ids[j] = ids[(i + j) % N];
+            ordered_nonces[j] = pubnonce_ptr[(i + j) % N];
+        }
+        CHECK(secp256k1_frost_nonce_process(CTX, &session[i], ordered_nonces, N, msg, ids[i], ordered_ids, keygen_cache, NULL) == 1);
     }
     for (i = 0; i < N; i++) {
         CHECK(secp256k1_frost_partial_sign(CTX, &partial_sig[i], &secnonce[i], shares[i], &session[i], keygen_cache) == 1);
