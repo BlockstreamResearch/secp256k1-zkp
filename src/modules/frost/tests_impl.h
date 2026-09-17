@@ -7,6 +7,7 @@
 #ifndef SECP256K1_MODULE_FROST_TESTS_IMPL_H
 #define SECP256K1_MODULE_FROST_TESTS_IMPL_H
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -439,6 +440,7 @@ static void frost_api_tests(void) {
     CHECK_ILLEGAL(CTX, secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], NULL, 3));
     CHECK_ILLEGAL(CTX, secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], invalid_partial_sig_ptr, 3));
     CHECK_ILLEGAL(CTX, secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 0));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, SECP256K1_FROST_MAX_PARTICIPANTS + 1));
     CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[0], partial_sig_ptr, 1) == 1);
     CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[1], partial_sig_ptr, 2) == 1);
     CHECK(secp256k1_frost_partial_sig_agg(CTX, pre_sig, &session[2], partial_sig_ptr, 3) == 1);
@@ -839,6 +841,110 @@ void frost_multi_hop_lock_test_internal(void) {
     CHECK(secp256k1_memcmp_var(buf, pop, 32) == 0);
 }
 
+static void frost_id_validation_test(void) {
+    static const size_t invalid_ids[][3] = {
+        {4, 4, 2}, {4, 0, 4}, {4, 2, 2},
+        {4, UINT_MAX, 2}, {4, (size_t)-1, 2}
+    };
+    const size_t all_ids[5] = {0, 1, 2, 3, 4};
+    const size_t ids[3] = {4, 0, 2};
+    unsigned char seed[32], msg[32], session_id[32], share32[32], sig64[64];
+    secp256k1_frost_secshare shares[5];
+    secp256k1_pubkey commitments[2], pubshares[5], pk, pubshare;
+    const secp256k1_pubkey *all_pubshares[5], *selected_pubshares[3];
+    secp256k1_xonly_pubkey xonly_pk;
+    secp256k1_frost_keygen_cache cache, subset_cache, tmp_cache;
+    secp256k1_frost_secnonce secnonces[3];
+    secp256k1_frost_pubnonce pubnonces[3];
+    const secp256k1_frost_pubnonce *nonce_ptrs[3];
+    secp256k1_frost_session sessions[3], tmp_session;
+    secp256k1_frost_partial_sig partial_sigs[3];
+    const secp256k1_frost_partial_sig *sig_ptrs[3];
+    size_t i;
+
+    testrand256(seed);
+    testrand256(msg);
+    CHECK(secp256k1_frost_shares_gen(CTX, shares, commitments, seed, 2, 5));
+    for (i = 0; i < 5; i++) {
+        CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshares[i], 2, i, commitments));
+        all_pubshares[i] = &pubshares[i];
+    }
+    CHECK(secp256k1_frost_pubkey_gen(CTX, &cache, all_pubshares, 5, all_ids));
+    for (i = 0; i < 3; i++) {
+        selected_pubshares[i] = &pubshares[ids[i]];
+        nonce_ptrs[i] = &pubnonces[i];
+        sig_ptrs[i] = &partial_sigs[i];
+        testrand256(session_id);
+        CHECK(secp256k1_frost_share_serialize(CTX, share32, &shares[ids[i]]));
+        CHECK(secp256k1_frost_nonce_gen(CTX, &secnonces[i], &pubnonces[i], session_id, share32, msg, &cache, NULL));
+    }
+
+    /* A sparse, unsorted subset reconstructs the same key. IDs need not be
+     * less than the number of selected signers. */
+    CHECK(secp256k1_frost_pubkey_gen(CTX, &subset_cache, selected_pubshares, 3, ids));
+    CHECK(secp256k1_memcmp_var(&cache, &subset_cache, sizeof(cache)) == 0);
+    for (i = 0; i < sizeof(invalid_ids) / sizeof(invalid_ids[0]); i++) {
+        CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_gen(CTX, &tmp_cache, selected_pubshares, 3, invalid_ids[i]));
+        CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, 3, msg, 4, invalid_ids[i], &cache, NULL));
+    }
+    /* ID 1 belongs to the group, but is absent from this signing subset. */
+    CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, 3, msg, 1, ids, &cache, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, 3, msg, UINT_MAX, ids, &cache, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, 3, msg, (size_t)-1, ids, &cache, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare, 2, UINT_MAX, commitments));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare, 2, (size_t)-1, commitments));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_pubshare(CTX, &pubshare, SECP256K1_FROST_MAX_PARTICIPANTS + 1, 0, commitments));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 2, UINT_MAX, &shares[0], commitments));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, 2, (size_t)-1, &shares[0], commitments));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_share_verify(CTX, SECP256K1_FROST_MAX_PARTICIPANTS + 1, 0, &shares[0], commitments));
+    /* Reject 129 participants before accessing the small test output arrays. */
+    CHECK_ILLEGAL(CTX, secp256k1_frost_shares_gen(CTX, shares, commitments, seed, 2, SECP256K1_FROST_MAX_PARTICIPANTS + 1));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_shares_gen(CTX, shares, commitments, seed, SECP256K1_FROST_MAX_PARTICIPANTS + 1, 5));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_pubkey_gen(CTX, &tmp_cache, selected_pubshares, SECP256K1_FROST_MAX_PARTICIPANTS + 1, ids));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, SECP256K1_FROST_MAX_PARTICIPANTS + 1, msg, 4, ids, &cache, NULL));
+
+    /* The maximum participant count and its last ID are accepted. */
+    {
+        secp256k1_frost_secshare max_shares[SECP256K1_FROST_MAX_PARTICIPANTS];
+        secp256k1_pubkey max_commitments[2];
+        CHECK(secp256k1_frost_shares_gen(CTX, max_shares, max_commitments, seed, 2, SECP256K1_FROST_MAX_PARTICIPANTS));
+        CHECK(secp256k1_frost_share_verify(CTX, 2, SECP256K1_FROST_MAX_PARTICIPANTS - 1, &max_shares[SECP256K1_FROST_MAX_PARTICIPANTS - 1], max_commitments));
+    }
+
+    /* Valid sessions still sign and verify after rejecting invalid ID sets. */
+    for (i = 0; i < 3; i++) {
+        CHECK(secp256k1_frost_nonce_process(CTX, &sessions[i], nonce_ptrs, 3, msg, ids[i], ids, &cache, NULL));
+        CHECK(secp256k1_frost_partial_sign(CTX, &partial_sigs[i], &secnonces[i], &shares[ids[i]], &sessions[i], &cache));
+        CHECK(secp256k1_frost_partial_sig_verify(CTX, &partial_sigs[i], nonce_ptrs[i], selected_pubshares[i], &sessions[i], &cache));
+    }
+    CHECK(secp256k1_frost_partial_sig_agg(CTX, sig64, &sessions[0], sig_ptrs, 3));
+    CHECK(secp256k1_frost_pubkey_get(CTX, &pk, &cache));
+    CHECK(secp256k1_xonly_pubkey_from_pubkey(CTX, &xonly_pk, NULL, &pk));
+    CHECK(secp256k1_schnorrsig_verify(CTX, sig64, msg, sizeof(msg), &xonly_pk));
+
+    /* IDs are independent of the participant count. Check the upper endpoint
+     * supported by the scalar conversion API. */
+    {
+        const size_t boundary_ids[2] = {UINT_MAX - 1, 0};
+        secp256k1_scalar index, expected;
+        secp256k1_frost_get_scalar_index(&index, boundary_ids[0]);
+        secp256k1_scalar_set_int(&expected, UINT_MAX);
+        CHECK(secp256k1_scalar_eq(&index, &expected));
+        secp256k1_frost_vss_gen(CTX, commitments, seed, 2);
+        for (i = 0; i < 2; i++) {
+            secp256k1_frost_share_gen(secp256k1_get_hash_context(CTX), &shares[i], seed, 2, boundary_ids[i]);
+            CHECK(secp256k1_frost_share_verify(CTX, 2, boundary_ids[i], &shares[i], commitments));
+            CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshares[i], 2, boundary_ids[i], commitments));
+        }
+        CHECK(secp256k1_frost_pubkey_gen(CTX, &tmp_cache, all_pubshares, 2, boundary_ids));
+        CHECK(secp256k1_frost_pubkey_get(CTX, &pk, &tmp_cache));
+        CHECK(secp256k1_memcmp_var(&pk, &commitments[0], sizeof(pk)) == 0);
+        for (i = 0; i < 2; i++) {
+            CHECK(secp256k1_frost_nonce_process(CTX, &tmp_session, nonce_ptrs, 2, msg, boundary_ids[i], boundary_ids, &tmp_cache, NULL));
+        }
+    }
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(frost_simple_test)
 /* Run multiple times to ensure that pk and nonce have different y parities */
@@ -848,6 +954,7 @@ REPEAT_TEST(frost_multi_hop_lock_test)
 static const struct tf_test_entry tests_frost[] = {
     CASE1(frost_simple_test),
     CASE1(frost_api_tests),
+    CASE1(frost_id_validation_test),
     CASE1(frost_nonce_test),
     CASE1(frost_tweak_test),
     CASE1(frost_multi_hop_lock_test),

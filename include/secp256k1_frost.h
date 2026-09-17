@@ -9,6 +9,11 @@ extern "C" {
 
 #include <stddef.h>
 
+/** Maximum number of participants supported by the FROST module, as required
+ *  by BIP 445. This limits the number of participants, not their identifiers.
+ */
+#define SECP256K1_FROST_MAX_PARTICIPANTS 128
+
 /** This code is currently a work in progress. It's not secure nor stable.
  * IT IS EXTREMELY DANGEROUS AND RECKLESS TO USE THIS MODULE IN PRODUCTION!
  *
@@ -26,6 +31,14 @@ extern "C" {
  *
  * Following the convention used in the MuSig module, the API uses the singular
  * term "nonce" to refer to the two "nonces" used by the FROST scheme.
+ *
+ * Participant IDs are zero-based integers less than UINT_MAX (from limits.h).
+ * This implementation limit ensures that the nonzero polynomial coordinate
+ * id + 1 fits in the scalar conversion API; it is independent of the maximum
+ * participant count. Functions that accept ID arrays return 0 for duplicate
+ * IDs or more than SECP256K1_FROST_MAX_PARTICIPANTS entries. The caller must
+ * ensure that IDs belong to the original participant group, since these
+ * functions do not retain its size.
  */
 
 /** Opaque data structures
@@ -201,8 +214,12 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_parse(
  *                        unique to this call to secp256k1_frost_shares_gen
  *                        and must be uniformly random.
  *             threshold: the minimum number of signers required to produce a
- *                        signature
- *        n_participants: the total number of participants
+ *                        signature, at most
+ *                        SECP256K1_FROST_MAX_PARTICIPANTS
+ *        n_participants: the total number of participants, at most
+ *                        SECP256K1_FROST_MAX_PARTICIPANTS. Shares are assigned
+ *                        IDs 0 through n_participants - 1. Returns 0 if this
+ *                        limit is exceeded.
  */
 SECP256K1_API int secp256k1_frost_shares_gen(
     const secp256k1_context *ctx,
@@ -222,7 +239,8 @@ SECP256K1_API int secp256k1_frost_shares_gen(
  *           otherwise
  *  Args         ctx: pointer to a context object
  *  In:    threshold: the minimum number of signers required to produce a
- *                    signature
+ *                    signature, at most
+ *                    SECP256K1_FROST_MAX_PARTICIPANTS
  *                id: the participant ID of the share recipient
  *             share: pointer to a key generation share
  *    vss_commitment: input array of the elements of the VSS commitment
@@ -242,7 +260,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_share_verify(
  *  Out:    pubshare: pointer to a struct to store the public verification
  *                    share
  *  In:    threshold: the minimum number of signers required to produce a
- *                    signature
+ *                    signature, at most
+ *                    SECP256K1_FROST_MAX_PARTICIPANTS
  *                id: the participant ID of the participant whose partial
  *                    signature will be verified with the pubshare
  *    vss_commitment: input array of the elements of the VSS commitment
@@ -263,10 +282,12 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_compute_pubshare(
  *                     for signing (or observing the signing session and
  *                     verifying partial signatures).
  *  In:     pubshares: input array of pointers to the public verification
- *                     shares of the participants ordered by the IDs of the
- *                     participants
- *        n_pubshares: the total number of public verification shares
- *                ids: array of the participant IDs of the signers
+ *                     shares, with pubshares[i] belonging to ids[i]. The
+ *                     pairs may be provided in any order.
+ *        n_pubshares: the total number of public verification shares, at most
+ *                     SECP256K1_FROST_MAX_PARTICIPANTS
+ *                ids: array of distinct participant IDs, each less than
+ *                     UINT_MAX
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_pubkey_gen(
     const secp256k1_context *ctx,
@@ -444,11 +465,12 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_nonce_gen(
  *  Out:       session: pointer to a struct to store the session
  *  In:      pubnonces: array of pointers to public nonces sent by the signers
  *         n_pubnonces: number of elements in the pubnonces array. Must be
- *                      greater than 0.
+ *                      between 2 and SECP256K1_FROST_MAX_PARTICIPANTS.
  *               msg32: the 32-byte message to sign
  *              my_id: the ID of the participant who will use the session for
- *                      signing
- *                 ids: array of the participant IDs of the signers
+ *                      signing. Must occur in ids; otherwise returns 0.
+ *                 ids: array of distinct participant IDs, each less than
+ *                      UINT_MAX
  *         keygen_cache: pointer to frost_keygen_cache struct
  *             adaptor: optional pointer to an adaptor point encoded as a
  *                      public key if this signing session is part of an
@@ -540,7 +562,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_frost_partial_sig_verif
  *                     frost_nonce_process
  *       partial_sigs: array of pointers to partial signatures to aggregate
  *             n_sigs: number of elements in the partial_sigs array. Must be
- *                     greater than 0.
+ *                     between 1 and SECP256K1_FROST_MAX_PARTICIPANTS.
  */
 SECP256K1_API int secp256k1_frost_partial_sig_agg(
     const secp256k1_context *ctx,

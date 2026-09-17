@@ -476,6 +476,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
     ARG_CHECK(ids != NULL);
     ARG_CHECK(keygen_cache != NULL);
     ARG_CHECK(n_pubnonces > 1);
+    ARG_CHECK(secp256k1_frost_ids_valid(ids, n_pubnonces, my_id));
     for (i = 0; i < n_pubnonces; i++) {
         ARG_CHECK(pubnonces[i] != NULL);
     }
@@ -662,6 +663,7 @@ int secp256k1_frost_partial_sig_agg(const secp256k1_context* ctx, unsigned char 
     ARG_CHECK(session != NULL);
     ARG_CHECK(partial_sigs != NULL);
     ARG_CHECK(n_sigs > 0);
+    ARG_CHECK(n_sigs <= SECP256K1_FROST_MAX_PARTICIPANTS);
     for (i = 0; i < n_sigs; i++) {
         ARG_CHECK(partial_sigs[i] != NULL);
     }

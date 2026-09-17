@@ -7,6 +7,7 @@
 #ifndef SECP256K1_MODULE_FROST_KEYGEN_IMPL_H
 #define SECP256K1_MODULE_FROST_KEYGEN_IMPL_H
 
+#include <limits.h>
 #include <string.h>
 
 #include "keygen.h"
@@ -49,8 +50,42 @@ static int secp256k1_keygen_cache_load(const secp256k1_context* ctx, secp256k1_k
     return 1;
 }
 
+static int secp256k1_frost_id_valid(size_t id) {
+    /* The nonzero polynomial coordinate id + 1 must fit in unsigned int. */
+    return id < UINT_MAX;
+}
+
 static void secp256k1_frost_get_scalar_index(secp256k1_scalar *idx, const size_t id) {
-    secp256k1_scalar_set_int(idx, id + 1);
+    VERIFY_CHECK(secp256k1_frost_id_valid(id));
+    secp256k1_scalar_set_int(idx, (unsigned int)id + 1);
+}
+
+static int secp256k1_frost_ids_valid(const size_t *ids, size_t n_ids, const size_t my_id) {
+    size_t i, j;
+    int my_id_found = 0;
+
+    VERIFY_CHECK(ids != NULL);
+    VERIFY_CHECK(n_ids > 0);
+    if (n_ids > SECP256K1_FROST_MAX_PARTICIPANTS || !secp256k1_frost_id_valid(my_id)) {
+        return 0;
+    }
+    for (i = 0; i < n_ids; i++) {
+        if (!secp256k1_frost_id_valid(ids[i])) {
+            return 0;
+        }
+        for (j = 0; j < i; j++) {
+            if (ids[i] == ids[j]) {
+                return 0;
+            }
+        }
+        if (ids[i] == my_id) {
+            my_id_found = 1;
+        }
+    }
+    if (!my_id_found) {
+        return 0;
+    }
+    return 1;
 }
 
 static const unsigned char secp256k1_frost_share_magic[4] = { 0xa1, 0x6a, 0x42, 0x03 };
@@ -158,6 +193,8 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(shares != NULL);
+    ARG_CHECK(n_participants <= SECP256K1_FROST_MAX_PARTICIPANTS);
+    ARG_CHECK(threshold <= SECP256K1_FROST_MAX_PARTICIPANTS);
     for (i = 0; i < n_participants; i++) {
         memset(&shares[i], 0, sizeof(shares[i]));
     }
@@ -233,6 +270,8 @@ static int secp256k1_frost_evaluate_vss(const secp256k1_context* ctx, secp256k1_
     ARG_CHECK(share != NULL);
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(threshold > 1);
+    ARG_CHECK(threshold <= SECP256K1_FROST_MAX_PARTICIPANTS);
+    ARG_CHECK(secp256k1_frost_id_valid(id));
 
     evaluate_vss_ecmult_data.ctx = ctx;
     evaluate_vss_ecmult_data.vss_commitment = vss_commitment;
@@ -261,6 +300,8 @@ int secp256k1_frost_share_verify(const secp256k1_context* ctx, size_t threshold,
     ARG_CHECK(share != NULL);
     ARG_CHECK(vss_commitment != NULL);
     ARG_CHECK(threshold > 1);
+    ARG_CHECK(threshold <= SECP256K1_FROST_MAX_PARTICIPANTS);
+    ARG_CHECK(secp256k1_frost_id_valid(id));
 
     if (!secp256k1_frost_share_load(ctx, &share_i, share)) {
         return 0;
@@ -323,11 +364,14 @@ int secp256k1_frost_pubkey_gen(const secp256k1_context* ctx, secp256k1_frost_key
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(cache != NULL);
     ARG_CHECK(pubshares != NULL);
+    ARG_CHECK(ids != NULL);
+    ARG_CHECK(n_pubshares > 1);
+    /* Key generation has no signer ID; use the first ID to satisfy membership. */
+    ARG_CHECK(secp256k1_frost_ids_valid(ids, n_pubshares, ids[0]));
+
     for (i = 0; i < n_pubshares; i++) {
         ARG_CHECK(pubshares[i] != NULL);
     }
-    ARG_CHECK(ids != NULL);
-    ARG_CHECK(n_pubshares > 1);
 
     interpolate_pubkey_ecmult_data.ctx = ctx;
     interpolate_pubkey_ecmult_data.pubshares = pubshares;
