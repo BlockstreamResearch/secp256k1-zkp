@@ -125,7 +125,7 @@ int secp256k1_whitelist_verify(const secp256k1_context* ctx, const secp256k1_whi
         return 0;
     }
     /* Do verification */
-    return secp256k1_borromean_verify(hash_ctx, NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
+    return secp256k1_borromean_verify_impl(hash_ctx, NULL, &sig->data[0], s, pubs, &sig->n_keys, 1, msg32, 32);
 }
 
 size_t secp256k1_whitelist_signature_n_keys(const secp256k1_whitelist_signature *sig) {

@@ -659,7 +659,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_has
     }
     secp256k1_sha256_finalize(hash_ctx, &sha256_m, m);
     secp256k1_sha256_clear(&sha256_m);
-    ret = secp256k1_borromean_verify(hash_ctx, nonce ? evalues : NULL, e0, s, pubs, rsizes, rings, m, 32);
+    ret = secp256k1_borromean_verify_impl(hash_ctx, nonce ? evalues : NULL, e0, s, pubs, rsizes, rings, m, 32);
     if (ret && nonce) {
         /* Given the nonce, try rewinding the witness to recover its initial state. */
         secp256k1_scalar blind;

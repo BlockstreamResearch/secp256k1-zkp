@@ -50,7 +50,7 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(const secp256k1_hash_ctx *
  *   | | r_i = r
  *   | return e_0 ==== H(r_{0..i}||m)
  */
-int secp256k1_borromean_verify(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *evalues, const unsigned char *e0,
+int secp256k1_borromean_verify_impl(const secp256k1_hash_ctx *hash_ctx, secp256k1_scalar *evalues, const unsigned char *e0,
  const secp256k1_scalar *s, const secp256k1_gej *pubs, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
     secp256k1_ge rge;

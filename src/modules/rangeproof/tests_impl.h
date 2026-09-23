@@ -171,10 +171,10 @@ static void test_borromean_internal(void) {
         c += rsizes[i];
     }
     CHECK(secp256k1_borromean_sign(hash_ctx, &CTX->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
-    CHECK(secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(secp256k1_borromean_verify_impl(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     i = testrand32() % c;
     secp256k1_scalar_negate(&s[i],&s[i]);
-    CHECK(!secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    CHECK(!secp256k1_borromean_verify_impl(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
     secp256k1_scalar_negate(&s[i],&s[i]);
     secp256k1_scalar_set_int(&one, 1);
     for(j = 0; j < 4; j++) {
@@ -184,7 +184,115 @@ static void test_borromean_internal(void) {
         } else {
             secp256k1_scalar_add(&s[i],&s[i],&one);
         }
-        CHECK(!secp256k1_borromean_verify(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+        CHECK(!secp256k1_borromean_verify_impl(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32));
+    }
+}
+
+static void test_borromean_verify_api_internal(void) {
+    const secp256k1_hash_ctx *hash_ctx = &CTX->hash_ctx;
+    unsigned char e0[32];
+    secp256k1_scalar s[64];
+    secp256k1_gej pubs[64];
+    secp256k1_scalar k[8];
+    secp256k1_scalar sec[8];
+    secp256k1_ge ge;
+    unsigned char m[32];
+    size_t rsizes[8];
+    size_t secidx[8];
+    size_t nrings;
+    size_t i;
+    size_t j;
+    size_t c;
+    unsigned char sbuf[64 * 32];
+    secp256k1_pubkey pubkeys[64];
+    const secp256k1_pubkey *pubkeys_ptr[64];
+
+    testrand256_test(m);
+    nrings = 1 + (testrand32() & 7);
+    c = 0;
+    for (i = 0; i < nrings; i++) {
+        rsizes[i] = 1 + (testrand32() & 7);
+        secidx[i] = testrand32() % rsizes[i];
+        testutil_random_scalar_order(&sec[i]);
+        testutil_random_scalar_order(&k[i]);
+        for (j = 0; j < rsizes[i]; j++) {
+            testutil_random_scalar_order(&s[c + j]);
+            if (j == secidx[i]) {
+                secp256k1_ecmult_gen_gej(&CTX->ecmult_gen_ctx, &pubs[c + j], &sec[i]);
+            } else {
+                testutil_random_ge_test(&ge);
+                testutil_random_ge_jacobian_test(&pubs[c + j], &ge);
+            }
+        }
+        c += rsizes[i];
+    }
+    CHECK(secp256k1_borromean_sign(hash_ctx, &CTX->ecmult_gen_ctx, e0, s, pubs, k, sec, rsizes, secidx, nrings, m, 32));
+
+    /* Flatten the scalars and re-parse the ring members' points through
+     * the same public boundary a caller of secp256k1_borromean_verify
+     * would use, to exercise the new wrapper rather than the internals
+     * it delegates to. */
+    for (i = 0; i < c; i++) {
+        secp256k1_ge pub_ge;
+        unsigned char pub33[33];
+        secp256k1_scalar_get_b32(&sbuf[i * 32], &s[i]);
+        secp256k1_ge_set_gej_var(&pub_ge, &pubs[i]);
+        secp256k1_ge_serialize33(&pub_ge, pub33);
+        CHECK(secp256k1_ec_pubkey_parse(CTX, &pubkeys[i], pub33, 33) == 1);
+        pubkeys_ptr[i] = &pubkeys[i];
+    }
+
+    /* The public wrapper must agree with a direct call to the _impl
+     * function it delegates to, on the same signature. */
+    CHECK(secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c, rsizes, nrings) == 1);
+    CHECK(secp256k1_borromean_verify_impl(hash_ctx, NULL, e0, s, pubs, rsizes, nrings, m, 32) == 1);
+
+    /* A ring shape whose rsizes do not sum to n_pubkeys is rejected as
+     * illegal input, without touching pubkeys or s through it. */
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c - 1, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c + 1, rsizes, nrings));
+
+    /* The remaining ARG_CHECKs. */
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, NULL, sbuf, m, 32, pubkeys_ptr, c, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, NULL, m, 32, pubkeys_ptr, c, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, NULL, 32, pubkeys_ptr, c, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, NULL, c, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, 0, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, 129, rsizes, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c, NULL, nrings));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c, rsizes, 0));
+    CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr, c, rsizes, 33));
+    {
+        const secp256k1_pubkey *pubkeys_ptr_null[64];
+        for (i = 0; i < c; i++) {
+            pubkeys_ptr_null[i] = pubkeys_ptr[i];
+        }
+        pubkeys_ptr_null[0] = NULL;
+        CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr_null, c, rsizes, nrings));
+    }
+
+    /* A scalar at or above the curve order is a verification failure,
+     * not misuse: no illegal callback, just a 0 return. */
+    {
+        unsigned char sbuf_overflow[64 * 32];
+        memcpy(sbuf_overflow, sbuf, sizeof(sbuf_overflow));
+        memset(sbuf_overflow, 0xff, 32);
+        CHECK(secp256k1_borromean_verify(CTX, e0, sbuf_overflow, m, 32, pubkeys_ptr, c, rsizes, nrings) == 0);
+    }
+
+    /* An all-zero pubkey is the sentinel a failed secp256k1_ec_pubkey_parse
+     * leaves behind; a caller passing one through, rather than checking
+     * the parse, is the same misuse secp256k1_pubkey_load flags for every
+     * other function that loads a caller-supplied secp256k1_pubkey. */
+    {
+        secp256k1_pubkey zero_pk;
+        const secp256k1_pubkey *pubkeys_ptr_zero[64];
+        memset(&zero_pk, 0, sizeof(zero_pk));
+        for (i = 0; i < c; i++) {
+            pubkeys_ptr_zero[i] = pubkeys_ptr[i];
+        }
+        pubkeys_ptr_zero[0] = &zero_pk;
+        CHECK_ILLEGAL(CTX, secp256k1_borromean_verify(CTX, e0, sbuf, m, 32, pubkeys_ptr_zero, c, rsizes, nrings));
     }
 }
 
@@ -1348,6 +1456,7 @@ static void test_rangeproof_ctx_sha256(void) {
 /* --- Test registry --- */
 REPEAT_TEST(test_rangeproof_api)
 REPEAT_TEST(test_borromean)
+REPEAT_TEST(test_borromean_verify_api)
 
 static const struct tf_test_entry tests_rangeproof[] = {
     CASE1(test_rangeproof_api),
@@ -1355,6 +1464,7 @@ static const struct tf_test_entry tests_rangeproof[] = {
     CASE1(test_rangeproof_fixed_vectors),
     CASE1(test_rangeproof_fixed_vectors_reproducible),
     CASE1(test_borromean),
+    CASE1(test_borromean_verify_api),
     CASE1(test_rangeproof),
     CASE1(test_rangeproof_null_blinder),
     CASE1(test_multiple_generators),
