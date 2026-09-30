@@ -540,6 +540,65 @@ static void frost_nonce_test(void) {
     }
 }
 
+static void frost_noncehash_test(void) {
+    /* Independently computed with Python hashlib.sha256 using the FROST/noncecoef
+     * tag, u = 3, sorted IDs [0, 2, 4], aggnonce = (G, G), Q = G,
+     * and m = bytes(range(32)). */
+    static const unsigned char expected[32] = {
+        0x60, 0x03, 0x0c, 0x1f, 0x2f, 0x6c, 0x92, 0xdb, 0xa1, 0xb8, 0x6a, 0x51, 0x0b, 0xb3, 0xae, 0x51,
+        0x7d, 0xe8, 0xf9, 0x2f, 0xf0, 0x20, 0xf5, 0xb8, 0xcb, 0x27, 0xa7, 0x5e, 0x4e, 0x76, 0x57, 0x6d
+    };
+    static const size_t permutations[6][3] = {
+        {0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}
+    };
+    const size_t ids[3] = {4, 0, 2};
+    unsigned char msg[32], pk32[32], noncehash[32];
+    secp256k1_ge aggnonce[2];
+    size_t i, j;
+
+    aggnonce[0] = aggnonce[1] = secp256k1_ge_const_g;
+    secp256k1_fe_get_b32(pk32, &secp256k1_ge_const_g.x);
+    for (i = 0; i < sizeof(msg); i++) {
+        msg[i] = i;
+    }
+
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, 0, pk32, ids));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, SECP256K1_FROST_MAX_PARTICIPANTS + 1, pk32, ids));
+    CHECK_ILLEGAL(CTX, secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, (size_t)-1, pk32, ids));
+
+    for (i = 0; i < 6; i++) {
+        size_t permuted_ids[3];
+        for (j = 0; j < 3; j++) {
+            permuted_ids[j] = ids[permutations[i][j]];
+        }
+        CHECK(secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, 3, pk32, permuted_ids));
+        CHECK(secp256k1_memcmp_var(noncehash, expected, 32) == 0);
+        for (j = 0; j < 3; j++) {
+            CHECK(permuted_ids[j] == ids[permutations[i][j]]);
+        }
+    }
+    /* The same independent encoding with high IDs and the maximum signer count. */
+    {
+        static const unsigned char expected_high[32] = {
+            0x2d, 0x3d, 0xe2, 0xbb, 0xbf, 0xf8, 0x55, 0x31, 0x15, 0xa9, 0x8c, 0x26, 0xd0, 0x5f, 0x3c, 0xa9,
+            0xa9, 0x0a, 0x11, 0x30, 0x21, 0x3a, 0x8f, 0x54, 0x8c, 0xc3, 0xf2, 0x2b, 0xc5, 0x29, 0x17, 0x1e
+        };
+        static const unsigned char expected_max[32] = {
+            0x35, 0x40, 0x25, 0x81, 0x77, 0x6a, 0xce, 0xcb, 0x21, 0x5d, 0x27, 0xb8, 0xed, 0x05, 0xa4, 0xc1,
+            0x56, 0x38, 0x73, 0x58, 0x30, 0x04, 0x08, 0x11, 0x18, 0x93, 0x4f, 0x3b, 0x0e, 0xb6, 0x96, 0x88
+        };
+        const size_t high_ids[2] = {0xfffffffeUL, 0};
+        size_t max_ids[128];
+        CHECK(secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, 2, pk32, high_ids));
+        CHECK(secp256k1_memcmp_var(noncehash, expected_high, 32) == 0);
+        for (i = 0; i < 128; i++) {
+            max_ids[i] = 127 - i;
+        }
+        CHECK(secp256k1_frost_compute_noncehash(&CTX->hash_ctx, CTX, noncehash, msg, aggnonce, 128, pk32, max_ids));
+        CHECK(secp256k1_memcmp_var(noncehash, expected_max, 32) == 0);
+    }
+}
+
 static void frost_sha256_tag_test_internal(const secp256k1_hash_ctx *hash_ctx, secp256k1_sha256 *sha_tagged, unsigned char *tag, size_t taglen) {
     secp256k1_sha256 sha;
     secp256k1_sha256_initialize_tagged(hash_ctx, &sha, tag, taglen);
@@ -956,6 +1015,7 @@ static const struct tf_test_entry tests_frost[] = {
     CASE1(frost_api_tests),
     CASE1(frost_id_validation_test),
     CASE1(frost_nonce_test),
+    CASE1(frost_noncehash_test),
     CASE1(frost_tweak_test),
     CASE1(frost_multi_hop_lock_test),
     CASE1(frost_sha256_tag_test),

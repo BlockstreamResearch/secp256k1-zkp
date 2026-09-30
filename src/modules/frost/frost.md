@@ -19,11 +19,11 @@ Users of the frost module must take great care to make sure of the following:
    `include/secp256k1_frost.h` for how to ensure that.
 3. Each `pubnonces[i]` provided to `secp256k1_frost_nonce_process` belongs to
    `ids[i]`. The IDs must be distinct, less than `UINT_MAX`, and include
-   `my_id`. BIP 445 limits the number of participants or signers to 128; it does
-   not bound their identifiers to the range 0 through 127. The function sorts
-   the pairs internally before hashing. Callers must ensure that IDs belong to
-   the original participant group; its size is not retained by the API. The
-   same ID range, count, and uniqueness requirements apply to
+   `my_id`. The API limits the number of participants or signers to 128;
+   identifiers may be greater than 127. The function sorts
+   the IDs internally and hashes them with the aggregate nonce. Callers must
+   ensure that IDs belong to the original participant group; its size is not
+   retained by the API. The same ID range, count, and uniqueness requirements apply to
    `secp256k1_frost_pubkey_gen` and its public shares.
 4. A unique nonce per signing session is generated in `secp256k1_frost_nonce_gen`.
    See the corresponding comment in `include/secp256k1_frost.h` for how to ensure that.
