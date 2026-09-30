@@ -484,9 +484,9 @@ static void frost_api_tests(void) {
 void frost_nonce_bitflip(unsigned char **args, size_t n_flip, size_t n_bytes) {
     secp256k1_scalar k1[2], k2[2];
 
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k1, args[0], args[1], args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k1, args[0], args[1], args[2], args[3], args[4]);
     testrand_flip(args[n_flip], n_bytes);
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k2, args[0], args[1], args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k2, args[0], args[1], args[2], args[3], args[4]);
     CHECK(secp256k1_scalar_eq(&k1[0], &k2[0]) == 0);
     CHECK(secp256k1_scalar_eq(&k1[1], &k2[1]) == 0);
 }
@@ -526,11 +526,11 @@ static void frost_nonce_test(void) {
     memcpy(sk, session_id, sizeof(sk));
     memcpy(agg_pk, session_id, sizeof(agg_pk));
     memcpy(extra_input, session_id, sizeof(extra_input));
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[0], args[0], args[1], args[2], args[3], args[4]);
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[1], args[0], NULL, args[2], args[3], args[4]);
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[2], args[0], args[1], NULL, args[3], args[4]);
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[3], args[0], args[1], args[2], NULL, args[4]);
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(CTX), k[4], args[0], args[1], args[2], args[3], NULL);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k[0], args[0], args[1], args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k[1], args[0], NULL, args[2], args[3], args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k[2], args[0], args[1], NULL, args[3], args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k[3], args[0], args[1], args[2], NULL, args[4]);
+    secp256k1_nonce_function_frost(&CTX->hash_ctx, k[4], args[0], args[1], args[2], args[3], NULL);
     for (i = 0; i < 5; i++) {
         CHECK(!secp256k1_scalar_eq(&k[i][0], &k[i][1]));
         for (j = i+1; j < 5; j++) {
@@ -553,17 +553,17 @@ static void frost_sha256_tag_test(void) {
     {
         unsigned char tag[] = "FROST/aux";
         secp256k1_nonce_function_frost_sha256_tagged_aux(&sha);
-        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(&STATIC_CTX->hash_ctx, &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
     {
         unsigned char tag[] = "FROST/nonce";
         secp256k1_nonce_function_frost_sha256_tagged(&sha);
-        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(&STATIC_CTX->hash_ctx, &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
     {
         unsigned char tag[] = "FROST/noncecoef";
         secp256k1_frost_compute_noncehash_sha256_tagged(&sha);
-        frost_sha256_tag_test_internal(secp256k1_get_hash_context(STATIC_CTX), &sha, (unsigned char*)tag, sizeof(tag) - 1);
+        frost_sha256_tag_test_internal(&STATIC_CTX->hash_ctx, &sha, (unsigned char*)tag, sizeof(tag) - 1);
     }
 }
 
@@ -932,7 +932,7 @@ static void frost_id_validation_test(void) {
         CHECK(secp256k1_scalar_eq(&index, &expected));
         secp256k1_frost_vss_gen(CTX, commitments, seed, 2);
         for (i = 0; i < 2; i++) {
-            secp256k1_frost_share_gen(secp256k1_get_hash_context(CTX), &shares[i], seed, 2, boundary_ids[i]);
+            secp256k1_frost_share_gen(&CTX->hash_ctx, &shares[i], seed, 2, boundary_ids[i]);
             CHECK(secp256k1_frost_share_verify(CTX, 2, boundary_ids[i], &shares[i], commitments));
             CHECK(secp256k1_frost_compute_pubshare(CTX, &pubshares[i], 2, boundary_ids[i], commitments));
         }

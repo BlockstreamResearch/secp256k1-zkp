@@ -146,7 +146,7 @@ int secp256k1_frost_pubnonce_parse(const secp256k1_context* ctx, secp256k1_frost
     ARG_CHECK(nonce != NULL);
     ARG_CHECK(in66 != NULL);
     for (i = 0; i < 2; i++) {
-        if (!secp256k1_eckey_pubkey_parse(&ges[i], &in66[33*i], 33)) {
+        if (!secp256k1_ge_parse(&ges[i], &in66[33*i], 33)) {
             return 0;
         }
         if (!secp256k1_ge_is_in_correct_subgroup(&ges[i])) {
@@ -172,7 +172,7 @@ int secp256k1_frost_pubnonce_serialize(const secp256k1_context* ctx, unsigned ch
     }
     for (i = 0; i < 2; i++) {
         /* serialize must succeed because the point was just loaded */
-        secp256k1_eckey_pubkey_serialize33(&ges[i], &out66[33*i]);
+        secp256k1_ge_serialize33(&ges[i], &out66[33*i]);
     }
     return 1;
 }
@@ -324,7 +324,7 @@ int secp256k1_frost_nonce_gen(const secp256k1_context* ctx, secp256k1_frost_secn
         pk_ser_ptr = pk_ser;
     }
 
-    secp256k1_nonce_function_frost(secp256k1_get_hash_context(ctx), k, session_id32, msg32, share, pk_ser_ptr, extra_input32);
+    secp256k1_nonce_function_frost(&ctx->hash_ctx, k, session_id32, msg32, share, pk_ser_ptr, extra_input32);
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[0]));
     VERIFY_CHECK(!secp256k1_scalar_is_zero(&k[1]));
     VERIFY_CHECK(!secp256k1_scalar_eq(&k[0], &k[1]));
@@ -440,7 +440,7 @@ static int secp256k1_frost_nonce_process_internal(const secp256k1_context* ctx, 
 
     secp256k1_ge_set_gej(&aggnonce[0], &aggnoncej[0]);
     secp256k1_ge_set_gej(&aggnonce[1], &aggnoncej[1]);
-    if (!secp256k1_frost_compute_noncehash(secp256k1_get_hash_context(ctx), ctx, noncehash, msg, pubnonces, n_pubnonces, pk32, ids)) {
+    if (!secp256k1_frost_compute_noncehash(&ctx->hash_ctx, ctx, noncehash, msg, pubnonces, n_pubnonces, pk32, ids)) {
         return 0;
     }
     /* fin_nonce = aggnonce[0] + b*aggnonce[1] */
@@ -501,7 +501,7 @@ int secp256k1_frost_nonce_process(const secp256k1_context* ctx, secp256k1_frost_
         return 0;
     }
 
-    secp256k1_schnorrsig_challenge(secp256k1_get_hash_context(ctx), &session_i.challenge, fin_nonce, msg32, 32, pk32);
+    secp256k1_schnorrsig_challenge(&ctx->hash_ctx, &session_i.challenge, fin_nonce, msg32, 32, pk32);
 
     /* If there is a tweak then set `challenge` times `tweak` to the `s`-part.*/
     secp256k1_scalar_set_int(&session_i.s_part, 0);

@@ -153,7 +153,7 @@ static void secp256k1_frost_vss_gen(const secp256k1_context *ctx, secp256k1_pubk
     for (i = 0; i < threshold; i++) {
         secp256k1_scalar coeff_i;
 
-        secp256k1_frost_derive_coeff(secp256k1_get_hash_context(ctx), &coeff_i, polygen32, i);
+        secp256k1_frost_derive_coeff(&ctx->hash_ctx, &coeff_i, polygen32, i);
         secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &rj, &coeff_i);
         secp256k1_ge_set_gej(&rp, &rj);
         secp256k1_pubkey_save(&vss_commitment[threshold - i - 1], &rp);
@@ -205,16 +205,16 @@ int secp256k1_frost_shares_gen(const secp256k1_context *ctx, secp256k1_frost_sec
 
     /* Commit to all inputs */
     secp256k1_sha256_initialize(&sha);
-    secp256k1_sha256_write(secp256k1_get_hash_context(ctx), &sha, seed32, 32);
+    secp256k1_sha256_write(&ctx->hash_ctx, &sha, seed32, 32);
     secp256k1_write_be64(&polygen[0], threshold);
     secp256k1_write_be64(&polygen[8], n_participants);
-    secp256k1_sha256_write(secp256k1_get_hash_context(ctx), &sha, polygen, 16);
-    secp256k1_sha256_finalize(secp256k1_get_hash_context(ctx), &sha, polygen);
+    secp256k1_sha256_write(&ctx->hash_ctx, &sha, polygen, 16);
+    secp256k1_sha256_finalize(&ctx->hash_ctx, &sha, polygen);
 
     secp256k1_frost_vss_gen(ctx, vss_commitment, polygen, threshold);
 
     for (i = 0; i < n_participants; i++) {
-        secp256k1_frost_share_gen(secp256k1_get_hash_context(ctx), &shares[i], polygen, threshold, i);
+        secp256k1_frost_share_gen(&ctx->hash_ctx, &shares[i], polygen, threshold, i);
     }
     secp256k1_memclear_explicit(polygen, sizeof(polygen));
     secp256k1_sha256_clear(&sha);
