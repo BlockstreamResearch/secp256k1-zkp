@@ -32,6 +32,10 @@ if(SECP256K1_ENABLE_MODULE_MUSIG)
   add_example(musig)
 endif()
 
+if(SECP256K1_ENABLE_MODULE_FROST)
+  add_example(frost)
+endif()
+
 if(SECP256K1_ENABLE_MODULE_SILENTPAYMENTS)
   add_example(silentpayments)
 endif()

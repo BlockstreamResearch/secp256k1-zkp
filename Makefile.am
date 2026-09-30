@@ -223,6 +223,17 @@ silentpayments_example_LDFLAGS += -lbcrypt
 endif
 TESTS += silentpayments_example
 endif
+if ENABLE_MODULE_FROST
+noinst_PROGRAMS += frost_example
+frost_example_SOURCES = examples/frost.c
+frost_example_CPPFLAGS = -I$(top_srcdir)/include -DSECP256K1_STATIC
+frost_example_LDADD = libsecp256k1.la
+frost_example_LDFLAGS = -static
+if BUILD_WINDOWS
+frost_example_LDFLAGS += -lbcrypt
+endif
+TESTS += frost_example
+endif
 endif
 
 ### Precomputed tables
@@ -372,4 +383,8 @@ endif
 
 if ENABLE_MODULE_ECDSA_ADAPTOR
 include src/modules/ecdsa_adaptor/Makefile.am.include
+endif
+
+if ENABLE_MODULE_FROST
+include src/modules/frost/Makefile.am.include
 endif
