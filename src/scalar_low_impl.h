@@ -154,7 +154,11 @@ static void secp256k1_scalar_mul(secp256k1_scalar *r, const secp256k1_scalar *a,
 }
 
 static void secp256k1_scalar_sqr(secp256k1_scalar *r, const secp256k1_scalar *a) {
+    SECP256K1_SCALAR_VERIFY(a);
+
     *r = (*a * *a) % EXHAUSTIVE_TEST_ORDER;
+
+    SECP256K1_SCALAR_VERIFY(r);
 }
 
 static void secp256k1_scalar_split_128(secp256k1_scalar *r1, secp256k1_scalar *r2, const secp256k1_scalar *a) {
