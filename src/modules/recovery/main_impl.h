@@ -129,7 +129,7 @@ int secp256k1_ecdsa_sign_recoverable(const secp256k1_context* ctx, secp256k1_ecd
     ARG_CHECK(signature != NULL);
     ARG_CHECK(seckey != NULL);
 
-    ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, &recid, msghash32, seckey, noncefp, noncedata);
+    ret = secp256k1_ecdsa_sign_inner(ctx, &r, &s, &recid, NULL, NULL, NULL, msghash32, seckey, noncefp, noncedata);
     secp256k1_ecdsa_recoverable_signature_save(signature, &r, &s, recid);
     return ret;
 }

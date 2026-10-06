@@ -1,3 +1,6 @@
+**This changelog is not the libsecp256k1-zkp's changelog.**
+Instead, it is the changelog of the upstream library [libsecp256k1](https://github.com/bitcoin-core/secp256k1).
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

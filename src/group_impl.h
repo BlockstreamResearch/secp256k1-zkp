@@ -358,16 +358,27 @@ static void secp256k1_ge_clear(secp256k1_ge *r) {
     secp256k1_memclear_explicit(r, sizeof(secp256k1_ge));
 }
 
-SECP256K1_INLINE static int secp256k1_ge_impl_set_xo_var(secp256k1_ge *r, const secp256k1_fe *x, int odd) {
+SECP256K1_INLINE static int secp256k1_ge_impl_set_xquad(secp256k1_ge *r, const secp256k1_fe *x) {
     secp256k1_fe x2, x3;
-    int ret;
 
     r->x = *x;
     secp256k1_fe_sqr(&x2, x);
     secp256k1_fe_mul(&x3, x, &x2);
     r->infinity = 0;
     secp256k1_fe_add_int(&x3, SECP256K1_B);
-    ret = secp256k1_fe_sqrt(&r->y, &x3);
+    return secp256k1_fe_sqrt(&r->y, &x3);
+}
+static int secp256k1_ge_set_xquad(secp256k1_ge *r, const secp256k1_fe *x) {
+    int ret;
+    SECP256K1_FE_VERIFY(x);
+    ret = secp256k1_ge_impl_set_xquad(r, x);
+    SECP256K1_GE_VERIFY(r);
+    return ret;
+}
+
+SECP256K1_INLINE static int secp256k1_ge_impl_set_xo_var(secp256k1_ge *r, const secp256k1_fe *x, int odd) {
+    int ret;
+    ret = secp256k1_ge_impl_set_xquad(r, x);
     secp256k1_fe_normalize_var(&r->y);
     if (secp256k1_fe_is_odd(&r->y) != odd) {
         secp256k1_fe_negate(&r->y, &r->y, 1);
@@ -964,6 +975,24 @@ static void secp256k1_ge_mul_lambda(secp256k1_ge *r, const secp256k1_ge *a) {
     SECP256K1_GE_VERIFY(a);
     secp256k1_ge_impl_mul_lambda(r, a);
     SECP256K1_GE_VERIFY(r);
+}
+
+SECP256K1_INLINE static int secp256k1_gej_impl_has_quad_y_var(const secp256k1_gej *a) {
+    secp256k1_fe yz;
+
+    if (a->infinity) {
+        return 0;
+    }
+
+    /* We rely on the fact that the Jacobi symbol of 1 / a->z^3 is the same as
+     * that of a->z. Thus a->y / a->z^3 is a quadratic residue iff a->y * a->z
+       is */
+    secp256k1_fe_mul(&yz, &a->y, &a->z);
+    return secp256k1_fe_is_square_var(&yz);
+}
+static int secp256k1_gej_has_quad_y_var(const secp256k1_gej *a) {
+    SECP256K1_GEJ_VERIFY(a);
+    return secp256k1_gej_impl_has_quad_y_var(a);
 }
 
 SECP256K1_INLINE static int secp256k1_ge_impl_is_in_correct_subgroup(const secp256k1_ge* ge) {
