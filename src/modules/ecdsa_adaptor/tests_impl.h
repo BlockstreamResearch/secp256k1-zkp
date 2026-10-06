@@ -108,9 +108,9 @@ static void test_ecdsa_adaptor_spec_vectors_check_verify(const unsigned char *ad
     secp256k1_pubkey encryption_key;
     secp256k1_ge encryption_key_ge;
 
-    CHECK(secp256k1_ge_parse(&encryption_key_ge, encryption_key33, 33) == 1);
+    CHECK(secp256k1_ge_parse33(&encryption_key_ge, encryption_key33) == 1);
     secp256k1_pubkey_save(&encryption_key, &encryption_key_ge);
-    CHECK(secp256k1_ge_parse(&pubkey_ge, pubkey33, 33) == 1);
+    CHECK(secp256k1_ge_parse33(&pubkey_ge, pubkey33) == 1);
     secp256k1_pubkey_save(&pubkey, &pubkey_ge);
 
     CHECK(expected == secp256k1_ecdsa_adaptor_verify(CTX, adaptor_sig162, &pubkey, msg32, &encryption_key));
@@ -136,7 +136,7 @@ static void test_ecdsa_adaptor_spec_vectors_check_recover(const unsigned char *a
     secp256k1_pubkey encryption_key;
     secp256k1_ge encryption_key_ge;
 
-    CHECK(secp256k1_ge_parse(&encryption_key_ge, encryption_key33, 33) == 1);
+    CHECK(secp256k1_ge_parse33(&encryption_key_ge, encryption_key33) == 1);
     secp256k1_pubkey_save(&encryption_key, &encryption_key_ge);
 
     CHECK(secp256k1_ecdsa_signature_parse_compact(CTX, &sig, signature64) == 1);

@@ -17,10 +17,10 @@
  */
 static void secp256k1_bppp_serialize_points(unsigned char *output, secp256k1_ge *lpt, secp256k1_ge *rpt) {
     unsigned char tmp[33];
-    secp256k1_ge_serialize_ext(tmp, lpt);
+    secp256k1_ge_serialize_ext33(tmp, lpt);
     output[0] = (tmp[0] & 1) << 1;
     memcpy(&output[1], &tmp[1], 32);
-    secp256k1_ge_serialize_ext(tmp, rpt);
+    secp256k1_ge_serialize_ext33(tmp, rpt);
     output[0] |= (tmp[0] & 1);
     memcpy(&output[33], &tmp[1], 32);
 }
@@ -41,7 +41,7 @@ static int secp256k1_bppp_parse_one_of_points(secp256k1_ge *pt, const unsigned c
             return 0;
         }
     }
-    return secp256k1_ge_parse_ext(pt, tmp);
+    return secp256k1_ge_parse_ext33(pt, tmp);
 }
 
 /* Outputs a serialized point in compressed form. Returns 0 at point at infinity.

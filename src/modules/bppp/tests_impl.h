@@ -530,7 +530,7 @@ secp256k1_bppp_generators* bppp_generators_parse_regular(const unsigned char* da
     }
 
     while (n--) {
-        if (!secp256k1_ge_parse(&ret->gens[n], &data[33 * n], 33)) {
+        if (!secp256k1_ge_parse33(&ret->gens[n], &data[33 * n])) {
             free(ret->gens);
             free(ret);
             return NULL;
@@ -558,7 +558,7 @@ int norm_arg_verify_vectors_helper(secp256k1_scratch *scratch, const unsigned ch
         secp256k1_scalar_set_b32(&c_vec[i], c_vec32[i], &overflow);
         CHECK(!overflow);
     }
-    CHECK(secp256k1_ge_parse_ext(&commit, commit33));
+    CHECK(secp256k1_ge_parse_ext33(&commit, commit33));
     ret = secp256k1_bppp_rangeproof_norm_product_verify(CTX, scratch, proof, plen, &transcript, &rho, gs, n_vec_len, c_vec, c_vec_len, &commit);
 
     secp256k1_bppp_generators_destroy(CTX, gs);
