@@ -236,13 +236,28 @@ static void test_pedersen_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0));
 }
 
+/* Compares secp256k1_pedersen_ecmult with a computation using the variable-time addition. */
+static void test_pedersen_ecmult_check(const secp256k1_scalar *sec, uint64_t value, const secp256k1_ge *genp) {
+    secp256k1_gej rj, vj, expectedj;
+
+    secp256k1_ecmult_gen_gej(&CTX->ecmult_gen_ctx, &expectedj, sec);
+    secp256k1_pedersen_ecmult_small(&vj, value, genp);
+    secp256k1_gej_add_var(&expectedj, &expectedj, &vj, NULL);
+    secp256k1_pedersen_ecmult(&CTX->ecmult_gen_ctx, &rj, sec, value, genp);
+    CHECK(secp256k1_gej_eq_var(&rj, &expectedj));
+}
+
 static void test_pedersen_internal(void) {
     secp256k1_pedersen_commitment commits[19];
     const secp256k1_pedersen_commitment *cptr[19];
     unsigned char blinds[32*19];
     const unsigned char *bptr[19];
+    unsigned char zero_blind[32] = { 0 };
+    unsigned char overflow_blind[32];
     secp256k1_scalar s;
+    secp256k1_ge genp;
     uint64_t values[19];
+    uint64_t value;
     int64_t totalv;
     int i;
     int inputs;
@@ -319,6 +334,24 @@ static void test_pedersen_internal(void) {
     }
     CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[0], 1, &cptr[0], 1));
     CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[1], 1, &cptr[1], 1));
+
+    /* A zero blinding factor or a zero value is allowed, but not both, because
+     * the commitment would be the point at infinity. */
+    value = testrand64() | 1;
+    CHECK(secp256k1_pedersen_commit(CTX, &commits[3], &blinds[0], value, secp256k1_generator_h));
+    CHECK(secp256k1_pedersen_commit(CTX, &commits[4], &blinds[0], 0, secp256k1_generator_h));
+    CHECK(secp256k1_pedersen_commit(CTX, &commits[5], zero_blind, value, secp256k1_generator_h));
+    CHECK(!secp256k1_pedersen_commit(CTX, &commits[6], zero_blind, 0, secp256k1_generator_h));
+    /* commit(blind, value) = commit(blind, 0) + commit(0, value) */
+    CHECK(secp256k1_pedersen_verify_tally(CTX, &cptr[3], 1, &cptr[4], 2));
+    /* A blinding factor that overflows the group order is rejected. */
+    memset(overflow_blind, 0xff, 32);
+    CHECK(!secp256k1_pedersen_commit(CTX, &commits[6], overflow_blind, value, secp256k1_generator_h));
+
+    secp256k1_generator_load(&genp, secp256k1_generator_h);
+    test_pedersen_ecmult_check(&s, value, &genp);
+    /* value * H is infinity */
+    test_pedersen_ecmult_check(&s, 0, &genp);
 }
 
 static void test_pedersen_commitment_fixed_vector(void) {
