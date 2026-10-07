@@ -315,7 +315,7 @@ int secp256k1_pedersen_commit(const secp256k1_context* ctx, secp256k1_pedersen_c
     secp256k1_ge r;
     secp256k1_scalar sec;
     int overflow;
-    int ret = 0;
+    int ret;
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     ARG_CHECK(commit != NULL);
@@ -323,16 +323,18 @@ int secp256k1_pedersen_commit(const secp256k1_context* ctx, secp256k1_pedersen_c
     ARG_CHECK(gen != NULL);
     secp256k1_generator_load(&genp, gen);
     secp256k1_scalar_set_b32(&sec, blind, &overflow);
-    if (!overflow) {
-        secp256k1_pedersen_ecmult(&ctx->ecmult_gen_ctx, &rj, &sec, value, &genp);
-        if (!secp256k1_gej_is_infinity(&rj)) {
-            secp256k1_ge_set_gej(&r, &rj);
-            secp256k1_pedersen_commitment_save(commit, &r);
-            ret = 1;
-        }
-        secp256k1_gej_clear(&rj);
-        secp256k1_ge_clear(&r);
+    secp256k1_pedersen_ecmult(&ctx->ecmult_gen_ctx, &rj, &sec, value, &genp);
+    ret = !overflow & !secp256k1_gej_is_infinity(&rj);
+    /* The return value is public. */
+    secp256k1_declassify(ctx, &ret, sizeof(ret));
+    if (ret) {
+        secp256k1_ge_set_gej(&r, &rj);
+        /* The commitment is public. */
+        secp256k1_declassify(ctx, &r, sizeof(r));
+        secp256k1_pedersen_commitment_save(commit, &r);
     }
+    secp256k1_gej_clear(&rj);
+    secp256k1_ge_clear(&r);
     secp256k1_scalar_clear(&sec);
     return ret;
 }

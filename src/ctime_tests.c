@@ -52,6 +52,10 @@
 #include "../include/secp256k1_ecdsa_adaptor.h"
 #endif
 
+#ifdef ENABLE_MODULE_GENERATOR
+#include "../include/secp256k1_generator.h"
+#endif
+
 #if defined(__GNUC__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic warning "-Wunused-function"
@@ -384,6 +388,27 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_memcmp_var(deckey, expected_deckey, sizeof(expected_deckey));
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 0);
+    }
+#endif
+
+#ifdef ENABLE_MODULE_GENERATOR
+    {
+        secp256k1_pedersen_commitment commit;
+        uint64_t value = 42;
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
+        ret = secp256k1_pedersen_commit(ctx, &commit, key, value, secp256k1_generator_h);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        /* value * H is the point at infinity */
+        value = 0;
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
+        ret = secp256k1_pedersen_commit(ctx, &commit, key, value, secp256k1_generator_h);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
     }
 #endif
 
