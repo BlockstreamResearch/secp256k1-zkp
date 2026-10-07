@@ -250,6 +250,8 @@ static void test_rangeproof(void) {
             CHECK(vout == v);
             CHECK(minv <= v);
             CHECK(maxv >= v);
+            /* Rewinding with the wrong nonce fails. */
+            CHECK(!secp256k1_rangeproof_rewind(CTX, blindout, &vout, NULL, NULL, blind, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
             len = 5134;
             CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, v, &commit, blind, commit.data, -1, 64, v, NULL, 0, NULL, 0, secp256k1_generator_h));
             CHECK(len <= 73);
