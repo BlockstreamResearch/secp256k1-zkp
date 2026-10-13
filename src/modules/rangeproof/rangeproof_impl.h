@@ -108,6 +108,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(const secp256k1_hash_ct
     secp256k1_rfc6979_hmac_sha256_clear(&rng);
     secp256k1_scalar_clear(&acc);
     secp256k1_memclear_explicit(tmp, 32);
+    secp256k1_memclear_explicit(rngseed, sizeof(rngseed));
     return ret;
 }
 
@@ -362,6 +363,7 @@ SECP256K1_INLINE static void secp256k1_rangeproof_recover_k(secp256k1_scalar *k,
     secp256k1_scalar stmp;
     secp256k1_scalar_mul(&stmp, x, e);
     secp256k1_scalar_add(k, s, &stmp);
+    secp256k1_scalar_clear(&stmp);
 }
 
 SECP256K1_INLINE static void secp256k1_rangeproof_ch32xor(unsigned char *x, const unsigned char *y) {
@@ -404,6 +406,9 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
         if (mlen) {
             *mlen = 0;
         }
+        secp256k1_memclear_explicit(prep, sizeof(prep));
+        secp256k1_memclear_explicit(s_orig, sizeof(s_orig));
+        secp256k1_memclear_explicit(sec, sizeof(sec));
         return 1;
     }
     npub = (rings - 1) << 2;
@@ -430,6 +435,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
         if (mlen) {
             *mlen = 0;
         }
+        secp256k1_memclear_explicit(prep, sizeof(prep));
+        secp256k1_memclear_explicit(s_orig, sizeof(s_orig));
+        secp256k1_memclear_explicit(sec, sizeof(sec));
+        secp256k1_memclear_explicit(tmp, sizeof(tmp));
         return 0;
     }
     skip1 = rsizes[rings - 1] - 1 - j;
@@ -439,6 +448,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
         if (mlen) {
             *mlen = 0;
         }
+        secp256k1_memclear_explicit(prep, sizeof(prep));
+        secp256k1_memclear_explicit(s_orig, sizeof(s_orig));
+        secp256k1_memclear_explicit(sec, sizeof(sec));
+        secp256k1_memclear_explicit(tmp, sizeof(tmp));
         return 0;
     }
     skip1 += (rings - 1) << 2;
@@ -451,7 +464,11 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
         if (mlen) {
             *mlen = 0;
         }
-        /* FIXME: cleanup in early out/failure cases. */
+        secp256k1_memclear_explicit(prep, sizeof(prep));
+        secp256k1_memclear_explicit(s_orig, sizeof(s_orig));
+        secp256k1_memclear_explicit(sec, sizeof(sec));
+        secp256k1_memclear_explicit(tmp, sizeof(tmp));
+        secp256k1_scalar_clear(&stmp);
         return 1;
     }
     offset = 0;
@@ -490,6 +507,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
     for (i = 0; i < 32; i++) {
         secp256k1_scalar_clear(&sec[i]);
     }
+    secp256k1_memclear_explicit(tmp, sizeof(tmp));
     secp256k1_scalar_clear(&stmp);
     return 1;
 }
