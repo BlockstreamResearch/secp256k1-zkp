@@ -40,12 +40,23 @@ static void secp256k1_pedersen_ecmult_small(secp256k1_gej *r, uint64_t gn, const
 
 /* sec * G + value * G2. */
 SECP256K1_INLINE static void secp256k1_pedersen_ecmult(const secp256k1_ecmult_gen_context *ecmult_gen_ctx, secp256k1_gej *rj, const secp256k1_scalar *sec, uint64_t value, const secp256k1_ge* genp) {
-    secp256k1_gej vj;
+    secp256k1_gej vj, genpj, sumj;
+    secp256k1_ge v;
+    int value_is_zero;
     secp256k1_ecmult_gen_gej(ecmult_gen_ctx, rj, sec);
     secp256k1_pedersen_ecmult_small(&vj, value, genp);
-    /* FIXME: constant time. */
-    secp256k1_gej_add_var(rj, rj, &vj, NULL);
+    /* secp256k1_gej_add_ge requires its second argument not to be infinity, which
+     * value * G2 is iff value is 0. In that case, add the dummy point G2 instead
+     * and discard the sum. */
+    value_is_zero = secp256k1_gej_is_infinity(&vj);
+    secp256k1_gej_set_ge(&genpj, genp);
+    secp256k1_gej_cmov(&vj, &genpj, value_is_zero);
+    secp256k1_ge_set_gej(&v, &vj);
+    secp256k1_gej_add_ge(&sumj, rj, &v);
+    secp256k1_gej_cmov(rj, &sumj, !value_is_zero);
     secp256k1_gej_clear(&vj);
+    secp256k1_gej_clear(&sumj);
+    secp256k1_ge_clear(&v);
 }
 
 #endif
