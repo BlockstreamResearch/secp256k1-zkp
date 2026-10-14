@@ -63,6 +63,12 @@ static int nonce_function_custom(unsigned char *nonce32, const unsigned char *ms
 }
 #endif
 
+#ifdef ENABLE_MODULE_ECDSA_ADAPTOR
+static int ecdsa_adaptor_nonce_function_custom(unsigned char *nonce32, const unsigned char *msg32, const unsigned char *key32, const unsigned char *pk33, const unsigned char *algo, size_t algolen, void *data) {
+    return secp256k1_nonce_function_ecdsa_adaptor(nonce32, msg32, key32, pk33, algo, algolen, data);
+}
+#endif
+
 static void run_tests(secp256k1_context *ctx, unsigned char *key);
 
 int main(void) {
@@ -395,6 +401,7 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         unsigned char adaptor_sig[162];
         unsigned char deckey[32];
         unsigned char expected_deckey[32];
+        unsigned char adaptor_aux_rand[32] = { 0 };
         secp256k1_pubkey enckey;
 
         for (i = 0; i < 32; i++) {
@@ -425,6 +432,18 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         ret = secp256k1_memcmp_var(deckey, expected_deckey, sizeof(expected_deckey));
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 0);
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, NULL, adaptor_aux_rand);
+        SECP256K1_CHECKMEM_DEFINE(adaptor_sig, sizeof(adaptor_sig));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_ecdsa_adaptor_encrypt(ctx, adaptor_sig, key, &enckey, msg, ecdsa_adaptor_nonce_function_custom, adaptor_aux_rand);
+        SECP256K1_CHECKMEM_DEFINE(adaptor_sig, sizeof(adaptor_sig));
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
     }
 #endif
 
