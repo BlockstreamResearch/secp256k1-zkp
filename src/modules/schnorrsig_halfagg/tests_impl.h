@@ -352,6 +352,19 @@ static void test_schnorrsig_halfagg_ctx_sha256(void) {
     /* Outputs must differ if custom compression was used */
     CHECK(secp256k1_memcmp_var(aggsig_default, aggsig_custom, 96) != 0);
 
+    /* Aggregate verification also hashes through the ctx. With input signatures
+     * created under the same override it must accept the aggregate signature,
+     * while the default context must reject it. */
+    for (i = 0; i < 2; i++) {
+        CHECK(secp256k1_schnorrsig_sign32(ctx, &sigs[i*64], &msgs[i*32], &keypairs[i], NULL));
+    }
+    aggsig_len = sizeof(aggsig_custom);
+    CHECK(secp256k1_schnorrsig_aggregate(ctx, aggsig_custom, &aggsig_len, pks, msgs, sigs, 2));
+    sha256_schnorrsig_halfagg_called = 0;
+    CHECK(secp256k1_schnorrsig_aggverify(ctx, pks, msgs, 2, aggsig_custom, aggsig_len) == 1);
+    CHECK(sha256_schnorrsig_halfagg_called);
+    CHECK(secp256k1_schnorrsig_aggverify(CTX, pks, msgs, 2, aggsig_custom, aggsig_len) == 0);
+
     secp256k1_context_destroy(ctx);
 }
 

@@ -208,6 +208,14 @@ static void test_whitelist_ctx_sha256(void) {
     /* Outputs must differ if custom compression was used */
     CHECK(secp256k1_memcmp_var(ser_default, ser_custom, sizeof(ser_default)) != 0);
 
+    /* Verification also hashes through the ctx: under the same override it must
+     * accept the custom signature (sign and verify stay consistent), while the
+     * default context must reject it. */
+    sha256_whitelist_called = 0;
+    CHECK(secp256k1_whitelist_verify(ctx, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
+    CHECK(sha256_whitelist_called);
+    CHECK(secp256k1_whitelist_verify(CTX, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) != 1);
+
     secp256k1_context_destroy(ctx);
 }
 
