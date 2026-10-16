@@ -1189,8 +1189,9 @@ static void test_ecdsa_adaptor_ctx_sha256(void) {
     unsigned char out_default[162], out_custom[162];
     unsigned char sk[32] = {1}, msg32[32] = {1};
     unsigned char enckey_sk[32] = {2};
-    secp256k1_pubkey enckey;
+    secp256k1_pubkey enckey, pubkey;
     CHECK(secp256k1_ec_pubkey_create(ctx, &enckey, enckey_sk));
+    CHECK(secp256k1_ec_pubkey_create(ctx, &pubkey, sk));
 
     /* Default behavior. No ctx-provided SHA256 compression */
     CHECK(secp256k1_ecdsa_adaptor_encrypt(ctx, out_default, sk, &enckey, msg32, NULL, NULL));
@@ -1202,6 +1203,14 @@ static void test_ecdsa_adaptor_ctx_sha256(void) {
     CHECK(sha256_ecdsa_adaptor_called);
     /* Outputs must differ if custom compression was used */
     CHECK(secp256k1_memcmp_var(out_default, out_custom, 162) != 0);
+
+    /* Verification also hashes through the ctx (DLEQ challenge): under the same
+     * override it must accept the custom adaptor signature, while the default
+     * context must reject it. */
+    sha256_ecdsa_adaptor_called = 0;
+    CHECK(secp256k1_ecdsa_adaptor_verify(ctx, out_custom, &pubkey, msg32, &enckey) == 1);
+    CHECK(sha256_ecdsa_adaptor_called);
+    CHECK(secp256k1_ecdsa_adaptor_verify(CTX, out_custom, &pubkey, msg32, &enckey) == 0);
 
     secp256k1_context_destroy(ctx);
 }

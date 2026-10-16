@@ -161,6 +161,64 @@ static void test_whitelist_end_to_end_all_internal(void) {
     test_whitelist_end_to_end(SECP256K1_WHITELIST_MAX_N_KEYS, 0);
 }
 
+DEFINE_SHA256_TRANSFORM_PROBE(sha256_whitelist)
+static void test_whitelist_ctx_sha256(void) {
+    /* Check ctx-provided SHA256 compression override takes effect */
+    const size_t n_keys = 3;
+    const size_t signer_i = 0;
+    secp256k1_context *ctx = secp256k1_context_clone(CTX);
+    unsigned char online_seckey[3][32];
+    unsigned char offline_seckey[3][32];
+    unsigned char summed_seckey[3][32];
+    unsigned char sub_seckey[32];
+    secp256k1_pubkey online_pubkeys[3];
+    secp256k1_pubkey offline_pubkeys[3];
+    secp256k1_pubkey sub_pubkey;
+    secp256k1_whitelist_signature sig_default, sig_custom;
+    unsigned char ser_default[33 + 32 * 3], ser_custom[33 + 32 * 3];
+    size_t slen = sizeof(ser_default);
+    size_t i;
+
+    memset(sub_seckey, 0, sizeof(sub_seckey));
+    sub_seckey[31] = 200;
+    CHECK(secp256k1_ec_pubkey_create(CTX, &sub_pubkey, sub_seckey) == 1);
+    for (i = 0; i < n_keys; i++) {
+        memset(online_seckey[i], 0, 32);
+        memset(offline_seckey[i], 0, 32);
+        online_seckey[i][31] = (unsigned char)(1 + i);
+        offline_seckey[i][31] = (unsigned char)(100 + i);
+        CHECK(secp256k1_ec_pubkey_create(CTX, &online_pubkeys[i], online_seckey[i]) == 1);
+        CHECK(secp256k1_ec_pubkey_create(CTX, &offline_pubkeys[i], offline_seckey[i]) == 1);
+        /* summed_seckey corresponds to offline_pubkey + sub_pubkey */
+        memcpy(summed_seckey[i], offline_seckey[i], 32);
+        CHECK(secp256k1_ec_seckey_tweak_add(CTX, summed_seckey[i], sub_seckey) == 1);
+    }
+
+    /* Default behavior. No ctx-provided SHA256 compression */
+    CHECK(secp256k1_whitelist_sign(ctx, &sig_default, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[signer_i], summed_seckey[signer_i], signer_i) == 1);
+    CHECK(!sha256_whitelist_called);
+    CHECK(secp256k1_whitelist_signature_serialize(ctx, ser_default, &slen, &sig_default) == 1);
+
+    /* Override SHA256 compression directly, bypassing the ctx setter sanity checks */
+    ctx->hash_ctx.fn_sha256_compression = sha256_whitelist;
+    CHECK(secp256k1_whitelist_sign(ctx, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[signer_i], summed_seckey[signer_i], signer_i) == 1);
+    CHECK(sha256_whitelist_called);
+    slen = sizeof(ser_custom);
+    CHECK(secp256k1_whitelist_signature_serialize(ctx, ser_custom, &slen, &sig_custom) == 1);
+    /* Outputs must differ if custom compression was used */
+    CHECK(secp256k1_memcmp_var(ser_default, ser_custom, sizeof(ser_default)) != 0);
+
+    /* Verification also hashes through the ctx: under the same override it must
+     * accept the custom signature (sign and verify stay consistent), while the
+     * default context must reject it. */
+    sha256_whitelist_called = 0;
+    CHECK(secp256k1_whitelist_verify(ctx, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
+    CHECK(sha256_whitelist_called);
+    CHECK(secp256k1_whitelist_verify(CTX, &sig_custom, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) != 1);
+
+    secp256k1_context_destroy(ctx);
+}
+
 /* --- Test registry --- */
 REPEAT_TEST(test_whitelist_end_to_end_all)
 
@@ -168,6 +226,7 @@ static const struct tf_test_entry tests_whitelist[] = {
     CASE1(test_whitelist_bad_parse),
     CASE1(test_whitelist_bad_serialize),
     CASE1(test_whitelist_end_to_end_all),
+    CASE1(test_whitelist_ctx_sha256),
 };
 
 #endif

@@ -816,6 +816,13 @@ static void test_surjectionproof_ctx_sha256(void) {
     /* Outputs must differ if custom compression was used */
     CHECK(secp256k1_memcmp_var(serialized_default, serialized_custom, serialized_len) != 0);
 
+    /* Verification also hashes through the ctx: under the same override it must
+     * accept the custom proof, while the default context must reject it. */
+    sha256_surjection_called = 0;
+    CHECK(secp256k1_surjectionproof_verify(ctx, &proof, &input_tag, 1, &output_tag) == 1);
+    CHECK(sha256_surjection_called);
+    CHECK(secp256k1_surjectionproof_verify(CTX, &proof, &input_tag, 1, &output_tag) == 0);
+
     secp256k1_context_destroy(ctx);
 }
 

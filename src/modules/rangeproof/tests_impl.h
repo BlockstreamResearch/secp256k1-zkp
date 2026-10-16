@@ -1329,6 +1329,8 @@ static void test_rangeproof_ctx_sha256(void) {
     size_t len = sizeof(proof_default);
     unsigned char blind[32] = {1};
     secp256k1_pedersen_commitment commit;
+    uint64_t min_value, max_value, value_out;
+    unsigned char blind_out[32];
 
     CHECK(secp256k1_pedersen_commit(ctx, &commit, blind, 1, secp256k1_generator_h));
 
@@ -1343,6 +1345,21 @@ static void test_rangeproof_ctx_sha256(void) {
     CHECK(sha256_rangeproof_called);
     /* Outputs must differ if custom compression was used */
     CHECK(secp256k1_memcmp_var(proof_default, proof_custom, len) != 0);
+
+    /* Verification also hashes through the ctx: under the same override it must
+     * accept the custom proof, while the default context must reject it. */
+    sha256_rangeproof_called = 0;
+    CHECK(secp256k1_rangeproof_verify(ctx, &min_value, &max_value, &commit, proof_custom, len, NULL, 0, secp256k1_generator_h) == 1);
+    CHECK(sha256_rangeproof_called);
+    CHECK(secp256k1_rangeproof_verify(CTX, &min_value, &max_value, &commit, proof_custom, len, NULL, 0, secp256k1_generator_h) == 0);
+
+    /* Rewind exercises an additional hashing path (the nonce-seeded genrand)
+     * that plain verification skips: recovery of the exact value and blinding
+     * factor requires sign and rewind to derive the identical genrand stream
+     * through the caller's ctx. */
+    CHECK(secp256k1_rangeproof_rewind(ctx, blind_out, &value_out, NULL, NULL, commit.data, &min_value, &max_value, &commit, proof_custom, len, NULL, 0, secp256k1_generator_h) == 1);
+    CHECK(value_out == 1);
+    CHECK(secp256k1_memcmp_var(blind_out, blind, 32) == 0);
 
     secp256k1_context_destroy(ctx);
 }
