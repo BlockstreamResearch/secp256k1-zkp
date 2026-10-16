@@ -284,12 +284,18 @@ static void secp256k1_pubkey_save(secp256k1_pubkey* pubkey, secp256k1_ge* ge) {
 
 int secp256k1_ec_pubkey_parse(const secp256k1_context* ctx, secp256k1_pubkey* pubkey, const unsigned char *input, size_t inputlen) {
     secp256k1_ge Q;
+    int is_pubkey_valid;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(pubkey != NULL);
     memset(pubkey, 0, sizeof(*pubkey));
     ARG_CHECK(input != NULL);
-    if (!secp256k1_ge_parse(&Q, input, inputlen)) {
+    switch (inputlen) {
+        case 33: is_pubkey_valid = secp256k1_ge_parse33(&Q, input); break;
+        case 65: is_pubkey_valid = secp256k1_ge_parse_with_hybrid65(&Q, input); break;
+        default: is_pubkey_valid = 0;
+    }
+    if (!is_pubkey_valid) {
         return 0;
     }
     if (!secp256k1_ge_is_in_correct_subgroup(&Q)) {
@@ -869,28 +875,6 @@ int secp256k1_tagged_sha256(const secp256k1_context* ctx, unsigned char *hash32,
     secp256k1_sha256_finalize(&ctx->hash_ctx, &sha, hash32);
     secp256k1_sha256_clear(&sha);
     return 1;
-}
-
-/* Outputs 33 zero bytes if the given group element is the point at infinity and
- * otherwise outputs the compressed serialization */
-static void secp256k1_ge_serialize_ext(unsigned char *out33, secp256k1_ge* ge) {
-    if (secp256k1_ge_is_infinity(ge)) {
-        memset(out33, 0, 33);
-    } else {
-        secp256k1_ge_serialize33(ge, out33);
-    }
-}
-
-/* Outputs the point at infinity if the given byte array is all zero, otherwise
- * attempts to parse compressed point serialization. */
-static int secp256k1_ge_parse_ext(secp256k1_ge* ge, const unsigned char *in33) {
-    unsigned char zeros[33] = { 0 };
-
-    if (secp256k1_memcmp_var(in33, zeros, sizeof(zeros)) == 0) {
-        secp256k1_ge_set_infinity(ge);
-        return 1;
-    }
-    return secp256k1_ge_parse(ge, in33, 33);
 }
 
 #ifdef ENABLE_MODULE_BPPP

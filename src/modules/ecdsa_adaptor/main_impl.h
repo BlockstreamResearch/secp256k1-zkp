@@ -33,7 +33,7 @@ static int secp256k1_ecdsa_adaptor_sig_deserialize(secp256k1_ge *r, secp256k1_sc
      * the X-coordinate */
     VERIFY_CHECK((r == NULL) || (r != NULL && sigr != NULL));
     if (r != NULL) {
-        if (!secp256k1_ge_parse(r, &adaptor_sig162[0], 33)) {
+        if (!secp256k1_ge_parse33(r, &adaptor_sig162[0])) {
             return 0;
         }
     }
@@ -44,7 +44,7 @@ static int secp256k1_ecdsa_adaptor_sig_deserialize(secp256k1_ge *r, secp256k1_sc
         }
     }
     if (rp != NULL) {
-        if (!secp256k1_ge_parse(rp, &adaptor_sig162[33], 33)) {
+        if (!secp256k1_ge_parse33(rp, &adaptor_sig162[33])) {
             return 0;
         }
     }
