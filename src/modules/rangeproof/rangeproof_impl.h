@@ -112,81 +112,80 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(const secp256k1_hash_ct
     return ret;
 }
 
-SECP256K1_INLINE static int secp256k1_range_proveparams(uint64_t *v, size_t *rings, size_t *rsizes, size_t *npub, size_t *secidx, uint64_t *min_value,
- int *mantissa, uint64_t *scale,  int *exp, int *min_bits, uint64_t value) {
-    size_t i;
-    *rings = 1;
-    rsizes[0] = 1;
-    secidx[0] = 0;
+/* Inputs: min_value, exp, min_bits, value, directly from signer.
+ * Outputs:
+ *     v, scale: such that min_value + v*scale == value
+ *        rings: the number of rings to do a borromean signature across
+ *       rsizes: the number of keys in each ring
+ *         npub: the number of keys, total
+ *       secidx: the secret index for each ring
+ * */
+SECP256K1_INLINE static int secp256k1_range_proveparams(
+    /* outputs */
+    uint64_t *v, uint64_t *scale,
+    size_t *rings, size_t *rsizes, size_t *npub, size_t *secidx,
+    /* inputs */
+    uint64_t min_value, int exp, int min_bits, uint64_t value)
+{
     *scale = 1;
-    *mantissa = 0;
-    *npub = 0;
-    if (*min_value == UINT64_MAX) {
-        /* If the minimum value is the maximal representable value, then we cannot code a range. */
-        *exp = -1;
-    }
-    if (*exp >= 0) {
-        int max_bits;
-        uint64_t v2;
-        if ((*min_value && value > INT64_MAX) || (value && *min_value >= INT64_MAX)) {
-            /* If either value or min_value is >= 2^63-1 then the other must by zero to avoid overflowing the proven range. */
+    if (exp == -1) {
+        /* exact-value proof */
+        if (min_bits != 0 || value != min_value) {
             return 0;
         }
-        max_bits = *min_value ? secp256k1_clz64_var(*min_value) : 64;
-        if (*min_bits > max_bits) {
-            *min_bits = max_bits;
+        *v = 0;
+        *npub = 1;
+        *rings = 1;
+        rsizes[0] = 1;
+        secidx[0] = 0;
+        return 1;
+    } else if (exp < -1) {
+        return 0;
+    } else {
+        size_t i;
+        uint64_t maxv = min_bits == 64 ? UINT64_MAX : (1ULL << min_bits) - 1;
+        /* rangeproof */
+        if (min_bits <= 0 || min_value > value) {
+            return 0;
         }
-        if (*min_bits > 61 || value > INT64_MAX) {
-            /** Ten is not a power of two, so dividing by ten and then representing in base-2 times ten
-             *   expands the representable range. The verifier requires the proven range is within 0..2**64.
-             *   For very large numbers (all over 2**63) we must change our exponent to compensate.
-             *  Rather than handling it precisely, this just disables use of the exponent for big values.
-             */
-            *exp = 0;
-        }
-        /* Mask off the least significant digits, as requested. */
-        *v = value - *min_value;
-        /* If the user has asked for more bits of proof then there is room for in the exponent, reduce the exponent. */
-        v2 = *min_bits ? (UINT64_MAX>>(64-*min_bits)) : 0;
-        for (i = 0; (int) i < *exp && (v2 <= UINT64_MAX / 10); i++) {
+
+        *v = value - min_value;
+        while (exp--) {
+            if (*v % 10 != 0 || *scale > UINT64_MAX / 10 || maxv > UINT64_MAX / 10) {
+                return 0;
+            }
             *v /= 10;
-            v2 *= 10;
-        }
-        *exp = i;
-        v2 = *v;
-        for (i = 0; (int) i < *exp; i++) {
-            v2 *= 10;
             *scale *= 10;
+            maxv *= 10;
         }
-        /* If the masked number isn't precise, compute the public offset. */
-        *min_value = value - v2;
-        /* How many bits do we need to represent our value? */
-        *mantissa = *v ? 64 - secp256k1_clz64_var(*v) : 1;
-        if (*min_bits > *mantissa) {
-            /* If the user asked for more precision, give it to them. */
-            *mantissa = *min_bits;
+
+        /* If min_bits is too low to cover the value, reject. */
+        if (min_bits < 64 && *v >= (1ULL << min_bits)) {
+            return 0;
         }
+        /* Keep min_val + exp * (2^min_bits - 1) in range */
+        if (min_value > UINT64_MAX - maxv) {
+            return 0;
+        }
+
         /* Digits in radix-4, except for the last digit if our mantissa length is odd. */
-        *rings = (*mantissa + 1) >> 1;
+        *npub = 0;
+        *rings = ((size_t) min_bits + 1) / 2;
         for (i = 0; i < *rings; i++) {
-            rsizes[i] = ((i < *rings - 1) | (!(*mantissa&1))) ? 4 : 2;
+            if (i == *rings - 1 && min_bits % 2 == 1) {
+                rsizes[i] = 2;
+            } else {
+                rsizes[i] = 4;
+            }
             *npub += rsizes[i];
             secidx[i] = (*v >> (i*2)) & 3;
         }
-        VERIFY_CHECK(*mantissa>0);
-        VERIFY_CHECK((*v & ~(UINT64_MAX>>(64-*mantissa))) == 0); /* Did this get all the bits? */
-    } else {
-        /* A proof for an exact value. */
-        *exp = 0;
-        *min_value = value;
-        *v = 0;
-        *npub = 2;
+        VERIFY_CHECK(*v * *scale + min_value == value);
+        VERIFY_CHECK(*rings > 0);
+        VERIFY_CHECK(*rings <= 32);
+        VERIFY_CHECK(*npub <= 128);
+        return 1;
     }
-    VERIFY_CHECK(*v * *scale + *min_value == value);
-    VERIFY_CHECK(*rings > 0);
-    VERIFY_CHECK(*rings <= 32);
-    VERIFY_CHECK(*npub <= 128);
-    return 1;
 }
 
 /* strawman interface, writes proof in proof, a buffer of plen, proves with respect to min_value the range for commit which has the provided blinding factor and value. */
@@ -205,7 +204,6 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
     unsigned char *signs;          /* Location of sign flags in the proof. */
     uint64_t v;
     uint64_t scale;                /* scale = 10^exp. */
-    int mantissa;                  /* Number of bits proven in the blinded value. */
     size_t rings;                     /* How many digits will our proof cover. */
     size_t rsizes[32];                /* How many possible values there are for each place. */
     size_t secidx[32];                /* Which digit is the correct one. */
@@ -217,14 +215,13 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
     if (*plen < 65 || min_value > value || min_bits > 64 || min_bits < 0 || exp < -1 || exp > 18) {
         return 0;
     }
-    if (!secp256k1_range_proveparams(&v, &rings, rsizes, &npub, secidx, &min_value, &mantissa, &scale, &exp, &min_bits, value)) {
+    if (!secp256k1_range_proveparams(&v, &scale, &rings, rsizes, &npub, secidx, min_value, exp, min_bits, value)) {
         return 0;
     }
     proof[len] = (rsizes[0] > 1 ? (64 | exp) : 0) | (min_value ? 32 : 0);
     len++;
     if (rsizes[0] > 1) {
-        VERIFY_CHECK(mantissa > 0 && mantissa <= 64);
-        proof[len] = mantissa - 1;
+        proof[len] = min_bits - 1;
         len++;
     }
     if (min_value) {
