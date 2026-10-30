@@ -125,6 +125,10 @@ static void test_rangeproof_api_internal(void) {
      * consider it to be part of the API and test it here. */
     CHECK(secp256k1_rangeproof_max_size(CTX, 64) == 5134);
     CHECK(secp256k1_rangeproof_max_size(CTX, 0) == 73);
+    /* Should not do something nonsensical on overflow. */
+    CHECK(secp256k1_rangeproof_max_size(CTX, INT_MAX) == 0);
+    CHECK(secp256k1_rangeproof_max_size(CTX, INT_MIN) == 0);
+    CHECK(secp256k1_rangeproof_max_size(CTX, -1) == 0);
 }
 
 static void test_borromean_internal(void) {
