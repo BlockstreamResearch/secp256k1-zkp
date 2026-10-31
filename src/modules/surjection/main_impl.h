@@ -424,7 +424,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
         }
     }
     secp256k1_surjection_genmessage(hash_ctx, msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
-    return secp256k1_borromean_verify(hash_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
+    return secp256k1_borromean_verify_impl(hash_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
 #endif
