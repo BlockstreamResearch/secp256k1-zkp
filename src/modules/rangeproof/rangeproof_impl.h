@@ -234,7 +234,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
      * final ring is used to encode the blinding factor and the value, so we can't use that. (Well,
      * technically there are 64 bytes available if we avoided the other data, but this is difficult
      * because it's not always in the same place. */
-    if (msg_len > 0 && msg_len > 128 * (rings - 1)) {
+    if (msg_len > sizeof(prep) - 128 || msg_len > 128 * (rings - 1)) {
         return 0;
     }
     /* Do we have enough room for the proof? */
@@ -248,7 +248,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
     secp256k1_sha256_write(hash_ctx, &sha256_m, tmp, 33);
     secp256k1_sha256_write(hash_ctx, &sha256_m, proof, len);
 
-    memset(prep, 0, 4096);
+    memset(prep, 0, sizeof(prep));
     if (message != NULL) {
         memcpy(prep, message, msg_len);
     }
@@ -270,7 +270,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
         secp256k1_memclear_explicit(sec, sizeof(sec));
         return 0;
     }
-    secp256k1_memclear_explicit(prep, 4096);
+    secp256k1_memclear_explicit(prep, sizeof(prep));
     for (i = 0; i < rings; i++) {
         /* Sign will overwrite the non-forged signature, move that random value into the nonce. */
         k[i] = s[i * 4 + secidx[i]];
@@ -389,7 +389,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
     npub = ((rings - 1) << 2) + rsizes[rings-1];
     VERIFY_CHECK(npub <= 128);
     VERIFY_CHECK(npub >= 1);
-    memset(prep, 0, 4096);
+    memset(prep, 0, sizeof(prep));
     /* Reconstruct the provers random values. */
     secp256k1_rangeproof_genrand(hash_ctx, sec, s_orig, prep, rsizes, rings, nonce, commit, proof, len, genp);
     *v = UINT64_MAX;
@@ -497,7 +497,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_rewind_inner(const secp256k1_ha
         }
     }
     *mlen = offset;
-    secp256k1_memclear_explicit(prep, 4096);
+    secp256k1_memclear_explicit(prep, sizeof(prep));
     for (i = 0; i < 128; i++) {
         secp256k1_scalar_clear(&s_orig[i]);
     }
