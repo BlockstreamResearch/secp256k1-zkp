@@ -269,7 +269,9 @@ static void test_rangeproof(void) {
             CHECK(maxv == v);
 
             /* Check with a committed message */
-            len = 5134;
+            len = v ? 72 : 64;
+            CHECK(!secp256k1_rangeproof_sign(CTX, proof, &len, v, &commit, blind, commit.data, -1, 0, v, NULL, 0, message_short, sizeof(message_short), secp256k1_generator_h));
+            len = v ? 73 : 65;
             CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, v, &commit, blind, commit.data, -1, 0, v, NULL, 0, message_short, sizeof(message_short), secp256k1_generator_h));
             CHECK(len <= 73);
             CHECK(len <= secp256k1_rangeproof_max_size(CTX, v, 64));
