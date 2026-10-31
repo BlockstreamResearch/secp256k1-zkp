@@ -231,6 +231,26 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
   int mantissa
 ) SECP256K1_ARG_NONNULL(1);
 
+/** Returns the exact size of a rangeproof with the given parameters
+ *
+ * Unlike `secp256k1_rangeproof_max_size`, which is an upper bound over
+ * unknown parameters, this returns the exact number of bytes that
+ * `secp256k1_rangeproof_sign` will produce, provided the proof it signs
+ * has this `min_value` and `mantissa`. The mantissa of a signed proof
+ * equals its `min_bits` argument (for range proofs) or is 0 (for
+ * single-value proofs signed with `exp` = -1).
+ *
+ *  In:       ctx: pointer to a context object
+ *      min_value: the `min_value` that will be passed to `secp256k1_rangeproof_sign`.
+ *        mantissa: the `min_bits` that will be passed to `secp256k1_rangeproof_sign`,
+ *                  or 0 for a single-value proof.
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_size(
+  const secp256k1_context *ctx,
+  uint64_t min_value,
+  int mantissa
+) SECP256K1_ARG_NONNULL(1);
+
 # ifdef __cplusplus
 }
 # endif

@@ -109,4 +109,34 @@ size_t secp256k1_rangeproof_max_size(const secp256k1_context* ctx, int mantissa)
     }
 }
 
+size_t secp256k1_rangeproof_size(const secp256k1_context* ctx, uint64_t min_value, int mantissa) {
+    size_t rings;
+    size_t npubs;
+    size_t ret;
+
+    VERIFY_CHECK(ctx != NULL);
+    (void) ctx;
+
+    if (mantissa < 0 || mantissa > 64) {
+        return  0;
+    } else if (mantissa == 0) {
+        /* Exact-value proof: a single one-key ring. */
+        rings = 1;
+        npubs = 1;
+        ret = 1;
+    } else {
+        rings = ((size_t) mantissa + 1) / 2;
+        npubs = rings * 4 - 2 * (mantissa % 2);
+        ret = 2;
+    }
+    if (min_value != 0) {
+        ret += 8;
+    }
+    ret += (rings + 6) >> 3;
+    ret += 32 * (rings - 1);  /* blinded value commitments */
+    ret += 32;                 /* e0 */
+    ret += 32 * npubs;         /* s values */
+    return ret;
+}
+
 #endif
