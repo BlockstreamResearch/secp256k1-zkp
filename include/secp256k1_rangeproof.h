@@ -116,40 +116,62 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
   const secp256k1_generator *gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(10) SECP256K1_ARG_NONNULL(14);
 
-/** Author a proof that a committed value is within a range.
- *  Returns 1: Proof successfully created.
- *          0: Error
- *  In:     ctx:    pointer to a context object (not secp256k1_context_static)
- *          proof:  pointer to array to receive the proof, can be up to 5134 bytes. (cannot be NULL)
- *          min_value: constructs a proof where the verifer can tell the minimum value is at least the specified amount.
- *          commit: the commitment being proved.
- *          blind:  32-byte blinding factor used by commit. The blinding factor may be all-zeros as long as min_bits is set to 3 or greater.
- *                  This is a side-effect of the underlying crypto, not a deliberate API choice, but it may be useful when balancing CT transactions.
- *          nonce:  32-byte secret nonce used to initialize the proof.
+/** Create a proof that a committed value lies within a specified range.
  *
- *                  Each call to this function must have a UNIQUE nonce that
- *                  MUST NOT BE REUSED in subsequent calls. The nonce must be
- *                  KEPT SECRET except from parties authorized to rewind the
- *                  proof. Anyone who knows the nonce can recover `value` and
- *                  `blind` from the proof. Reusing the nonce may expose `blind`
- *                  even to parties that do not know the nonce.
- *          exp:    Base-10 exponent. Digits below above will be made public, but the proof will be made smaller. Allowed range is -1 to 18.
- *                  (-1 is a special case that makes the value public. 0 is the most private.)
- *          min_bits: Number of bits of the value to keep private. (0 = auto/minimal, - 64).
- *          value:  Actual value of the commitment.
- *          message: pointer to a byte array of data to be embedded in the rangeproof that can be recovered by rewinding the proof
- *          msg_len: size of the message to be embedded in the rangeproof
- *          extra_commit: additional data to be covered in rangeproof signature
- *          extra_commit_len: length of extra_commit byte array (0 if NULL)
- *          gen: additional generator 'h'
- *  In/out: plen:   point to an integer with the size of the proof buffer and the size of the constructed proof.
+ *  For 0 <= exp <= 18, the proof covers the inclusive range
  *
- *  If min_value or exp is non-zero then the value must be on the range [0, 2^63) to prevent the proof range from spanning past 2^64.
+ *      [min_value, min_value + (2^mantissa - 1) * 10^exp].
  *
- *  If exp is -1 the value is revealed by the proof (e.g. it proves that the proof is a blinding of a specific value, without revealing the blinding key.)
+ *  The parameters must satisfy all of the following:
+ *      - 1 <= mantissa <= 64;
+ *      - the upper endpoint is at most UINT64_MAX;
+ *      - value lies within the range;
+ *      - value - min_value is divisible by 10^exp.
  *
- *  This can randomly fail with probability around one in 2^100. If this happens, buy a lottery ticket and retry with a different nonce or blinding.
+ *  For exp == -1, the proof instead reveals the exact value without revealing
+ *  the blinding factor. This requires mantissa == 0 and min_value == value.
  *
+ *  Returns: 1 if a proof was successfully created; 0 otherwise, including
+ *           invalid parameter combinations, insufficient output space, an
+ *           oversized message, or an invalid blinding factor.
+ *
+ *  In:     ctx: a context object (not secp256k1_context_static).
+ *    min_value: the public lower endpoint of the range, or the public value
+ *               for an exact-value proof.
+ *       commit: the commitment being proved. It must correspond to value,
+ *               blind, and gen.
+ *        blind: the 32-byte blinding factor used for commit. An all-zero
+ *               factor is supported only when mantissa >= 3.
+ *        nonce: a 32-byte secret nonce used to construct and rewind the proof.
+ *               The nonce does not need to be uniformly random, but it must be
+ *               unique and secret (at least 128 bits of entropy) except to those
+ *               authorized to rewind the proof. Anyone who knows it can
+ *               recover value and blind. If the same nonce is used for multiple
+ *               proofs, this may reveal the value and/or blinding factor.
+ *          exp: the decimal exponent, in [-1, 18]. Use -1 for an exact-value
+ *               proof, or 0 through 18 for a range proof as described above.
+ *     mantissa: the bit width used to represent the scaled offset
+ *               (value - min_value) / 10^exp. Must be in [1, 64] for a range
+ *               proof, or 0 for an exact-value proof.
+ *        value: the committed value.
+ *      message: data to embed in the proof for recovery by rewinding. May be
+ *               NULL if msg_len is 0. Exact-value proofs cannot embed a
+ *               message. For range proofs, the maximum message length is
+ *               128 * (ceil(mantissa / 2) - 1) bytes.
+ *      msg_len: the length of message in bytes.
+ * extra_commit: additional data bound to the proof but not embedded in it.
+ *               Verification and rewinding must use the same data. May be
+ *               NULL if extra_commit_len is 0.
+ * extra_commit_len: the length of extra_commit in bytes.
+ *          gen: the value generator used for commit.
+ *
+ *  Out:  proof: a buffer to receive the proof. Its contents are unspecified
+ *               on failure.
+ *
+ *  In/out: plen: on entry, the capacity of proof in bytes; on success, the
+ *                number of bytes written. Use secp256k1_rangeproof_size for
+ *                the exact size, or secp256k1_rangeproof_max_size for an
+ *                upper bound.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const secp256k1_context *ctx,
@@ -160,7 +182,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const unsigned char *blind,
   const unsigned char *nonce,
   int exp,
-  int min_bits,
+  int mantissa,
   uint64_t value,
   const unsigned char *message,
   size_t msg_len,
@@ -192,29 +214,41 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
 
 /** Returns an upper bound on the size of a rangeproof with the given parameters
  *
- * An actual rangeproof may be smaller, for example if the actual value
- * is less than both the provided `max_value` and 2^`min_bits`, or if
- * the `exp` parameter to `secp256k1_rangeproof_sign` is set such that
- * the proven range is compressed. In particular this function will always
- * overestimate the size of single-value proofs. Also, if `min_value`
- * is set to 0 in the proof, the result will usually, but not always,
- * be 8 bytes smaller than if a nonzero value had been passed.
+ * An actual rangeproof with the same `mantissa` will be smaller if the minimum
+ * value is set to 0. Otherwise this estimate should be exact.
  *
  * The goal of this function is to provide a useful upper bound for
  * memory allocation or fee estimation purposes, without requiring
  * too many parameters be fixed in advance.
  *
- * To obtain the size of largest possible proof, set `max_value` to
- * `UINT64_MAX` (and `min_bits` to any valid value such as 0).
+ * To obtain the size of largest possible proof, set `mantissa` to 64.
  *
  *  In:       ctx: pointer to a context object
- *      max_value: the maximum value that might be passed for `value` for the proof.
- *       min_bits: the value that will be passed as `min_bits` for the proof.
+ *       mantissa: the value that will be passed as `mantissa` for the proof.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
   const secp256k1_context *ctx,
-  uint64_t max_value,
-  int min_bits
+  int mantissa
+) SECP256K1_ARG_NONNULL(1);
+
+/** Returns the exact size of a rangeproof with the given parameters
+ *
+ * Unlike `secp256k1_rangeproof_max_size`, which is an upper bound over
+ * unknown parameters, this returns the exact number of bytes that
+ * `secp256k1_rangeproof_sign` will produce, provided the proof it signs
+ * has this `min_value` and `mantissa`. The mantissa of a signed proof
+ * equals its `mantissa` argument (for range proofs) or is 0 (for
+ * single-value proofs signed with `exp` = -1).
+ *
+ *  In:       ctx: pointer to a context object
+ *      min_value: the `min_value` that will be passed to `secp256k1_rangeproof_sign`.
+ *       mantissa: the `mantissa` that will be passed to `secp256k1_rangeproof_sign`,
+ *                 or 0 for a single-value proof.
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_size(
+  const secp256k1_context *ctx,
+  uint64_t min_value,
+  int mantissa
 ) SECP256K1_ARG_NONNULL(1);
 
 # ifdef __cplusplus
