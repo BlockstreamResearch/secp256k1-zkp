@@ -182,7 +182,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
   const unsigned char *blind,
   const unsigned char *nonce,
   int exp,
-  int min_bits,
+  int mantissa,
   uint64_t value,
   const unsigned char *message,
   size_t msg_len,
@@ -214,21 +214,21 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
 
 /** Returns an upper bound on the size of a rangeproof with the given parameters
  *
- * An actual rangeproof with the same `min_bits` will be smaller if the minimum
+ * An actual rangeproof with the same `mantissa` will be smaller if the minimum
  * value is set to 0. Otherwise this estimate should be exact.
  *
  * The goal of this function is to provide a useful upper bound for
  * memory allocation or fee estimation purposes, without requiring
  * too many parameters be fixed in advance.
  *
- * To obtain the size of largest possible proof, set `min_bits` to 64.
+ * To obtain the size of largest possible proof, set `mantissa` to 64.
  *
  *  In:       ctx: pointer to a context object
- *       min_bits: the value that will be passed as `min_bits` for the proof.
+ *       mantissa: the value that will be passed as `mantissa` for the proof.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
   const secp256k1_context *ctx,
-  int min_bits
+  int mantissa
 ) SECP256K1_ARG_NONNULL(1);
 
 # ifdef __cplusplus

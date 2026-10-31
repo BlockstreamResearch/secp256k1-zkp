@@ -23,7 +23,7 @@ static void test_rangeproof_api_internal(void) {
     secp256k1_pedersen_commitment commit;
     uint64_t vmin = testrand32();
     uint64_t val = vmin + testrand32();
-    int min_bits = 1;
+    int mantissa = 1;
     size_t len = sizeof(proof);
     /* we'll switch to dylan thomas for this one */
     const unsigned char message[68] = "My tears are like the quiet drift / Of petals from some magic rose;";
@@ -31,33 +31,32 @@ static void test_rangeproof_api_internal(void) {
     const unsigned char ext_commit[72] = "And all my grief flows from the rift / Of unremembered skies and snows.";
     size_t ext_commit_len = sizeof(ext_commit);
 
-    /* min_bits can only by 64 if vmin is 0. To simplify the test we just forbid it. */
-    while (min_bits < 64 - secp256k1_clz64_var(val - vmin) || min_bits == 64) {
-        min_bits = 1 + (testrand32() % 64);
+    /* mantissa can only by 64 if vmin is 0. To simplify the test we just forbid it. */
+    while (mantissa < 64 - secp256k1_clz64_var(val - vmin) || mantissa == 64) {
+        mantissa = 1 + (testrand32() % 64);
     }
 
     testrand256(blind);
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h));
 
-    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) == 1);
-    CHECK_ILLEGAL(STATIC_CTX, secp256k1_rangeproof_sign(STATIC_CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) == 1);
+    CHECK_ILLEGAL(STATIC_CTX, secp256k1_rangeproof_sign(STATIC_CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
 
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, NULL, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, NULL, vmin, &commit, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, NULL, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, NULL, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, NULL, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, vmin - 1, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) == 0);
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, NULL, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
-    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, NULL, 0, ext_commit, ext_commit_len, secp256k1_generator_h) != 0);
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, NULL, 0, NULL, ext_commit_len, secp256k1_generator_h));
-    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, NULL, 0, NULL, 0, secp256k1_generator_h) != 0);
-    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, NULL, 0, NULL, 0, NULL));
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, NULL, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, NULL, vmin, &commit, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, NULL, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, NULL, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, NULL, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, vmin - 1, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) == 0);
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, NULL, mlen, ext_commit, ext_commit_len, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, NULL, 0, ext_commit, ext_commit_len, secp256k1_generator_h) != 0);
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, NULL, 0, NULL, ext_commit_len, secp256k1_generator_h));
+    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, NULL, 0, NULL, 0, secp256k1_generator_h) != 0);
+    CHECK_ILLEGAL(CTX, secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, NULL, 0, NULL, 0, NULL));
 
-    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, min_bits, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) != 0);
+    CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, 0, mantissa, val, message, mlen, ext_commit, ext_commit_len, secp256k1_generator_h) != 0);
     {
         int exp;
-        int mantissa;
         uint64_t min_value;
         uint64_t max_value;
         CHECK(secp256k1_rangeproof_info(CTX, &exp, &mantissa, &min_value, &max_value, proof, len) != 0);
@@ -291,14 +290,14 @@ static void test_rangeproof(void) {
     testrand256(blind);
     scale = 1;
     for (i = 0; i < 19; i++) {
-        int min_bits = 64 - secp256k1_clz64_var((INT64_MAX - 1) / scale);
+        int mantissa = 64 - secp256k1_clz64_var((INT64_MAX - 1) / scale);
         v = INT64_MAX - 1 - (INT64_MAX - 1) % scale;
         CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
 
         scale *= 10;
         len = 5134;
-        CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, 0, &commit, blind, commit.data, i, min_bits, v, NULL, 0, NULL, 0, secp256k1_generator_h));
-        CHECK(len <= secp256k1_rangeproof_max_size(CTX, min_bits));
+        CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, 0, &commit, blind, commit.data, i, mantissa, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+        CHECK(len <= secp256k1_rangeproof_max_size(CTX, mantissa));
         CHECK(secp256k1_rangeproof_verify(CTX, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
         CHECK(minv <= v);
@@ -330,7 +329,7 @@ static void test_rangeproof(void) {
     memcpy(&commit2, &commit, sizeof(commit));
     for (i = 0; i < (size_t) COUNT; i++) {
         int exp;
-        int min_bits;
+        int mantissa;
         int ok;
         do {
             size_t e;
@@ -347,13 +346,13 @@ static void test_rangeproof(void) {
             if (exp < 0) {
                 exp = -exp;
             }
-            min_bits = (int)testrandi64(0,64)-(int)testrandi64(0,64);
-            if (min_bits < 0) {
-                min_bits = -min_bits;
+            mantissa = (int)testrandi64(0,64)-(int)testrandi64(0,64);
+            if (mantissa < 0) {
+                mantissa = -mantissa;
             }
 
-            maxv = min_bits == 64 ? UINT64_MAX : (min_bits == 0 ? 1 : (1ULL << min_bits) - 1);
-            ok = min_bits >= 1;
+            maxv = mantissa == 64 ? UINT64_MAX : (mantissa == 0 ? 1 : (1ULL << mantissa) - 1);
+            ok = mantissa >= 1;
             for (e = 0; e < (size_t) exp && ok; e++) {
                 if (scale10 > UINT64_MAX / 10) {
                     ok = 0;
@@ -370,16 +369,16 @@ static void test_rangeproof(void) {
             if (ok && vmin > UINT64_MAX - maxv) {
                 ok = 0;
             }
-            if (ok && min_bits < 64 && (v - vmin) / scale10 >= (1ULL << min_bits)) {
+            if (ok && mantissa < 64 && (v - vmin) / scale10 >= (1ULL << mantissa)) {
                 ok = 0;
             }
         } while (!ok);
         testrand256(blind);
         CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, v, secp256k1_generator_h));
         len = 5134;
-        CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, exp, min_bits, v, NULL, 0, NULL, 0, secp256k1_generator_h));
+        CHECK(secp256k1_rangeproof_sign(CTX, proof, &len, vmin, &commit, blind, commit.data, exp, mantissa, v, NULL, 0, NULL, 0, secp256k1_generator_h));
         CHECK(len <= 5134);
-        CHECK(len <= secp256k1_rangeproof_max_size(CTX, min_bits));
+        CHECK(len <= secp256k1_rangeproof_max_size(CTX, mantissa));
         mlen = 4096;
         CHECK(secp256k1_rangeproof_rewind(CTX, blindout, &vout, message, &mlen, commit.data, &minv, &maxv, &commit, proof, len, NULL, 0, secp256k1_generator_h));
         for (j = 0; j < mlen; j++) {
@@ -484,7 +483,7 @@ static void test_single_value_proof(uint64_t val) {
         val, /* min_val */
         &commit, blind, nonce,
         -1, /* exp: -1 is magic value to indicate a single-value proof */
-        0, /* min_bits */
+        0, /* mantissa */
         val, /* val */
         message, sizeof(message),  /* Will cause this to fail */
         NULL, 0,
@@ -498,7 +497,7 @@ static void test_single_value_proof(uint64_t val) {
         val, /* min_val */
         &commit, blind, nonce,
         -1, /* exp: -1 is magic value to indicate a single-value proof */
-        0, /* min_bits */
+        0, /* mantissa */
         val, /* val */
         NULL, 0,
         NULL, 0,
@@ -907,13 +906,13 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
     size_t m_len_r;
     memset(message, 0xFF, sizeof(message));
 
-    /* Test maximum values for value, min_bits, m_len and exp */
+    /* Test maximum values for value, mantissa, m_len and exp */
     {
         uint64_t value = UINT64_MAX;
         uint64_t min_value = 0;
         size_t m_len = sizeof(message); /* maximum message length */
 
-        int min_bits = 64;
+        int mantissa = 64;
         int exp  = 0;
         unsigned char proof[5126];
         size_t p_len = sizeof(proof);
@@ -1249,8 +1248,8 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
         };
 
         CHECK(secp256k1_pedersen_commit(CTX, &pc, vector_blind, value, secp256k1_generator_h));
-        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
-        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, min_bits));
+        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, mantissa, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, mantissa));
         CHECK(p_len == sizeof(proof));
         CHECK(p_len == sizeof(vector_0));
         CHECK(secp256k1_memcmp_var(proof, vector_0, p_len) == 0);
@@ -1264,13 +1263,13 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
         memset(message_r, 0, sizeof(message_r));
     }
 
-    /* Test min_bits = 3 */
+    /* Test mantissa = 3 */
     {
         uint64_t value = 13;
-        size_t m_len = 128; /* maximum message length with min_bits = 3 */
+        size_t m_len = 128; /* maximum message length with mantissa = 3 */
 
         uint64_t min_value = 3;
-        int min_bits = 3;
+        int mantissa = 3;
         int exp  = 1;
         unsigned char proof[267];
         size_t p_len = sizeof(proof);
@@ -1301,8 +1300,8 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
             0xf0,
         };
         CHECK(secp256k1_pedersen_commit(CTX, &pc, vector_blind, value, secp256k1_generator_h));
-        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
-        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, min_bits));
+        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, mantissa, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, mantissa));
         CHECK(p_len == sizeof(proof));
         CHECK(p_len == sizeof(vector_1));
         CHECK(secp256k1_memcmp_var(proof, vector_1, p_len) == 0);
@@ -1319,11 +1318,11 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
     /* Test large min_value */
     {
         uint64_t value = INT64_MAX;
-        size_t m_len = 0; /* maximum message length with min_bits = 3 */
+        size_t m_len = 0; /* maximum message length with mantissa = 3 */
 
         /* Uncomment this to recreate test vector */
         uint64_t min_value = INT64_MAX-1;
-        int min_bits = 1;
+        int mantissa = 1;
         int exp  = 0;
         unsigned char proof[106];
         size_t p_len = sizeof(proof);
@@ -1345,8 +1344,8 @@ static void test_rangeproof_fixed_vectors_reproducible(void) {
         };
 
         CHECK(secp256k1_pedersen_commit(CTX, &pc, vector_blind, value, secp256k1_generator_h));
-        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, min_bits, value, message, m_len, NULL, 0, secp256k1_generator_h));
-        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, min_bits));
+        CHECK(secp256k1_rangeproof_sign(CTX, proof, &p_len, min_value, &pc, vector_blind, vector_nonce, exp, mantissa, value, message, m_len, NULL, 0, secp256k1_generator_h));
+        CHECK(p_len <= secp256k1_rangeproof_max_size(CTX, mantissa));
         CHECK(p_len == sizeof(proof));
         CHECK(p_len == sizeof(vector_2));
         CHECK(secp256k1_memcmp_var(proof, vector_2, p_len) == 0);

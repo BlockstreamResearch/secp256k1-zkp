@@ -112,7 +112,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(const secp256k1_hash_ct
     return ret;
 }
 
-/* Inputs: min_value, exp, min_bits, value, directly from signer.
+/* Inputs: min_value, exp, mantissa, value, directly from signer.
  * Outputs:
  *     v, scale: such that min_value + v*scale == value
  *        rings: the number of rings to do a borromean signature across
@@ -125,12 +125,12 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(
     uint64_t *v, uint64_t *scale,
     size_t *rings, size_t *rsizes, size_t *npub, size_t *secidx,
     /* inputs */
-    uint64_t min_value, int exp, int min_bits, uint64_t value)
+    uint64_t min_value, int exp, int mantissa, uint64_t value)
 {
     *scale = 1;
     if (exp == -1) {
         /* exact-value proof */
-        if (min_bits != 0 || value != min_value) {
+        if (mantissa != 0 || value != min_value) {
             return 0;
         }
         *v = 0;
@@ -143,9 +143,9 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(
         return 0;
     } else {
         size_t i;
-        uint64_t maxv = min_bits == 64 ? UINT64_MAX : (1ULL << min_bits) - 1;
+        uint64_t maxv = mantissa == 64 ? UINT64_MAX : (1ULL << mantissa) - 1;
         /* rangeproof */
-        if (min_bits <= 0 || min_value > value) {
+        if (mantissa <= 0 || min_value > value) {
             return 0;
         }
 
@@ -159,20 +159,20 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(
             maxv *= 10;
         }
 
-        /* If min_bits is too low to cover the value, reject. */
-        if (min_bits < 64 && *v >= (1ULL << min_bits)) {
+        /* If mantissa is too low to cover the value, reject. */
+        if (mantissa < 64 && *v >= (1ULL << mantissa)) {
             return 0;
         }
-        /* Keep min_val + exp * (2^min_bits - 1) in range */
+        /* Keep min_val + exp * (2^mantissa - 1) in range */
         if (min_value > UINT64_MAX - maxv) {
             return 0;
         }
 
         /* Digits in radix-4, except for the last digit if our mantissa length is odd. */
         *npub = 0;
-        *rings = ((size_t) min_bits + 1) / 2;
+        *rings = ((size_t) mantissa + 1) / 2;
         for (i = 0; i < *rings; i++) {
-            if (i == *rings - 1 && min_bits % 2 == 1) {
+            if (i == *rings - 1 && mantissa % 2 == 1) {
                 rsizes[i] = 2;
             } else {
                 rsizes[i] = 4;
@@ -191,7 +191,7 @@ SECP256K1_INLINE static int secp256k1_range_proveparams(
 /* strawman interface, writes proof in proof, a buffer of plen, proves with respect to min_value the range for commit which has the provided blinding factor and value. */
 SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_ctx *hash_ctx, const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
  unsigned char *proof, size_t *plen, uint64_t min_value,
- const secp256k1_ge *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value,
+ const secp256k1_ge *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int mantissa, uint64_t value,
  const unsigned char *message, size_t msg_len, const unsigned char *extra_commit, size_t extra_commit_len, const secp256k1_ge* genp){
     secp256k1_gej pubs[128];     /* Candidate digits for our proof, most inferred. */
     secp256k1_scalar s[128];     /* Signatures in our proof, most forged. */
@@ -212,16 +212,16 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_hash_
     int overflow;
     size_t npub;
     len = 0;
-    if (*plen < 65 || min_value > value || min_bits > 64 || min_bits < 0 || exp < -1 || exp > 18) {
+    if (*plen < 65 || min_value > value || mantissa > 64 || mantissa < 0 || exp < -1 || exp > 18) {
         return 0;
     }
-    if (!secp256k1_range_proveparams(&v, &scale, &rings, rsizes, &npub, secidx, min_value, exp, min_bits, value)) {
+    if (!secp256k1_range_proveparams(&v, &scale, &rings, rsizes, &npub, secidx, min_value, exp, mantissa, value)) {
         return 0;
     }
     proof[len] = (rsizes[0] > 1 ? (64 | exp) : 0) | (min_value ? 32 : 0);
     len++;
     if (rsizes[0] > 1) {
-        proof[len] = min_bits - 1;
+        proof[len] = mantissa - 1;
         len++;
     }
     if (min_value) {
