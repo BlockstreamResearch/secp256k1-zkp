@@ -91,16 +91,22 @@ int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof
      proof, plen, min_value, &commitp, blind, nonce, exp, min_bits, value, message, msg_len, extra_commit, extra_commit_len, &genp);
 }
 
-size_t secp256k1_rangeproof_max_size(const secp256k1_context* ctx, uint64_t max_value, int min_bits) {
-    const int val_mantissa = max_value > 0 ? 64 - secp256k1_clz64_var(max_value) : 1;
-    const int mantissa = min_bits > val_mantissa ? min_bits : val_mantissa;
-    const size_t rings = (mantissa + 1) / 2;
-    const size_t npubs = rings * 4 - 2 * (mantissa % 2);
+size_t secp256k1_rangeproof_max_size(const secp256k1_context* ctx, int min_bits) {
+    if (min_bits < 0 || min_bits > 64) {
+        return 0;
+    } else if (min_bits == 0) {
+        /* Exact-value proof: 73 bytes, unless the value is 0, in which case 65 bytes */
+        return 73;
+    } else {
+        const size_t rings = (min_bits + 1) / 2;
+        const size_t npubs = rings * 4 - 2 * (min_bits % 2);
 
-    VERIFY_CHECK(ctx != NULL);
-    (void) ctx;
+        VERIFY_CHECK(ctx != NULL);
+        (void) ctx;
 
-    return 10 + 32 * (npubs + rings - 1) + 32 + ((rings - 1 + 7) / 8);
+        /* This initial 10 will be 2 if the minimum value is 0. */
+        return 10 + 32 * (npubs + rings - 1) + 32 + ((rings - 1 + 7) / 8);
+    }
 }
 
 #endif

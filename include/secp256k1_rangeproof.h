@@ -214,28 +214,20 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
 
 /** Returns an upper bound on the size of a rangeproof with the given parameters
  *
- * An actual rangeproof may be smaller, for example if the actual value
- * is less than both the provided `max_value` and 2^`min_bits`, or if
- * the `exp` parameter to `secp256k1_rangeproof_sign` is set such that
- * the proven range is compressed. In particular this function will always
- * overestimate the size of single-value proofs. Also, if `min_value`
- * is set to 0 in the proof, the result will usually, but not always,
- * be 8 bytes smaller than if a nonzero value had been passed.
+ * An actual rangeproof with the same `min_bits` will be smaller if the minimum
+ * value is set to 0. Otherwise this estimate should be exact.
  *
  * The goal of this function is to provide a useful upper bound for
  * memory allocation or fee estimation purposes, without requiring
  * too many parameters be fixed in advance.
  *
- * To obtain the size of largest possible proof, set `max_value` to
- * `UINT64_MAX` (and `min_bits` to any valid value such as 0).
+ * To obtain the size of largest possible proof, set `min_bits` to 64.
  *
  *  In:       ctx: pointer to a context object
- *      max_value: the maximum value that might be passed for `value` for the proof.
  *       min_bits: the value that will be passed as `min_bits` for the proof.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
   const secp256k1_context *ctx,
-  uint64_t max_value,
   int min_bits
 ) SECP256K1_ARG_NONNULL(1);
 
