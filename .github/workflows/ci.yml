@@ -56,6 +56,9 @@ env:
   SYMBOL_CHECK: 'yes'
   # Compile and run the examples.
   EXAMPLES: 'yes'
+  # Also run exhaustive_tests for this group order, with these command line arguments.
+  EXHAUSTIVE_TEST_ORDER:
+  EXHAUSTIVE_TEST_ARGS:
   # Disable Docker build summary generation.
   # See https://github.com/docker/build-push-action/blob/master/README.md#environment-variables.
   DOCKER_BUILD_SUMMARY: false
@@ -235,8 +238,6 @@ jobs:
 
     env:
       SECP256K1_TEST_ITERS: 16
-      WITH_VALGRIND: 'no'
-      CTIMETESTS: 'no'
       CC: ${{ matrix.cc }}
 
     strategy:
@@ -294,7 +295,7 @@ jobs:
             env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'auto' }
           - runner: ubuntu-24.04-arm
             binary_arch: arm64
-            env_vars: { CC: 'clang',                                      ASM: 'auto' }
+            env_vars: { CC: 'clang',                                      ASM: 'auto', CTIMETESTS: 'yes' }
           - runner: ubuntu-latest
             binary_arch: x64
             env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
@@ -303,7 +304,7 @@ jobs:
             env_vars: { CC: 'i686-linux-gnu-gcc', HOST: 'i686-linux-gnu', ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
           - runner: ubuntu-24.04-arm
             binary_arch: arm64
-            env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2 }
+            env_vars: { CC: 'clang',                                      ASM: 'no', ECMULTGENKB: 2, ECMULTWINDOW: 2, CTIMETESTS: 'yes' }
 
     env:
       # The `--error-exitcode` is required to make the test fail if valgrind found errors,
@@ -338,6 +339,33 @@ jobs:
       ASAN_OPTIONS: 'strict_string_checks=1:detect_stack_use_after_return=1:detect_leaks=1'
       LSAN_OPTIONS: 'use_unaligned=1'
       SECP256K1_TEST_ITERS: 32
+      SYMBOL_CHECK: 'no'
+
+    steps:
+      - *CHECKOUT
+      - *CI_SCRIPT_IN_DOCKER
+      - *PRINT_LOGS
+
+  exhaustive_debian:
+    name: "Exhaustive tests, group order ${{ matrix.configuration.env_vars.EXHAUSTIVE_TEST_ORDER }}"
+    runs-on: ubuntu-latest
+    needs: docker_cache
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - env_vars: { EXHAUSTIVE_TEST_ORDER: 7 }
+          # A full run takes weeks: run one part in 20000.
+          - env_vars: { EXHAUSTIVE_TEST_ORDER: 199, EXHAUSTIVE_TEST_ARGS: '2 00000000000000000000000000000000 20000 0' }
+
+    env:
+      CC: 'gcc'
+      BUILD: 'exhaustive_tests'
+      WITH_VALGRIND: 'no'
+      CTIMETESTS: 'no'
+      BENCH: 'no'
+      EXAMPLES: 'no'
       SYMBOL_CHECK: 'no'
 
     steps:
@@ -465,9 +493,9 @@ jobs:
       - *PRINT_LOGS
 
   arm64-macos-native:
-    name: "ARM64: macOS Sonoma"
+    name: "ARM64: macOS Sequoia"
     # See: https://github.com/actions/runner-images#available-images.
-    runs-on: macos-14
+    runs-on: macos-15
 
     env:
       CC: 'clang'
