@@ -194,7 +194,7 @@ int secp256k1_ecdsa_adaptor_encrypt(const secp256k1_context* ctx, unsigned char 
     secp256k1_scalar_cmov(&k, &secp256k1_scalar_one, !ret);
 
     /* R := k*Y */
-    secp256k1_ecmult_const(&rj[0], &enckey_ge, &k);
+    secp256k1_ecmult_const_gej(&rj[0], &enckey_ge, &k);
     /* R' := k*G */
     secp256k1_ecmult_gen_gej(&ctx->ecmult_gen_ctx, &rj[1], &k);
 
