@@ -7,6 +7,67 @@ set_property(TARGET secp256k1 PROPERTY PUBLIC_HEADER
 
 # Processing must be done in a topological sorting of the dependency graph
 # (dependent module first).
+if(SECP256K1_ENABLE_MODULE_SCHNORRSIG_HALFAGG)
+  if(DEFINED SECP256K1_ENABLE_MODULE_SCHNORRSIG AND NOT SECP256K1_ENABLE_MODULE_SCHNORRSIG)
+    message(FATAL_ERROR "Module dependency error: You have disabled the schnorrsig module explicitly, but it is required by the schnorrsig_halfagg module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_SCHNORRSIG ON)
+  add_compile_definitions(ENABLE_MODULE_SCHNORRSIG_HALFAGG=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_schnorrsig_halfagg.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_BPPP)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the bppp module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_BPPP=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_bppp.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_S2C)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_S2C=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_s2c.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_ECDSA_ADAPTOR)
+  add_compile_definitions(ENABLE_MODULE_ECDSA_ADAPTOR=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ecdsa_adaptor.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_WHITELIST)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the whitelist module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_WHITELIST=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_whitelist.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_SURJECTIONPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_RANGEPROOF AND NOT SECP256K1_ENABLE_MODULE_RANGEPROOF)
+    message(FATAL_ERROR "Module dependency error: You have disabled the rangeproof module explicitly, but it is required by the surjectionproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_RANGEPROOF ON)
+  add_compile_definitions(ENABLE_MODULE_SURJECTIONPROOF=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_surjectionproof.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_RANGEPROOF)
+  if(DEFINED SECP256K1_ENABLE_MODULE_GENERATOR AND NOT SECP256K1_ENABLE_MODULE_GENERATOR)
+    message(FATAL_ERROR "Module dependency error: You have disabled the generator module explicitly, but it is required by the rangeproof module.")
+  endif()
+  set(SECP256K1_ENABLE_MODULE_GENERATOR ON)
+  add_compile_definitions(ENABLE_MODULE_RANGEPROOF=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_rangeproof.h)
+endif()
+
+if(SECP256K1_ENABLE_MODULE_GENERATOR)
+  add_compile_definitions(ENABLE_MODULE_GENERATOR=1)
+  set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_generator.h)
+endif()
+
+
 if(SECP256K1_ENABLE_MODULE_ELLSWIFT)
   add_compile_definitions(ENABLE_MODULE_ELLSWIFT=1)
   set_property(TARGET secp256k1 APPEND PROPERTY PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/secp256k1_ellswift.h)
