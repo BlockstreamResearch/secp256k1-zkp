@@ -454,7 +454,14 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
 #ifdef ENABLE_MODULE_GENERATOR
     {
         secp256k1_pedersen_commitment commit;
+        secp256k1_generator gen;
         uint64_t value = 42;
+        uint64_t values[2] = { 42, 43 };
+        unsigned char blind[32];
+        unsigned char blind_out[32];
+        unsigned char blinding_factor[32];
+        const unsigned char *blinds[2];
+        unsigned char *blinding_factors[2];
 
         SECP256K1_CHECKMEM_UNDEFINE(key, 32);
         SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
@@ -467,6 +474,32 @@ static void run_tests(secp256k1_context *ctx, unsigned char *key) {
         SECP256K1_CHECKMEM_UNDEFINE(key, 32);
         SECP256K1_CHECKMEM_UNDEFINE(&value, sizeof(value));
         ret = secp256k1_pedersen_commit(ctx, &commit, key, value, secp256k1_generator_h);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        memset(blind, 1, sizeof(blind));
+        blinds[0] = key;
+        blinds[1] = blind;
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(blind, sizeof(blind));
+        ret = secp256k1_pedersen_blind_sum(ctx, blind_out, blinds, 2, 1);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        memset(blinding_factor, 2, sizeof(blinding_factor));
+        blinding_factors[0] = blind_out;
+        blinding_factors[1] = blinding_factor;
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        SECP256K1_CHECKMEM_UNDEFINE(blind, sizeof(blind));
+        SECP256K1_CHECKMEM_UNDEFINE(values, sizeof(values));
+        SECP256K1_CHECKMEM_UNDEFINE(blind_out, sizeof(blind_out));
+        SECP256K1_CHECKMEM_UNDEFINE(blinding_factor, sizeof(blinding_factor));
+        ret = secp256k1_pedersen_blind_generator_blind_sum(ctx, values, blinds, blinding_factors, 2, 1);
+        SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
+        CHECK(ret == 1);
+
+        SECP256K1_CHECKMEM_UNDEFINE(key, 32);
+        ret = secp256k1_generator_generate_blinded(ctx, &gen, msg, key);
         SECP256K1_CHECKMEM_DEFINE(&ret, sizeof(ret));
         CHECK(ret == 1);
     }
