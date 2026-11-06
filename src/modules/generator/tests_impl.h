@@ -195,6 +195,8 @@ static void test_pedersen_api(void) {
     const secp256k1_pedersen_commitment *commit_ptr = &commit;
     unsigned char blind[32];
     unsigned char blind_out[32];
+    unsigned char zero_blind[32] = { 0 };
+    unsigned char overflow_blind[32];
     const unsigned char *blind_ptr = blind;
     unsigned char *blind_out_ptr = blind_out;
     uint64_t val = testrand32();
@@ -212,6 +214,14 @@ static void test_pedersen_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_sum(CTX, blind_out, NULL, 1, 1));
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 0, 1));
     CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 0, 0) != 0);
+    /* A blinding factor that overflows the group order is rejected, and the
+     * output is not written. */
+    memset(overflow_blind, 0xff, 32);
+    blind_ptr = overflow_blind;
+    memset(blind_out, 0, 32);
+    CHECK(secp256k1_pedersen_blind_sum(CTX, blind_out, &blind_ptr, 1, 1) == 0);
+    CHECK(secp256k1_memcmp_var(blind_out, zero_blind, 32) == 0);
+    blind_ptr = blind;
 
     CHECK(secp256k1_pedersen_commit(CTX, &commit, blind, val, secp256k1_generator_h) != 0);
     CHECK(secp256k1_pedersen_verify_tally(CTX, &commit_ptr, 1, &commit_ptr, 1) != 0);
@@ -222,6 +232,16 @@ static void test_pedersen_api(void) {
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_verify_tally(CTX, &commit_ptr, 1, NULL, 1));
 
     CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0) != 0);
+    /* A generator blind or a blinding factor that overflows the group order
+     * is rejected, and the output is not written. */
+    blind_ptr = overflow_blind;
+    memset(blind_out, 0, 32);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0) == 0);
+    CHECK(secp256k1_memcmp_var(blind_out, zero_blind, 32) == 0);
+    blind_ptr = blind;
+    memset(blind_out, 0xff, 32);
+    CHECK(secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 0) == 0);
+    CHECK(secp256k1_memcmp_var(blind_out, overflow_blind, 32) == 0);
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 1, 1));
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, &val, &blind_ptr, &blind_out_ptr, 0, 0));
     CHECK_ILLEGAL(CTX, secp256k1_pedersen_blind_generator_blind_sum(CTX, NULL, &blind_ptr, &blind_out_ptr, 1, 0));
