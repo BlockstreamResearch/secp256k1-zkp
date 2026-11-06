@@ -217,6 +217,50 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT size_t secp256k1_rangeproof_max_size(
   int min_bits
 ) SECP256K1_ARG_NONNULL(1);
 
+/** Verify a Borromean ring signature.
+ *
+ *  This module's own range proofs are Borromean ring signatures over
+ *  digit commitments (see the module comment above); this function
+ *  exposes the verification side of that same underlying primitive as
+ *  public API, for callers that hold a Borromean ring signature of
+ *  their own rather than one embedded in a range proof. Nothing new is
+ *  computed here that this module did not already compute internally
+ *  to verify its own range proofs.
+ *
+ *  Returns 1: signature is valid.
+ *          0: signature is invalid, or arguments are malformed.
+ *  In: ctx: pointer to a context object.
+ *       e0: pointer to the 32-byte initial ring challenge.
+ *        s: pointer to the ring signature scalars: 32 octets per ring
+ *           member, in ring-major order (ring 0's members first, in
+ *           order, then ring 1's, and so on). Its total length in
+ *           ring members must equal n_pubkeys.
+ *        m: the message that was signed, mlen octets. (cannot be NULL)
+ *     mlen: length of the message.
+ *  pubkeys: pointer to an array of pointers to public keys, one per
+ *           ring member in the same ring-major order as s, each
+ *           already parsed with secp256k1_ec_pubkey_parse.
+ *  n_pubkeys: the number of elements in pubkeys, which must equal the
+ *           sum of rsizes over nrings, and cannot exceed 128 (the same
+ *           bound this module uses internally).
+ *   rsizes: pointer to an array of the number of members of each ring,
+ *           nrings of them.
+ *   nrings: the number of rings, and the number of elements in rsizes;
+ *           cannot exceed 32 (the same bound this module uses
+ *           internally).
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_borromean_verify(
+  const secp256k1_context *ctx,
+  const unsigned char *e0,
+  const unsigned char *s,
+  const unsigned char *m,
+  size_t mlen,
+  const secp256k1_pubkey * const *pubkeys,
+  size_t n_pubkeys,
+  const size_t *rsizes,
+  size_t nrings
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(8);
+
 # ifdef __cplusplus
 }
 # endif
