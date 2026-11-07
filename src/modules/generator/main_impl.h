@@ -246,6 +246,8 @@ static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, s
     secp256k1_ge_set_gej(&add, &accum);
     secp256k1_gej_clear(&accum);
 
+    /* The generator is public. */
+    secp256k1_declassify(ctx, &add, sizeof(add));
     secp256k1_generator_save(gen, &add);
     return ret;
 }
@@ -347,6 +349,7 @@ int secp256k1_pedersen_blind_sum(const secp256k1_context* ctx, unsigned char *bl
     secp256k1_scalar x;
     size_t i;
     int overflow;
+    int ret = 1;
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(blind_out != NULL);
     ARG_CHECK(blinds != NULL);
@@ -354,24 +357,23 @@ int secp256k1_pedersen_blind_sum(const secp256k1_context* ctx, unsigned char *bl
         ARG_CHECK(blinds[i] != NULL);
     }
     ARG_CHECK(npositive <= n);
-    (void) ctx;
     secp256k1_scalar_set_int(&acc, 0);
     for (i = 0; i < n; i++) {
         secp256k1_scalar_set_b32(&x, blinds[i], &overflow);
-        if (overflow) {
-            secp256k1_scalar_clear(&acc);
-            secp256k1_scalar_clear(&x);
-            return 0;
-        }
+        ret &= !overflow;
         if (i >= npositive) {
             secp256k1_scalar_negate(&x, &x);
         }
         secp256k1_scalar_add(&acc, &acc, &x);
     }
-    secp256k1_scalar_get_b32(blind_out, &acc);
+    /* The return value is public. */
+    secp256k1_declassify(ctx, &ret, sizeof(ret));
+    if (ret) {
+        secp256k1_scalar_get_b32(blind_out, &acc);
+    }
     secp256k1_scalar_clear(&acc);
     secp256k1_scalar_clear(&x);
-    return 1;
+    return ret;
 }
 
 /* Takes two lists of commitments and sums the first set and subtracts the second and verifies that they sum to excess. */
@@ -404,8 +406,10 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const secp256k
 
 int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, const uint64_t *value, const unsigned char* const* generator_blind, unsigned char* const* blinding_factor, size_t n_total, size_t n_inputs) {
     secp256k1_scalar sum;
+    secp256k1_scalar sum_in;
     secp256k1_scalar tmp;
     size_t i;
+    int ret = 1;
 
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(n_total == 0 || value != NULL);
@@ -416,13 +420,13 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
         ARG_CHECK(generator_blind[i] != NULL);
         ARG_CHECK(blinding_factor[i] != NULL);
     }
-    (void) ctx;
 
     if (n_total == 0) {
         return 1;
     }
 
     secp256k1_scalar_set_int(&sum, 0);
+    secp256k1_scalar_set_int(&sum_in, 0);
     secp256k1_scalar_set_int(&tmp, 0);
 
     /* Here, n_total > 0. Thus the loop runs at least once.
@@ -438,37 +442,40 @@ int secp256k1_pedersen_blind_generator_blind_sum(const secp256k1_context* ctx, c
         secp256k1_scalar_set_u64(&addend, value[i]);  /* s = v */
 
         secp256k1_scalar_set_b32(&tmp, generator_blind[i], &overflow);
-        if (overflow == 1) {
-            secp256k1_scalar_clear(&tmp);
-            secp256k1_scalar_clear(&addend);
-            secp256k1_scalar_clear(&sum);
-            return 0;
-        }
+        ret &= !overflow;
         secp256k1_scalar_mul(&addend, &addend, &tmp); /* s = vr */
 
         secp256k1_scalar_set_b32(&tmp, blinding_factor[i], &overflow);
-        if (overflow == 1) {
-            secp256k1_scalar_clear(&tmp);
-            secp256k1_scalar_clear(&addend);
-            secp256k1_scalar_clear(&sum);
-            return 0;
-        }
+        ret &= !overflow;
         secp256k1_scalar_add(&addend, &addend, &tmp); /* s = vr + r' */
-        secp256k1_scalar_cond_negate(&addend, i < n_inputs);  /* s is negated if it's an input */
-        secp256k1_scalar_add(&sum, &sum, &addend);    /* sum += s */
+        /* Inputs and outputs are summed apart, so that no secret is negated
+         * in the loop: clang on x86_64 compiles secp256k1_scalar_cond_negate
+         * here, and the addition after it, into branches on the secret. */
+        if (i < n_inputs) {
+            secp256k1_scalar_add(&sum_in, &sum_in, &addend); /* sum_in += s */
+        } else {
+            secp256k1_scalar_add(&sum, &sum, &addend);       /* sum += s */
+        }
         secp256k1_scalar_clear(&addend);
 
         i++;
     } while (i < n_total);
 
-    /* Right now tmp has the last pedersen blinding factor. Subtract the sum from it. */
+    /* Right now tmp has the last pedersen blinding factor. Subtract the
+     * outputs' sum from it and add the inputs' sum. */
     secp256k1_scalar_negate(&sum, &sum);
+    secp256k1_scalar_add(&sum, &sum, &sum_in);
     secp256k1_scalar_add(&tmp, &tmp, &sum);
-    secp256k1_scalar_get_b32(blinding_factor[n_total - 1], &tmp);
+    /* The return value is public. */
+    secp256k1_declassify(ctx, &ret, sizeof(ret));
+    if (ret) {
+        secp256k1_scalar_get_b32(blinding_factor[n_total - 1], &tmp);
+    }
 
     secp256k1_scalar_clear(&tmp);
     secp256k1_scalar_clear(&sum);
-    return 1;
+    secp256k1_scalar_clear(&sum_in);
+    return ret;
 }
 
 #endif
