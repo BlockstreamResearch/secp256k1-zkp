@@ -16,7 +16,7 @@ print_environment() {
             EXPERIMENTAL ECDH RECOVERY EXTRAKEYS SCHNORRSIG MUSIG SCHNORRSIG_HALFAGG ELLSWIFT SILENTPAYMENTS \
             ECDSA_S2C GENERATOR RANGEPROOF SURJECTIONPROOF WHITELIST ECDSAADAPTOR BPPP \
             SECP256K1_TEST_ITERS BENCH SECP256K1_BENCH_ITERS CTIMETESTS SYMBOL_CHECK \
-            EXAMPLES \
+            EXAMPLES EXHAUSTIVE_TEST_ORDER EXHAUSTIVE_TEST_ARGS \
             HOST WRAPPER_CMD \
             CC CFLAGS CPPFLAGS AR NM \
             UBSAN_OPTIONS ASAN_OPTIONS LSAN_OPTIONS
@@ -121,6 +121,15 @@ EXEC='./libtool --mode=execute'
 if [ -n "$WRAPPER_CMD" ]
 then
     EXEC="$EXEC $WRAPPER_CMD"
+fi
+
+if [ -n "$EXHAUSTIVE_TEST_ORDER" ]
+then
+    # The group order is a compile-time constant, so rebuild for it.
+    rm -f exhaustive_tests src/exhaustive_tests-tests_exhaustive.o
+    make exhaustive_tests CPPFLAGS="${CPPFLAGS:-} -DEXHAUSTIVE_TEST_ORDER=$EXHAUSTIVE_TEST_ORDER"
+    $EXEC ./exhaustive_tests $EXHAUSTIVE_TEST_ARGS
+    rm -f exhaustive_tests src/exhaustive_tests-tests_exhaustive.o
 fi
 
 if [ "$BENCH" = "yes" ]
