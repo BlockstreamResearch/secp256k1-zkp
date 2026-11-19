@@ -2,14 +2,14 @@
 
 ## Reporting a Vulnerability
 
-To report security issues send an email to secp256k1-security@bitcoincore.org (not for support).
+If the vulnerability also affects the upstream libsecp256k1 (shared code, not a module or feature added by this fork), please report it to its maintainers first at secp256k1-security@bitcoincore.org; their keys are listed in the [upstream SECURITY.md](https://github.com/bitcoin-core/secp256k1/blob/master/SECURITY.md).
 
-The following keys may be used to communicate sensitive information to developers:
+To report a vulnerability specific to libsecp256k1-zkp, send an email to security@blockstream.com (not for support).
 
-| Name                 | Fingerprint                                        |
-|----------------------|----------------------------------------------------|
-| Pieter Wuille        | 133E AC17 9436 F14A 5CF1  B794 860F EB80 4E66 9320 |
-| Tim Ruffing          | 09E0 3F87 1092 E40E 106E  902B 33BC 86AB 80FF 5516 |
-| Sebastian Falbesoner | 6A8F 9C26 6528 E25A EB1D  7731 C237 1D91 CB71 6EA7 |
+The following key may be used to communicate sensitive information to developers:
 
-You can import a key by running the following command with that individual’s fingerprint: `gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"` Ensure that you put quotes around fingerprints containing spaces.
+| Name                     | Fingerprint                                        |
+|--------------------------|----------------------------------------------------|
+| security@blockstream.com | 1176 542D A98E 71E1 3372  2EF7 4AC8 CC88 6844 A2D6 |
+
+You can import this key from a keyserver by its fingerprint: `gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"` (also published at https://blockstream.com/pgp.txt). Ensure that you put quotes around fingerprints containing spaces.

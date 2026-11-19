@@ -42,6 +42,9 @@ static int secp256k1_scalar_set_b32_seckey(secp256k1_scalar *r, const unsigned c
 /** Set a scalar to an unsigned integer. */
 static void secp256k1_scalar_set_int(secp256k1_scalar *r, unsigned int v);
 
+/** Set a scalar to an unsigned 64-bit integer */
+static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint64_t v);
+
 /** Convert a scalar to a byte array. */
 static void secp256k1_scalar_get_b32(unsigned char *bin, const secp256k1_scalar* a);
 
@@ -53,6 +56,9 @@ static void secp256k1_scalar_cadd_bit(secp256k1_scalar *r, unsigned int bit, int
 
 /** Multiply two scalars (modulo the group order). */
 static void secp256k1_scalar_mul(secp256k1_scalar *r, const secp256k1_scalar *a, const secp256k1_scalar *b);
+
+/** Compute the square of a scalar (modulo the group order). */
+static void secp256k1_scalar_sqr(secp256k1_scalar *r, const secp256k1_scalar *a);
 
 /** Compute the inverse of a scalar (modulo the group order). */
 static void secp256k1_scalar_inverse(secp256k1_scalar *r, const secp256k1_scalar *a);

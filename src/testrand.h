@@ -36,6 +36,9 @@ static void testrand256_test(unsigned char *b32);
 /** Generate pseudorandom bytes with long sequences of zero and one bits. */
 static void testrand_bytes_test(unsigned char *bytes, size_t len);
 
+/** Generate a pseudorandom 64-bit integer in the range min..max, inclusive. */
+static int64_t testrandi64(uint64_t min, uint64_t max);
+
 /** Flip a single random bit in a byte array */
 static void testrand_flip(unsigned char *b, size_t len);
 
