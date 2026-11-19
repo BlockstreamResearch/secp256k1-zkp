@@ -118,6 +118,13 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *     as auxiliary randomness, using `secp256k1_ecdsa_anti_exfil_signer_commit`.
  *     The signing device sends the resulting `R` to the host as a s2c_opening.
  *
+ *     With the default nonce function, the same key and message, and the
+ *     host's commitment as `ndata`, `secp256k1_ecdsa_sign` and
+ *     `secp256k1_ecdsa_sign_recoverable` sign with the nonce behind `R`.
+ *     Such a signature and the anti-exfil signature together leak the secret
+ *     key to the host. So the signing device must not let the host choose
+ *     `ndata` for ordinary signatures with a key it uses in this protocol.
+ *
  *     If, at any point from this step onward, the hardware device fails, it is
  *     okay to restart the protocol using **exactly the same `rho`** and checking
  *     that the hardware device proposes **exactly the same** `R`. Otherwise, the
