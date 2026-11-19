@@ -118,6 +118,9 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_s2c_verify_commit
  *     as auxiliary randomness, using `secp256k1_ecdsa_anti_exfil_signer_commit`.
  *     The signing device sends the resulting `R` to the host as a s2c_opening.
  *
+ *     The secret nonce behind `R` is domain-separated from those of ordinary
+ *     ECDSA signing with the default nonce function.
+ *
  *     If, at any point from this step onward, the hardware device fails, it is
  *     okay to restart the protocol using **exactly the same `rho`** and checking
  *     that the hardware device proposes **exactly the same** `R`. Otherwise, the

@@ -160,7 +160,7 @@ int secp256k1_ecdsa_anti_exfil_signer_commit(const secp256k1_context* ctx, secp2
     memset(nonce32, 0, 32);
     while (!is_nonce_valid) {
         /* cast to void* removes const qualifier, but nonce_function_rfc6979_impl does not modify it */
-        if (!nonce_function_rfc6979_impl(&ctx->hash_ctx, nonce32, msg32, seckey32, NULL, (void*)rand_commitment32, count)) {
+        if (!nonce_function_rfc6979_impl(&ctx->hash_ctx, nonce32, msg32, seckey32, secp256k1_ecdsa_s2c_algo16, (void*)rand_commitment32, count)) {
             secp256k1_callback_call(&ctx->error_callback, "(cryptographically unreachable) generated bad nonce");
         }
         is_nonce_valid = secp256k1_scalar_set_b32_seckey(&k, nonce32);
