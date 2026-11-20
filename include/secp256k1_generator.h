@@ -193,7 +193,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
   size_t pcnt,
   const secp256k1_pedersen_commitment * const *ncommits,
   size_t ncnt
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
+) SECP256K1_ARG_NONNULL(1);
 
 /** Sets the final Pedersen blinding factor correctly when the generators themselves
  *  have blinding factors.

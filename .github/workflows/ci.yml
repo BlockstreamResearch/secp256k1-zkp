@@ -413,9 +413,7 @@ jobs:
 
   mingw_debian:
     name: ${{ matrix.configuration.job_name }}
-    # Pinned to ubuntu-24.04 until the ubuntu-26.04 runner image ships Docker >= 29.4.3.
-    # Docker 29.4.2's default seccomp profile blocks socketcall(2), which 32-bit Wine
-    # needs to open sockets. See https://github.com/actions/runner-images/issues/14790.
+    # Wine fails on ubuntu-26.04 until https://github.com/actions/runner-images/issues/14790 is fixed.
     runs-on: ubuntu-24.04
     needs: docker_cache
 
