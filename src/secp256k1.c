@@ -561,6 +561,9 @@ static int nonce_function_rfc6979(unsigned char *nonce32, const unsigned char *m
 const secp256k1_nonce_function secp256k1_nonce_function_rfc6979 = nonce_function_rfc6979;
 const secp256k1_nonce_function secp256k1_nonce_function_default = nonce_function_rfc6979;
 
+/* Domain-separates sign-to-contract nonces from ordinary ECDSA nonces. */
+static const unsigned char secp256k1_ecdsa_s2c_algo16[16] = {'s', '2', 'c', '/', 'e', 'c', 'd', 's', 'a', '/', 'n', 'o', 'n', 'c', 'e', 0};
+
 static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_scalar* r, secp256k1_scalar* s, int* recid, secp256k1_sha256* s2c_sha, secp256k1_ecdsa_s2c_opening *s2c_opening, const unsigned char* s2c_data32, const unsigned char *msg32, const unsigned char *seckey, secp256k1_nonce_function noncefp, const void* noncedata) {
     secp256k1_scalar sec, non, msg;
     const secp256k1_hash_ctx *hash_ctx = &ctx->hash_ctx;
@@ -589,7 +592,7 @@ static int secp256k1_ecdsa_sign_inner(const secp256k1_context* ctx, secp256k1_sc
 
         if (noncefp == NULL || noncefp == secp256k1_nonce_function_rfc6979) {
             /* Use ctx-aware function by default */
-            ret = nonce_function_rfc6979_impl(&ctx->hash_ctx, nonce32, msg32, seckey, NULL, (void*)noncedata, count);
+            ret = nonce_function_rfc6979_impl(&ctx->hash_ctx, nonce32, msg32, seckey, s2c_data32 != NULL ? secp256k1_ecdsa_s2c_algo16 : NULL, (void*)noncedata, count);
         } else {
             ret = !!noncefp(nonce32, msg32, seckey, NULL, (void*)noncedata, count);
         }
